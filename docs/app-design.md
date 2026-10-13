@@ -202,8 +202,11 @@ Paste one atomic operation. AT-SPI and KWin can provide different levels of
 target evidence. A [read-only live check](native-desktop-research.md#read-only-installed-t3-observations-2026-10-14)
 found a focused, editable multi-line composer candidate with editor markers in
 the running T3 build. It lacks EditableText, and its frame reported inactive
-while the field reported focused. Actual desktop target validity and
-invalidation behavior remain unverified.
+while the field reported focused. [Interactive follow-up checks](native-desktop-research.md#interactive-paste-and-focus-observations-2026-10-14)
+confirmed actual synthetic Paste into T3 and sampled switching to the game.
+The composer retained focused state while the game was active, so the test
+guard also required KWin's active-window identity. Production target validity,
+focus-loss invalidation, and dispatch race behavior remain unverified.
 The accepted focus-change guard stays in force. Decide how to enforce it, or
 explicitly review any proposed change to its guarantee, before marking the
 automatic insertion contract Ready. A cooperative T3 endpoint is an unaccepted
@@ -212,8 +215,10 @@ alternative mechanism, not an assumed existing capability.
 Remaining design work includes target identity and focus-loss invalidation,
 permission/session lifetime, lost-release handling, protocol limits and
 supervision deadlines, audio synchronization cadence and crash-loss acceptance.
-Runtime checks belong to the production slice; none of these reports executed
-new microphone/model runs, permission setup, insertion, or fault tests.
+Runtime acceptance belongs to the production slice. The native report now
+includes explicitly authorized live focus and Paste probes; no new
+microphone/model runs, production permission setup, or storage/worker fault
+tests were executed.
 
 ## Consequential choices to resolve
 

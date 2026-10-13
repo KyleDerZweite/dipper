@@ -171,9 +171,91 @@ readiness remain unchanged. A future adapter should tolerate initial missing
 tree state, select the editor container rather than its editable descendants,
 and independently validate the intended active window.
 
+## Interactive Paste and focus observations, 2026-10-14
+
+The owner subsequently authorized actual Paste and switching between the
+running game and T3. No existing application or service was stopped or
+restarted. The probes used temporary, individually loaded KWin scripts,
+AT-SPI getters, native Wayland clipboard ownership, and the already-running
+ydotool keyboard daemon. No Enter/send key was issued. This verifies test
+mechanisms, not an implemented Dipper adapter or a selected production backend.
+
+KWin's `workspace.activeWindow` identified the intended T3 window and the
+running game. Setting the active window completed asynchronously: the report
+immediately after requesting activation could still name the previous window.
+The harness waited for a subsequent report matching the requested window before
+continuing. Each script was unloaded by its own unique name; no other scripts
+or persistent KDE settings were changed.
+
+With the game confirmed active, the T3 composer still reported focused through
+AT-SPI. A harness guard requiring both the intended KWin window and the
+editable composer rejected insertion. It issued no clipboard write or keys on
+that blocked path. All existing clipboard format payloads and the editor's
+observed baseline remained unchanged. This exercises a sampled guard; it does
+not establish Dipper focus-loss events, irreversible invalidation of a previous
+job, or atomic enforcement against a later focus change.
+
+After restoring T3 focus and checking the composer, a temporary source served
+this synthetic UTF-8 text as `text/plain;charset=utf-8` and `text/plain`:
+
+```text
+DIPPER_PASTE_TEST_20261014 Grüße 123
+zweite Zeile
+```
+
+The source used the advertised `ext_data_control_manager_v1` protocol. Its
+temporary C client was generated from [upstream protocol XML](https://github.com/wayland-mirror/wayland-protocols/blob/main/staging/ext-data-control/ext-data-control-v1.xml) using the existing
+wayland-scanner and compiler, with existing libwayland-client 1.26.0. It did
+not request screen capture or a RemoteDesktop permission session. The existing
+keyboard daemon delivered Ctrl+V only after the sampled target checks, with
+`ydotool key --key-delay=10 29:1 47:1 47:0 29:0`.
+The actual T3 paragraph objects subsequently contained both synthetic lines
+exactly, including the umlaut. This is target-level observation of the test
+Paste rather than keyboard-transport success alone.
+
+The first automated acknowledgement check failed because it read the editor
+container's Hypertext, which represented its paragraphs as U+FFFC object
+replacement characters. The inserted text was present in its paragraph and
+static descendants. The follow-up queried those objects and established exact
+synthetic text. Do not treat a container's Text interface as the flat final
+composer string or apply this diagnostic parser to every future rich editor.
+
+Cleanup also exposed a layout issue. The active keyboard layout was `de`,
+German without dead keys. Raw evdev keycode 44 is physical US Z but maps to Y
+in this layout; Ctrl with that key did not undo. The layout-aware physical
+keycode 21 produced Ctrl+Z with
+`ydotool key --key-delay=10 29:1 21:1 21:0 29:0` and removed the synthetic Paste. The final editor
+had one empty paragraph with no test marker. The initial container-only
+baseline did not establish preservation of arbitrary rich drafts; test that
+separately before claiming general draft recovery. No original text was printed
+or published.
+
+The clipboard probe backed up all seven unique offered MIME formats and their
+bytes into private temporary files. It restored all seven formats, verified
+byte equality, then removed the payload files. Its restoration source serves
+the original data from memory until a subsequent clipboard owner replaces it.
+The synthetic source exited on selection cancellation. Clipboard-manager
+history was not purged. This checks restoration for testing; the accepted
+product policy still leaves a successful transcript in the clipboard.
+
+One early combined-harness attempt failed during D-Bus main-loop setup before
+any key or clipboard mutation. Correcting initialization permitted the actual
+checks above. Preserve these failed checks and their explanations rather than
+calling every initial probe successful. At completion the same T3 and game
+processes remained running, T3 was active, temporary KWin scripts were removed,
+and no synthetic editor text remained.
+
+Observed checks passed for window switching, blocked dispatch while the game
+was active, actual Unicode/multi-line Paste into T3, layout-aware synthetic
+text cleanup, and original clipboard format/byte restoration. Still untested
+are the production portal/EIS or Tauri clipboard providers, global HOLD,
+focus-change events, controlled dispatch races, target remounts and other
+fields, unclear-delivery recovery, and full voice-to-text latency. A successful
+sample does not make the strict target guard or first slice Ready.
+
 ## Acceptance evidence still required
 
-These full app-integration scenarios remain unexecuted; the structural observation above is narrower evidence. Use synthetic text, record installed Fedora/Plasma/KWin/portal/Tauri/T3 versions and packaging, and tie the results to the tested Dipper revision. Dipper owns adapter/lifecycle traces and honest Journal outcomes; T3 owns evidence that its intended composer accepted text. The owner approves actual workflow usefulness. Do not use a mock target as final T3 acceptance.
+The follow-ups above provide partial evidence for field structure, actual Paste, clipboard restoration, and sampled window switching. The full app-integration scenarios remain unexecuted. Use synthetic text, record installed Fedora/Plasma/KWin/portal/Tauri/T3 versions and packaging, and tie the results to the tested Dipper revision. Dipper owns adapter/lifecycle traces and honest Journal outcomes; T3 owns evidence that its intended composer accepted text. The owner approves actual workflow usefulness. Do not use a mock target as final T3 acceptance.
 
 | Scenario | Required evidence |
 | --- | --- |
@@ -189,4 +271,4 @@ These full app-integration scenarios remain unexecuted; the structural observati
 | Background UI | Tray menus work on Plasma; window close hides and explicit quit exits; recording/processing/failure indicators remain understandable under dark/light themes, scaling, multiple displays, and notification suppression |
 | Resource behavior | Compare release builds with no UI, settings/journal open, and hidden UI; record idle CPU/RSS, process count, wakeups, and adapter latency independently of recognition/model costs |
 
-A test passing a sampled focus-race schedule does not prove an atomic guarantee. The implementation contract must identify who enforces validity at each mutation, or retain the unresolved limitation. The read-only follow-up establishes structural AT-SPI evidence only. No live HOLD, real T3 insertion, rendered Dipper UI, permission UX, or resource acceptance has been established by this report.
+A test passing a sampled focus-race schedule does not prove an atomic guarantee. The implementation contract must identify who enforces validity at each mutation, or retain the unresolved limitation. Actual synthetic T3 Paste and sampled focus checks are observed; production insertion and its race guarantees remain unverified. No live HOLD, rendered Dipper UI, permission UX, or resource acceptance has been established by this report.
