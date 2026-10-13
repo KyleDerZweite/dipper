@@ -20,6 +20,15 @@ and model configuration remain TBD.
 
 Desktop is the initial focus, starting with Fedora KDE on Wayland. Phone and other mobile use are a long-term ambition, well beyond the initial desktop work. Mobile platforms and delivery plans remain undecided.
 
+## First app delivery
+
+The first usable slice runs in the background/tray and delivers the raw
+hold-to-record, capture, recognition, and T3 insertion chain. UI polishing is
+deferred. Use the system default input by default and list devices for explicit
+selection. Detailed behavior and unresolved choices belong to the
+[app design record](app-design.md). Cleanup remains part of the overall pilot,
+not a requirement to add before the first raw-chain slice.
+
 ## Intended workflow
 
 Press a shortcut, speak, and insert usable text into the intended application.

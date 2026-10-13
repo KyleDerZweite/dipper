@@ -18,6 +18,28 @@ Global KDE Wayland hold-to-record, real T3 insertion, production journal
 consistency and recovery, and the release-to-insertion gate remain unverified.
 App work may address these gaps while additional recordings accumulate.
 
+## Accepted first slice
+
+The owner selected the first usable chain on 2026-10-13: global hold-to-record,
+complete capture, recognition, and insertion of the raw transcript into T3,
+with retained recordings and separate recognition attempts. This combines
+capture and voice-to-T3 delivery rather than shipping capture-only first.
+Light cleanup and spoken self-corrections remain pilot requirements for the
+following slice; raw output is not final pilot acceptance.
+
+Dipper runs as a background/tray app. UI polishing is deferred. The first slice
+still needs clear recording, processing, cancellation, and error feedback;
+no polished overlay design has been selected.
+
+By default, Dipper uses the system's default input device. It must list available
+input devices and allow an explicit choice. Default-device changes and device
+loss during a recording are unresolved behavior, not permission for silent
+mid-recording source replacement. Input-selection UX may be refined later.
+
+Language, UI toolkit, first recognition configuration, model lifetime,
+insertion/focus behavior, and minimal persistence/recovery semantics remain
+unresolved. The scope is accepted; the implementation contract is not Ready.
+
 ## Proposed module responsibilities
 
 - Dictation exposes begin, release, cancellation, and observable lifecycle state.
@@ -48,21 +70,19 @@ Avoid competing model-specific histories and a speculative plugin framework.
 These are logical responsibilities, not committed packages, types, processes,
 or a language choice. Refine each useful slice into a short reviewed contract.
 
-## Proposed useful slices
+## Delivery direction
 
-1. Production capture: real hold-to-record, visible readiness and cancellation,
-   durable recording identity, complete audio, latest-recording playback, and the
-   accepted storage-full behavior. Verify on KDE Wayland, including interruption.
-2. Voice to T3: an explicitly chosen recognition configuration and actual insertion
-   in T3, with separate attempts and honest focus-change/failure outcomes. Raw
-   output alone does not satisfy the pilot cleanup requirement.
-3. Pilot processing and retention: light cleanup, clear spoken self-corrections,
-   explicit correction, and both retention configurations. Verify meaning-bearing
+1. Accepted first slice: the usable raw voice-to-T3 chain, with background/tray
+   operation, global hold, input selection, retained recordings, separate
+   attempts, honest insertion outcomes, and the accepted storage-full policy.
+   Verify actual KDE Wayland control and T3 insertion, including failure paths.
+2. Proposed next slice: light cleanup, clear spoken self-corrections, explicit
+   correction, and both pilot retention configurations. Verify meaning-bearing
    facts, ambiguity, and honest unavailable playback/replay data.
-4. Journal use: search, replay, and consistent export using retained data, followed
-   by end-to-end pilot acceptance and resource measurement.
+3. Proposed journal slice: search, replay, and consistent export using retained
+   data, followed by end-to-end pilot acceptance and resource measurement.
 
-Slice size and integration order remain proposals until foundation and interfaces
+The first slice scope is accepted; its detailed contract and later slice order remain proposals until foundation and interfaces
 are accepted. Keep one PR per useful slice, as already agreed. No full-corpus
 completion gate applies to starting these slices, but their own acceptance
 checks and dependency directions still govern readiness.
