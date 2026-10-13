@@ -191,8 +191,8 @@ The following background links use Kyle's current local checkout layout:
 ## Logo
 
 The animal identity is the white-throated dipper, known as Wasseramsel in German.
-Kyle selected [Logo_18_universal.png](Logo_18_universal.png) as the final Dipper
+Kyle selected [Logo.png](Logo.png) as the final Dipper
 logo. The transparent PNG uses the universal contrast treatment for white and
 charcoal backgrounds.
 
-![Dipper logo](Logo_18_universal.png)
+![Dipper logo](Logo.png)
