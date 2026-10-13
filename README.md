@@ -1,20 +1,30 @@
-# Dipper
+<p align="center">
+  <img src="Logo.png" alt="Dipper logo" width="120" height="120">
+</p>
 
-Dipper is a PC-first voice dictation project focused on performance, output
-quality, and feature parity with [Wispr Flow](https://wisprflow.ai/) and similar
-tools such as [Superwhisper](https://superwhisper.com/). It also aims to keep a
-complete local journal of recordings, recognition attempts, and corrections
-for personal analysis and model comparison.
+<h1 align="center">Dipper</h1>
 
-The first target is Fedora KDE on Wayland, with German speech and English
-technical terms. Local models are of particular interest. Cloud processing and
-paid services remain acceptable options.
+<p align="center">Voice dictation with a complete local journal.</p>
 
-Status, 2026-10-13: initial project preparation. The application, foundation,
-stack, license, and numerical acceptance targets are still undecided. The
-features below describe the intended product. There are no application setup,
+<p align="center">
+  <img src="https://img.shields.io/badge/status-planning-64748b?style=flat-square" alt="Status: planning">
+  <img src="https://img.shields.io/badge/target-Fedora_KDE-2563eb?style=flat-square" alt="Target: Fedora KDE">
+  <img src="https://img.shields.io/badge/language-TBD-64748b?style=flat-square" alt="Implementation language: to be decided">
+  <img src="https://img.shields.io/badge/stack-TBD-64748b?style=flat-square" alt="Stack: to be decided">
+</p>
+
+Dipper is a PC-first voice dictation project focused on fast, accurate text
+insertion and a complete local journal of recordings, recognition attempts,
+and explicit corrections.
+
+The first pilot targets Fedora KDE on Wayland, with German speech and English
+technical terms. It covers the core dictation workflow, journal, and correction.
+Wispr Flow and Superwhisper provide ideas for optional features; feature parity
+is not a project requirement.
+
+Status, 2026-10-13: project preparation. The foundation, stack, license, and
+numerical acceptance targets remain open. There are no application setup,
 build, or run commands yet.
-
 
 ## Documentation
 
@@ -29,12 +39,3 @@ build, or run commands yet.
 Track preparation, specifications, and implementation in [GitHub Issues](https://github.com/KyleDerZweite/dipper/issues). New requests enter `needs-triage`; implementation readiness requires a reviewed contract and acceptance evidence. Agent configuration lives in [AGENTS.md](AGENTS.md) and [docs/agents/](docs/agents/).
 
 Repository documentation, issues, and pull requests use English. Conversations with Kyle may mix German and English.
-
-## Logo
-
-The animal identity is the white-throated dipper, known as Wasseramsel in German.
-Kyle selected [Logo.png](Logo.png) as the final Dipper
-logo. The transparent PNG uses the universal contrast treatment for white and
-charcoal backgrounds.
-
-![Dipper logo](Logo.png)

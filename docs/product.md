@@ -4,7 +4,7 @@ This document preserves the intended product from the initial project brief. The
 
 ## Accepted pilot scope
 
-On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with a complete journal and explicit correction for the first pilot. Broader feature parity is not mandatory for this pilot. Target application scenarios, numerical acceptance limits, and recovery limits still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
+On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with a complete journal and explicit correction for the first pilot. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. Target application scenarios, numerical acceptance limits, and recovery limits still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
 
 ## Intended workflow
 
@@ -23,8 +23,8 @@ separately from normal dictation so experiments do not delay the daily workflow.
   recognition, text processing, and insertion. Cold and warm starts matter.
 - Assess quality by meaning preservation, technical vocabulary, names, numbers,
   negations, and the manual effort needed to reach accepted text.
-- Define feature parity through concrete user scenarios. A similar shortcut or
-  the same speech model does not establish equivalent behavior.
+- Select useful features through concrete user scenarios rather than a reference
+  product checklist.
 - Keep sufficient source data to investigate errors and compare configurations.
   Recording failures, cancellation, and retries must remain distinguishable.
 
@@ -32,10 +32,12 @@ German dictation with English keywords needs its own evaluation. Manufacturer
 benchmarks and performance on other hardware do not establish Dipper's quality
 or latency on the target PC.
 
-## Feature parity to specify
+## Optional feature ideas
 
-The reference products are confirmed. The exact first-release feature set and
-intentional differences still need to be agreed. The candidate areas are:
+Wispr Flow and Superwhisper inspired some of the ideas below. They are not a
+parity checklist or a commitment to implement every feature. The accepted pilot
+scope above owns mandatory capabilities; additions require an explicit scope
+decision. Candidate areas include:
 
 - Configurable shortcuts, hold and toggle recording, clear recording feedback,
   cancellation, and reliable insertion.
@@ -49,7 +51,7 @@ intentional differences still need to be agreed. The candidate areas are:
 - Playback, explicit correction, journal search, export, and replay through
   different model configurations.
 
-Useful feature references are Wispr's
+Optional references include Wispr's
 [formatting](https://docs.wisprflow.ai/articles/5373093536-how-do-i-use-smart-formatting-and-backtrack),
 [dictionary](https://docs.wisprflow.ai/articles/4052411709-Teach-Flow-your-words-with-the-dictionary),
 [snippets](https://docs.wisprflow.ai/articles/5784437944-create-and-use-snippets),
@@ -62,5 +64,4 @@ field-context access and final-text collection are unverified on KDE Wayland.
 
 Mobile use remains optional. Server deployment, fine-tuning, unattended correction
 learning, and a general voice assistant are outside the proposed initial pilot.
-Sync, meeting notes, and team features need explicit scope decisions if selected
-for parity. OpenWhispr was rejected for workflow and quality.
+Sync, meeting notes, and team features need explicit scope decisions if selected. OpenWhispr was rejected for workflow and quality.
