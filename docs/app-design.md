@@ -199,7 +199,11 @@ worker cleanup, and settlement of any insertion dispatch.
 
 The examined APIs do not make T3 field validation, clipboard mutation, and
 Paste one atomic operation. AT-SPI and KWin can provide different levels of
-target evidence; their support in the actual T3 build remains unverified.
+target evidence. A [read-only live check](native-desktop-research.md#read-only-installed-t3-observations-2026-10-14)
+found a focused, editable multi-line composer candidate with editor markers in
+the running T3 build. It lacks EditableText, and its frame reported inactive
+while the field reported focused. Actual desktop target validity and
+invalidation behavior remain unverified.
 The accepted focus-change guard stays in force. Decide how to enforce it, or
 explicitly review any proposed change to its guarantee, before marking the
 automatic insertion contract Ready. A cooperative T3 endpoint is an unaccepted

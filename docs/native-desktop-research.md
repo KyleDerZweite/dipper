@@ -115,9 +115,65 @@ The owner decisions needed before the insertion contract is Ready are:
 - Choose packaging, session lifetime, and permission restoration together. Sandboxed and native packages have different data-control and KWin access limits. Define permission revocation and session-loss behavior.
 - Choose the supported HOLD chord and lost-release policy from actual KDE evidence. A toggle is not an equivalent replacement.
 
+## Read-only installed T3 observations, 2026-10-14
+
+The owner authorized checking the running system without stopping or interrupting
+anything. The probe used the already-running session and accessibility buses.
+It issued only getters, enumeration, and interface introspection. It did not
+change accessibility flags, subscribe to events, activate a window, request a
+portal session, register a shortcut, modify clipboard contents, invoke an
+action, send keys, read text content, or stop/restart a process.
+
+The observed AppImage wrapper filename identifies build
+`0.0.46-nightly.20261013.3066`; no application version API was queried.
+Installed packages were KWin and KDE portal `6.7.5-1.fc43`, desktop portal
+`1.20.4-1.fc43`, AT-SPI core `2.58.9-1.fc43`, and pyatspi `2.58.2-1.fc43`.
+The live portal advertises GlobalShortcuts version 1, RemoteDesktop version 2,
+and Clipboard version 1. These property reads do not establish functional HOLD
+or input delivery. Accessibility `IsEnabled` was true and
+`ScreenReaderEnabled` false throughout the probes.
+
+Method: resolve T3 by accessibility-bus connection PID and process identity,
+then walk only its exported objects using `GetChildren`, `GetRoleName`,
+`GetState`, `GetInterfaces`, and filtered `GetAttributes`. Do not print object
+names, paths, IDs, placeholder values, or text. A temporary Python/dbus probe
+used a 650-object and 12-second walk limit with one-second per-object timeouts.
+It called no Text or EditableText methods. No browser automation was involved.
+
+The first walk exposed only the application and a frame. Later reads exposed
+the document tree without explicit activation or settings changes. The cause
+and initialization delay were not established. Three subsequent complete walks
+examined 529, 552, and 552 objects with no D-Bus query errors. Their elapsed
+times were 0.421, 0.302, and 0.385 seconds. These are diagnostic snapshots, not
+production adapter benchmarks or a recommended continuous polling strategy.
+
+Each complete snapshot contained one composer candidate: a `div` with role
+`entry`, Tiptap/ProseMirror class markers, and focused, editable, enabled,
+sensitive, showing, visible, and multi-line states. A separate editable
+`input` appeared as a single-line `combo box` without the editor class marker.
+Editable paragraph/static descendants also existed, so filtering every
+editable object would produce false candidates. This proves usable structural
+field evidence in the observed layout, not universal composer identification.
+
+The candidate exposes Text and Hypertext but does not advertise EditableText.
+Direct EditableText insertion is therefore not established for this build.
+The same final walk reported `active=false` and `focused=false` for its frame
+while the candidate reported focused. No compositor active-window identity was
+queried. Field-local focus alone is insufficient proof of desktop target
+validity; the meaning and reliability of frame activation require further
+validation. The T3 main PID remained present and unchanged.
+
+This partially verifies the AT-SPI candidate. It does not establish focus-loss
+events, window-switch invalidation, composer remounts, different threads or
+modes, blocked modal/search/password cases, insertion or its acknowledgement,
+clipboard behavior, HOLD, or an atomic target guard. The accepted contract and
+readiness remain unchanged. A future adapter should tolerate initial missing
+tree state, select the editor container rather than its editable descendants,
+and independently validate the intended active window.
+
 ## Acceptance evidence still required
 
-These are proposed app-integration tests, all unexecuted. Use synthetic text, record installed Fedora/Plasma/KWin/portal/Tauri/T3 versions and packaging, and tie the results to the tested Dipper revision. Dipper owns adapter/lifecycle traces and honest Journal outcomes; T3 owns evidence that its intended composer accepted text. The owner approves actual workflow usefulness. Do not use a mock target as final T3 acceptance.
+These full app-integration scenarios remain unexecuted; the structural observation above is narrower evidence. Use synthetic text, record installed Fedora/Plasma/KWin/portal/Tauri/T3 versions and packaging, and tie the results to the tested Dipper revision. Dipper owns adapter/lifecycle traces and honest Journal outcomes; T3 owns evidence that its intended composer accepted text. The owner approves actual workflow usefulness. Do not use a mock target as final T3 acceptance.
 
 | Scenario | Required evidence |
 | --- | --- |
@@ -133,4 +189,4 @@ These are proposed app-integration tests, all unexecuted. Use synthetic text, re
 | Background UI | Tray menus work on Plasma; window close hides and explicit quit exits; recording/processing/failure indicators remain understandable under dark/light themes, scaling, multiple displays, and notification suppression |
 | Resource behavior | Compare release builds with no UI, settings/journal open, and hidden UI; record idle CPU/RSS, process count, wakeups, and adapter latency independently of recognition/model costs |
 
-A test passing a sampled focus-race schedule does not prove an atomic guarantee. The implementation contract must identify who enforces validity at each mutation, or retain the unresolved limitation. No live HOLD, real T3 insertion, rendered UI, permission UX, or resource acceptance has been established by this report.
+A test passing a sampled focus-race schedule does not prove an atomic guarantee. The implementation contract must identify who enforces validity at each mutation, or retain the unresolved limitation. The read-only follow-up establishes structural AT-SPI evidence only. No live HOLD, real T3 insertion, rendered Dipper UI, permission UX, or resource acceptance has been established by this report.
