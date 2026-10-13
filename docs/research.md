@@ -67,4 +67,5 @@ The following background links use Kyle's local checkout layout and are not avai
 The [React Native and Rust comparison](toolchain-research.md) owns the
 2026-10-13 desktop/mobile, OTA, resource-use, and codebase-maintenance findings.
 It reflects the accepted Whisper live baseline and Qwen exclusion while
-preserving the historical experiment. No toolchain is selected by this research.
+preserving the historical experiment. The subsequent [ADR-0002](adr/0002-rust-core-tauri-desktop.md) records the owner
+accepting Rust core and Tauri desktop; mobile UI remains deferred.

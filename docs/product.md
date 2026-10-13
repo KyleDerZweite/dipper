@@ -13,8 +13,8 @@ provisional baseline on 2026-10-13. Proceed toward the real app and stop further
 prototype iterations. Additional recordings can be collected incrementally;
 corpus completion is not an app-start gate. The [preparation plan](preparation.md)
 records the preserved evidence and separate final acceptance work. The subsequent foundation decision is an independent Dipper app, recorded in
-[ADR-0001](adr/0001-own-dipper-app.md). Production language, UI stack, storage,
-and model configuration remain TBD.
+[ADR-0001](adr/0001-own-dipper-app.md). Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
+Mobile UI, model lifetime, storage, and license remain separate decisions.
 
 ## Platform direction
 
@@ -30,9 +30,8 @@ recording while preserving available audio. A focus change away from T3 prevents
 automatic insertion and leaves the transcript available for explicit use.
 
 Whisper large-v3 is the first live baseline. Qwen is excluded from active
-candidates; historical experiment evidence remains preserved. Long-term
-React Native versus Rust toolchain research must include resource efficiency,
-mobile support, and OTA update mechanisms. Detailed behavior and unresolved choices belong to the
+candidates; historical experiment evidence remains preserved. The accepted Rust/Tauri desktop direction follows the sourced toolchain
+research. Mobile UI is deferred, and both long-term update goals remain in scope. Detailed behavior and unresolved choices belong to the
 [app design record](app-design.md). Cleanup remains part of the overall pilot,
 not a requirement to add before the first raw-chain slice.
 

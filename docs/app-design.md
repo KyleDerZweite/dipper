@@ -4,7 +4,8 @@ Status: proposal for owner discussion, not an implementation contract.
 The [preparation plan](preparation.md) records the accepted permission to start
 app work from provisional evidence. Issue #4 owns foundation and module design;
 issue #5 owns implementation breakdown. The owner selected an independent app in [ADR-0001](adr/0001-own-dipper-app.md);
-language and UI stack remain TBD. No proposed slice below is Ready.
+Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
+The detailed first-slice contract is not Ready.
 
 ## Evidence and limits
 
@@ -48,10 +49,10 @@ If the user switches away from T3 before insertion, do not insert automatically
 or pull focus back. Retain the transcript for explicit copying or later insertion.
 An unclear insertion outcome must not trigger an automatic duplicate retry.
 
-Language, UI toolkit, model lifetime, insertion verification, and minimal
-persistence/recovery semantics remain unresolved. Research React Native and Rust
-approaches for long-term mobile support, resource use, and OTA requirements
-before choosing the toolchain. Long-term update requirements include both
+Use a Rust core and Tauri 2 desktop shell. Keep core behavior behind interfaces
+that do not depend on Tauri or desktop controls. Mobile UI and the frontend
+framework remain deferred choices. Model lifetime, insertion verification, and
+minimal persistence/recovery semantics still need decisions. Long-term update requirements include both
 desktop whole-app delivery without manual downloads and compatible mobile
 UI/JS updates without a new store release. Native-code changes and model-weight
 updates require separate versioning and delivery; update implementation is not
@@ -85,7 +86,7 @@ Recognition, and Text processing do not depend on the desktop UI or Insertion.
 Avoid competing model-specific histories and a speculative plugin framework.
 
 These are logical responsibilities, not committed packages, types, processes,
-or a language choice. Refine each useful slice into a short reviewed contract.
+or a package layout. The accepted Rust/Tauri choice does not finalize them. Refine each useful slice into a short reviewed contract.
 
 ## Delivery direction
 
@@ -108,11 +109,12 @@ checks and dependency directions still govern readiness.
 
 The [React Native and Rust comparison](toolchain-research.md) records primary
 sources, update mechanisms, platform constraints, and performance evidence gaps.
-Its recommendation is not an accepted toolchain decision.
+The owner accepted its Rust-core/Tauri-desktop recommendation in ADR-0002.
+Mobile UI remains deferred; no new hybrid dependency is selected.
 
 ## Consequential choices to resolve
 
-- Choose the maintained language, UI stack, and license for the accepted own-app
+- Resolve frontend needs, packaging, and license for the accepted Rust/Tauri
   foundation. Existing runtimes can be reused without adopting prototype structure.
 - Define model lifetime, cancellation, and process strategy for the accepted
   Whisper large-v3 live baseline. Qwen is not an active candidate. Other models

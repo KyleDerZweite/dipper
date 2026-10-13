@@ -1,7 +1,8 @@
 # React Native and Rust for Dipper
 
 Research date: 2026-10-13. This report compares candidates for the independent
-Dipper app. It does not select a production language or UI stack.
+Dipper app. The owner subsequently accepted the Rust-core/Tauri-desktop recommendation in
+[ADR-0002](adr/0002-rust-core-tauri-desktop.md). Mobile UI remains deferred.
 
 Rust with Tauri 2 is the stronger candidate for Dipper's immediate Linux desktop
 work. React Native with Expo has the clearer documented route to later mobile
@@ -186,8 +187,8 @@ recognition engine or prove store acceptance of a changed product behavior.
 Prioritize the Rust core with Tauri desktop candidate for the present Fedora
 workflow. Its documented Linux support is stronger than the RN Linux route
 examined here. Keep capture, recognition, journal, and insertion behind the
-proposed interfaces, without a speculative plugin system. This is a research
-recommendation, not an accepted architecture.
+proposed interfaces, without a speculative plugin system. This was the research
+recommendation; the subsequent owner decision is recorded in ADR-0002.
 
 React Native with Expo remains a serious mobile candidate because compatible
 JS/assets OTA is an explicit long-term requirement. Tauri mobile alone leaves
