@@ -61,3 +61,10 @@ The following background links use Kyle's local checkout layout and are not avai
 - [Original project brief](../../../Projects/fleet/ideas/personal-dictation.md)
 - [Technical research and pilot scenarios](../../../Projects/fleet/docs/evaluations/voice-project.md)
 - [Target workstation record](../../../Projects/fleet/devices/kyle-ff/README.md)
+
+## Current toolchain investigation
+
+The [React Native and Rust comparison](toolchain-research.md) owns the
+2026-10-13 desktop/mobile, OTA, resource-use, and codebase-maintenance findings.
+It reflects the accepted Whisper live baseline and Qwen exclusion while
+preserving the historical experiment. No toolchain is selected by this research.

@@ -25,7 +25,14 @@ Desktop is the initial focus, starting with Fedora KDE on Wayland. Phone and oth
 The first usable slice runs in the background/tray and delivers the raw
 hold-to-record, capture, recognition, and T3 insertion chain. UI polishing is
 deferred. Use the system default input by default and list devices for explicit
-selection. Detailed behavior and unresolved choices belong to the
+selection. Resolve the input at recording start and keep it fixed; device loss fails the
+recording while preserving available audio. A focus change away from T3 prevents
+automatic insertion and leaves the transcript available for explicit use.
+
+Whisper large-v3 is the first live baseline. Qwen is excluded from active
+candidates; historical experiment evidence remains preserved. Long-term
+React Native versus Rust toolchain research must include resource efficiency,
+mobile support, and OTA update mechanisms. Detailed behavior and unresolved choices belong to the
 [app design record](app-design.md). Cleanup remains part of the overall pilot,
 not a requirement to add before the first raw-chain slice.
 

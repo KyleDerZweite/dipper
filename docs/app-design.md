@@ -32,13 +32,30 @@ still needs clear recording, processing, cancellation, and error feedback;
 no polished overlay design has been selected.
 
 By default, Dipper uses the system's default input device. It must list available
-input devices and allow an explicit choice. Default-device changes and device
-loss during a recording are unresolved behavior, not permission for silent
-mid-recording source replacement. Input-selection UX may be refined later.
+input devices and allow an explicit choice. Resolve the system default at each recording start and keep that input fixed
+for the recording. A changed default applies to the next recording. If the
+active device disappears, stop with a failure outcome, preserve available audio,
+and do not automatically insert text. Input-selection UX may be refined later.
 
-Language, UI toolkit, first recognition configuration, model lifetime,
-insertion/focus behavior, and minimal persistence/recovery semantics remain
-unresolved. The scope is accepted; the implementation contract is not Ready.
+Whisper large-v3 through whisper.cpp/Vulkan on the RX 7700S is the accepted first
+live baseline. Evaluate other configurations later without treating this as a
+final model ranking. Qwen is excluded from active candidates by owner decision:
+the observed CPU startup-inclusive latency exceeded the tolerable wait, despite
+useful experimental quality. Preserve its historical evidence and installed
+artifacts; do not delete or reinterpret them as a failed capture.
+
+If the user switches away from T3 before insertion, do not insert automatically
+or pull focus back. Retain the transcript for explicit copying or later insertion.
+An unclear insertion outcome must not trigger an automatic duplicate retry.
+
+Language, UI toolkit, model lifetime, insertion verification, and minimal
+persistence/recovery semantics remain unresolved. Research React Native and Rust
+approaches for long-term mobile support, resource use, and OTA requirements
+before choosing the toolchain. Long-term update requirements include both
+desktop whole-app delivery without manual downloads and compatible mobile
+UI/JS updates without a new store release. Native-code changes and model-weight
+updates require separate versioning and delivery; update implementation is not
+added to the first raw-chain slice by this requirement. The scope is accepted; the implementation contract is not Ready.
 
 ## Proposed module responsibilities
 
@@ -87,13 +104,19 @@ are accepted. Keep one PR per useful slice, as already agreed. No full-corpus
 completion gate applies to starting these slices, but their own acceptance
 checks and dependency directions still govern readiness.
 
+## Toolchain research
+
+The [React Native and Rust comparison](toolchain-research.md) records primary
+sources, update mechanisms, platform constraints, and performance evidence gaps.
+Its recommendation is not an accepted toolchain decision.
+
 ## Consequential choices to resolve
 
 - Choose the maintained language, UI stack, and license for the accepted own-app
   foundation. Existing runtimes can be reused without adopting prototype structure.
-- Select the first live recognition configuration, model lifetime, cancellation,
-  and process strategy. Existing Whisper timing supports discussion of a starting
-  baseline, not an automatic selection or overall quality ranking.
+- Define model lifetime, cancellation, and process strategy for the accepted
+  Whisper large-v3 live baseline. Qwen is not an active candidate. Other models
+  can be evaluated later without blocking app progress.
 - Specify the first slice's durable completion checkpoints, crash-loss limit,
   recovery actions, and reduced-retention semantics. SQLite with separate audio
   remains a candidate. Never infer an atomic transaction across those artifacts.
