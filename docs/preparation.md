@@ -19,7 +19,7 @@ Kyle selected the core dictation workflow, complete journal, and explicit correc
    recognition, processing, insertion, journal storage, and replay, with explicit
    responsibilities and dependency directions. Document real setup and run
    commands once verified.
-5. Choose the delivery model before breaking work into tickets. Track this work in [issue #5](https://github.com/KyleDerZweite/dipper/issues/5). Implement useful
+5. Derive implementation tickets using one PR per useful slice. Track this work in [issue #5](https://github.com/KyleDerZweite/dipper/issues/5). Implement useful
    slices with acceptance evidence, preserving the agreed product scope.
 
 Measure recording readiness, end-of-speech to insertion, correction time, and
@@ -31,3 +31,7 @@ WER and CER use literal reference transcripts. Processed output also needs
 meaning-preservation checks. A grammar improvement or intentional rephrasing
 is not automatically a recognition error. Terminal tests must cover Unicode,
 newlines, shell prompts, and text interfaces without unintended execution.
+
+## Accepted delivery model
+
+Kyle selected one PR per useful slice on 2026-10-13. Each slice must reference its reviewed component contract, dependencies, and acceptance evidence. Define the slices and integration sequence after the component contracts in [issue #4](https://github.com/KyleDerZweite/dipper/issues/4) are coherent. [Issue #5](https://github.com/KyleDerZweite/dipper/issues/5) tracks the remaining breakdown.
