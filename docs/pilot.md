@@ -1,9 +1,9 @@
 # Desktop pilot contract
 
-Status: partial contract. Kyle accepted the scope, recording modes, primary
+Status: accepted pilot requirements; procedure and documentation review in progress. Kyle accepted the scope, recording modes, primary
 target, corpus sizes, latency gate, light cleanup, baseline-first resource
-evaluation, and reduced-retention comparison on 2026-10-13. Detailed quality
-examples, measurement procedure, and recovery acceptance remain open in
+evaluation, and reduced-retention comparison on 2026-10-13. Quality rejection rules and pilot storage-full behavior are also accepted. The
+recording and measurement procedure is being reconciled in
 [issue #1](https://github.com/KyleDerZweite/dipper/issues/1). This document does
 not authorize implementation or select a foundation.
 
@@ -75,7 +75,7 @@ The five-minute brain dump is a functional and resource stress case. Report its
 latency separately; the 30-second gate does not currently apply to this case.
 
 Repeat warm measurements and report cold starts separately. The gate applies to both cold and warm runs for clips up to two minutes. Define
-cold and warm conditions and repetition counts before running acceptance. Report the sample size and individual
+cold and warm conditions and repetition counts through the linked procedure before running acceptance. Report the sample size and individual
 failures; do not turn the small corpus into a claimed P95/P99 latency result.
 
 ## Accepted retention comparison
@@ -107,22 +107,44 @@ Check cancellation, retries, focus changes, recovery, export, and explicit
 correction using retained data. Record failures and unavailable evidence. A
 substitute text field does not establish insertion in the actual T3 application.
 
-## Open acceptance decisions
+## Accepted quality and storage-full rules
 
-- Concrete quality acceptance examples for light cleanup and correction.
-- Detailed retained text artifacts and collection behavior in reduced retention;
-  product defaults remain undecided.
-- Cold/warm definitions and repetition counts.
-- Recording-readiness and correction acceptance limits, crash-loss and
-  storage-full behavior, and the private corpus location.
+Changed negations, incorrect numbers or names, invented content, or silently
+resolved ambiguity fail a test case. Punctuation and harmless spelling variants
+may differ. Assess the actual spoken content, including intended corrections.
+
+For the pilot, insufficient storage clearly rejects a new recording and
+preserves existing data. Do not automatically delete old data to make room.
+Report storage failure during capture or processing separately and preserve
+available data without claiming a complete record.
+
+## Deferred design and calibration
+
+Product retention defaults, storage limits, policy changes, and detailed
+crash-loss/recovery design belong to issue #4. Comprehensive retention is not
+a commitment to unlimited storage. Measure storage growth before choosing
+future configurable limits.
+
+Recording readiness, correction effort, and time to accepted text are measured
+baselines in this first pilot; no additional numerical limits are set. The
+accepted release-to-insertion and quality gates remain binding. The unseen
+validation set is deferred until its scope is agreed and is required before
+using tuning results as validation evidence.
+
+## Recording and measurement procedure
+
+Use the [pilot procedure](pilot-procedure.md) for corpus slots, quality examples,
+cold/warm definitions, run counts, and evidence collection. The procedure separates acceptance gates, observational evidence, and deferred
+design work.
 
 ## Ownership and sequence
 
 [Issue #1](https://github.com/KyleDerZweite/dipper/issues/1) owns the completed
 acceptance contract. [Issue #2](https://github.com/KyleDerZweite/dipper/issues/2)
-owns corpus preparation and the reproducible procedure.
+owns corpus preparation and the reproducible procedure, which can proceed from
+the accepted scope while the remaining acceptance criteria are refined.
 [Issue #3](https://github.com/KyleDerZweite/dipper/issues/3) owns the candidate
 comparison. [Issue #4](https://github.com/KyleDerZweite/dipper/issues/4) owns
-foundation selection and reviewed component contracts. Keep their native
+foundation selection and reviewed component contracts. Keep the remaining native
 GitHub dependencies and avoid marking dependent implementation ready while
 its contract is incomplete.

@@ -35,6 +35,7 @@ build, or run commands yet.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
+- [Pilot procedure](docs/pilot-procedure.md): recording slots, measurement steps, and quality examples.
 - [Desktop pilot contract](docs/pilot.md): accepted scenarios, corpus, latency gate, and open acceptance decisions.
 - [Development preparation](docs/preparation.md): pilot sequence and acceptance evidence.
 - [Glossary](GLOSSARY.md): shared domain vocabulary.

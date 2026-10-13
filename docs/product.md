@@ -4,7 +4,7 @@ This document records the current product direction. The broader first-release f
 
 ## Accepted pilot scope
 
-On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. T3 is the primary target, hold-to-record is mandatory, and the accepted latency ceiling is 30 seconds for recordings up to two minutes. Quality, resource, and recovery acceptance details still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
+On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. T3 is the primary target, hold-to-record is mandatory, and the accepted latency ceiling is 30 seconds for recordings up to two minutes. The [pilot contract](pilot.md) records the accepted quality rules, baseline-first resource evaluation, and pilot storage-full behavior. Detailed recovery design and future retention limits belong to issue #4.
 
 ## Platform direction
 
