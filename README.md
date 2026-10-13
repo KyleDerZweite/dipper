@@ -27,7 +27,7 @@ Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
 Status, 2026-10-13: project preparation. The foundation, stack, license, and
-numerical acceptance targets remain open. There are no application setup,
+remaining quality, resource, and recovery acceptance details remain open. There are no application setup,
 build, or run commands yet.
 
 ## Documentation
@@ -35,6 +35,7 @@ build, or run commands yet.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
+- [Desktop pilot contract](docs/pilot.md): accepted scenarios, corpus, latency gate, and open acceptance decisions.
 - [Development preparation](docs/preparation.md): pilot sequence and acceptance evidence.
 - [Glossary](GLOSSARY.md): shared domain vocabulary.
 
