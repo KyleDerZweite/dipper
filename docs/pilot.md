@@ -4,8 +4,9 @@ Status: accepted pilot requirements; procedure and documentation review in progr
 target, corpus sizes, latency gate, light cleanup, baseline-first resource
 evaluation, and reduced-retention comparison on 2026-10-13. Quality rejection rules and pilot storage-full behavior are also accepted. The
 recording and measurement procedure is being reconciled in
-[issue #1](https://github.com/KyleDerZweite/dipper/issues/1). This document does
-not authorize implementation or select a foundation.
+[issue #1](https://github.com/KyleDerZweite/dipper/issues/1). The owner subsequently accepted the experiment as a provisional basis for app
+design and useful implementation slices; see [development preparation](preparation.md).
+Production choices and slice contracts remain explicit decisions.
 
 ## Accepted scope
 
@@ -44,6 +45,16 @@ If the intended replacement or its scope is ambiguous, do not silently remove
 or replace content. Preserve the meaning-bearing wording for user review.
 Keep the literal reference transcript distinct from the expected processed text
 so this intentional cleanup is not counted as a recognition error.
+
+## App-start decision
+
+The owner accepted the existing capture/recognition experiment as a sufficient
+provisional baseline and ended further prototype work on 2026-10-13. Recordings
+may accumulate incrementally; all 13 slots are not a prerequisite for app design
+or useful implementation slices. Final pilot quality and workflow acceptance
+remain separate from permission to start building. This baseline acceptance does not choose a model or toolchain. The subsequent
+independent-app decision is recorded in [ADR-0001](adr/0001-own-dipper-app.md);
+programming language and UI stack remain TBD.
 
 ## Accepted corpus
 
@@ -145,6 +156,6 @@ owns corpus preparation and the reproducible procedure, which can proceed from
 the accepted scope while the remaining acceptance criteria are refined.
 [Issue #3](https://github.com/KyleDerZweite/dipper/issues/3) owns the candidate
 comparison. [Issue #4](https://github.com/KyleDerZweite/dipper/issues/4) owns
-foundation selection and reviewed component contracts. Keep the remaining native
-GitHub dependencies and avoid marking dependent implementation ready while
-its contract is incomplete.
+foundation selection and reviewed component contracts. Issue #4 is no longer blocked by completion of the full comparison in #3.
+Keep final corpus/comparison evidence open, and make each implementation slice
+ready only when its own reviewed contract is coherent.

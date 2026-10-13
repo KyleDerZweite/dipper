@@ -26,12 +26,15 @@ is not a project requirement.
 Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
-Status, 2026-10-13: project preparation. The foundation, stack, license, and
+Status, 2026-10-13: app foundation and module design. The recorder/transcription
+experiment is accepted as a provisional baseline; recordings can accumulate
+alongside development. Dipper will be an independent app. The language, UI stack, license, and
 remaining quality, resource, and recovery acceptance details remain open. There are no application setup,
 build, or run commands yet.
 
 ## Documentation
 
+- [App design proposal](docs/app-design.md): module responsibilities, possible slices, and foundation decisions.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.

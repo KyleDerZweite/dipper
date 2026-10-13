@@ -2,6 +2,10 @@
 
 This is the research snapshot recorded on 2026-10-13, moved from the initial README. It has not been revalidated during the documentation split. Candidates and dependencies remain proposals. References to a complete journal concern the comprehensive retention use case; the current product direction makes retention configurable.
 
+The owner subsequently chose an independent app in
+[ADR-0001](adr/0001-own-dipper-app.md). Desktop candidates below are historical
+research and sources of implementation ideas, not selected app foundations.
+
 The research dated 2026-10-13 suggests these candidates for a workstation pilot:
 
 - [Handy](https://github.com/cjpais/Handy) is the first desktop candidate, with

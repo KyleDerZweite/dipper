@@ -5,12 +5,22 @@ be recorded from the accepted scope. Issue #1 now owns review of the bounded
 contract; issue #3 requires that review and the completed corpus. Later resource
 calibration and detailed recovery design belong to issue #4. No candidate, toolchain, or resource budget is selected here.
 
+## App development can proceed
+
+This procedure owns corpus preparation and final evaluation evidence, not
+permission to begin app development. The owner accepted the current experiment
+as a sufficient provisional baseline and ended further prototype work.
+Recordings can accumulate when useful; completing all 13 slots is not an
+app-design or implementation-start prerequisite. Keep final acceptance distinct
+from this permission, as recorded in [development preparation](preparation.md).
+
 ## Corpus preparation
 
 Kyle records natural German speech with English technical terms on the target
 workstation. Use the prepared private location `~/.local/share/dipper/pilot/`, or an existing
 private location outside the checkout if Kyle prefers. The prepared location
-contains metadata templates only; no recordings are present yet. Record
+contains private recording and evidence references. The original template alone
+was not completion evidence; the current experiment has partial S01/S02 coverage. Record
 its reference, microphone, capture format, and actual clip durations in the
 private corpus manifest. Do not place audio, personal dictation, or raw logs in
 this public repository.

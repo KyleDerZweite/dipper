@@ -6,6 +6,16 @@ This document records the current product direction. The broader first-release f
 
 On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. T3 is the primary target, hold-to-record is mandatory, and the accepted latency ceiling is 30 seconds for recordings up to two minutes. The [pilot contract](pilot.md) records the accepted quality rules, baseline-first resource evaluation, and pilot storage-full behavior. Detailed recovery design and future retention limits belong to issue #4.
 
+## Current development direction
+
+The owner accepted the recorder/transcription experiment as a sufficient
+provisional baseline on 2026-10-13. Proceed toward the real app and stop further
+prototype iterations. Additional recordings can be collected incrementally;
+corpus completion is not an app-start gate. The [preparation plan](preparation.md)
+records the preserved evidence and separate final acceptance work. The subsequent foundation decision is an independent Dipper app, recorded in
+[ADR-0001](adr/0001-own-dipper-app.md). Production language, UI stack, storage,
+and model configuration remain TBD.
+
 ## Platform direction
 
 Desktop is the initial focus, starting with Fedora KDE on Wayland. Phone and other mobile use are a long-term ambition, well beyond the initial desktop work. Mobile platforms and delivery plans remain undecided.
