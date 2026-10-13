@@ -1,10 +1,10 @@
 # Product direction
 
-This document records the current product direction. The broader first-release feature set and numerical acceptance targets remain open.
+This document records the current product direction. The broader first-release feature set and some acceptance targets remain open. The [desktop pilot contract](pilot.md) records the accepted initial scope and latency gate.
 
 ## Accepted pilot scope
 
-On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. Target application scenarios, numerical acceptance limits, and recovery limits still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
+On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. T3 is the primary target, hold-to-record is mandatory, and the accepted latency ceiling is 30 seconds for recordings up to two minutes. Quality, resource, and recovery acceptance details still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
 
 ## Platform direction
 
@@ -32,6 +32,10 @@ separately from normal dictation so experiments do not delay the daily workflow.
 - Quality: preserve meaning, technical vocabulary, names, numbers, and negations,
   and measure the effort needed to reach accepted text.
 
+The first resource comparison establishes baselines; budgets follow measured
+results. The pilot uses light cleanup, including clear spoken self-corrections, rather
+than strong rewriting. Ambiguous corrections must not silently remove content.
+
 Data retention is configurable. Kyle wants comprehensive history for analysis
 and model comparison; other users may choose less retention. Retention defaults,
 limits, and deletion behavior remain open. Optional features must support these
@@ -53,6 +57,9 @@ decision. Candidate areas include:
 - Raw transcription and processed output with punctuation, paragraphs, lists,
   filler-word handling, and spoken self-corrections.
 - Personal vocabulary, reviewed spelling corrections, replacements, and snippets.
+  Kyle wants configurable expansion of spoken abbreviations into replacement
+  text as a later feature, not a pilot acceptance requirement. Track it in
+  [issue #8](https://github.com/KyleDerZweite/dipper/issues/8).
 - Modes for raw text, messages, email, and technical prompts, with appropriate
   model, language, and processing settings.
 - Context-aware output and editing selected text through a shortcut or spoken
