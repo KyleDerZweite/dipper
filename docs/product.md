@@ -33,7 +33,8 @@ separately from normal dictation so experiments do not delay the daily workflow.
   and measure the effort needed to reach accepted text.
 
 The first resource comparison establishes baselines; budgets follow measured
-results. The pilot uses light cleanup rather than strong rewriting.
+results. The pilot uses light cleanup, including clear spoken self-corrections, rather
+than strong rewriting. Ambiguous corrections must not silently remove content.
 
 Data retention is configurable. Kyle wants comprehensive history for analysis
 and model comparison; other users may choose less retention. Retention defaults,

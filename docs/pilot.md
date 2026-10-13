@@ -28,6 +28,17 @@ preserving the intended meaning as far as possible. Strong rewriting is outside
 the pilot. Assess changes to technical terms, names, numbers, and negations
 explicitly rather than treating fluent output as proof of correctness.
 
+## Accepted spoken self-corrections
+
+Apply clear spoken self-corrections directly during text processing. For example,
+`Wir deployen Donnerstag, äh nein, Freitag` becomes `Wir deployen Freitag.`
+The explicit correction replaces Thursday with Friday; it is not strong rewriting.
+
+If the intended replacement or its scope is ambiguous, do not silently remove
+or replace content. Preserve the meaning-bearing wording for user review.
+Keep the literal reference transcript distinct from the expected processed text
+so this intentional cleanup is not counted as a recognition error.
+
 A personal vocabulary list for expanding spoken abbreviations into configured
 text is a desired later feature. It is not required for pilot acceptance.
 
