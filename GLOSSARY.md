@@ -53,7 +53,7 @@ The wording explicitly confirmed by the user for a dictation.
 _Avoid_: Raw transcript or processed text without user confirmation.
 
 **Journal**:
-The connected history of recordings, recognition attempts, text processing results, insertion outcomes, and corrections, including cancellation and failure records.
+The connected history of recordings, recognition attempts, text processing results, insertion outcomes, and corrections, including cancellation and failure records. Its available history depends on the retention policy.
 _Avoid_: Transcript history when audio, attempts, or outcomes are absent.
 
 **Replay**:
@@ -67,3 +67,11 @@ _Avoid_: Model when referring to the whole dictation configuration.
 **Feature parity**:
 Equivalent behavior in specified user scenarios compared with a reference product.
 _Avoid_: Parity inferred only from a shared shortcut or speech model.
+
+**Retention policy**:
+The user's rules for which dictation data and diagnostic logs are collected and kept, and for how long.
+_Avoid_: Complete journal as an assumption for every user.
+
+**Comprehensive retention**:
+A retention policy that keeps the full available dictation history and diagnostic logs, including cancellations and failures, without automatic expiry.
+_Avoid_: Default retention when no default has been chosen.

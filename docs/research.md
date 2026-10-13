@@ -1,6 +1,6 @@
 # Foundation research
 
-This is the research snapshot recorded on 2026-10-13, moved from the initial README. It has not been revalidated during the documentation split. Candidates and dependencies remain proposals.
+This is the research snapshot recorded on 2026-10-13, moved from the initial README. It has not been revalidated during the documentation split. Candidates and dependencies remain proposals. References to a complete journal concern the comprehensive retention use case; the current product direction makes retention configurable.
 
 The research dated 2026-10-13 suggests these candidates for a workstation pilot:
 
@@ -24,8 +24,9 @@ The research dated 2026-10-13 suggests these candidates for a workstation pilot:
 
 hyprwhspr, Dictée, and Voisu were also investigated. Their audio retention,
 journal completeness, or platform support make them secondary references.
-No foundation has yet demonstrated the required performance, quality, parity,
-or journal behavior on the target workstation.
+No foundation has yet demonstrated the required performance, quality,
+or journal behavior on the target workstation. The original research explored
+feature parity as an idea; it is not a project requirement.
 
 The proposed speech comparison uses
 [whisper.cpp](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.5) on CPU
