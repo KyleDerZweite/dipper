@@ -50,6 +50,18 @@ Cancellation and failures retain available data and an explicit status. Define
 crash-loss limits, recovery behavior, and storage-full behavior. A final-text
 paste hook or history importer cannot recover events that were never recorded.
 
+## Pilot storage-full behavior
+
+Kyle accepted clear rejection of new recordings when storage is insufficient,
+with existing data preserved and no automatic deletion of older records. This
+is the pilot policy, not a permanent product default. Report failures during
+capture or processing separately and preserve available data without claiming
+completeness.
+
+Later storage limits must be configurable. Comprehensive retention does not
+mean unlimited disk growth or a commitment to storing hundreds of gigabytes.
+Use measured storage growth to inform limits and policy choices in issue #4.
+
 ## Storage and export
 
 SQLite with separate lossless audio files remains a candidate. Their writes do
