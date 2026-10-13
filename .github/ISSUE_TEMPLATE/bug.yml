@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a failure in Dipper.
+labels: [bug, needs-triage]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Describe what should happen and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include relevant versions, target app, and recording or insertion mode.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and evidence
+      description: Include OS, desktop session, hardware, model, and sanitized logs. Keep private recordings and credentials out of public issues.

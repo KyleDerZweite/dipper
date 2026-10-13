@@ -1,0 +1,23 @@
+name: Feature or preparation work
+description: Propose a capability, investigation, or project decision.
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Intended outcome
+      description: Describe the user scenario or question this work should resolve.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and open decisions
+      description: Distinguish accepted requirements from proposals and unknowns.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Acceptance evidence
+      description: Describe what would demonstrate completion, including relevant failure cases.
