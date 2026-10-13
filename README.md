@@ -4,7 +4,7 @@
 
 <h1 align="center">Dipper</h1>
 
-<p align="center">Voice dictation with a complete local journal.</p>
+<p align="center">Voice dictation focused on efficiency, speed, and quality.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-planning-64748b?style=flat-square" alt="Status: planning">
@@ -13,14 +13,18 @@
   <img src="https://img.shields.io/badge/stack-TBD-64748b?style=flat-square" alt="Stack: to be decided">
 </p>
 
-Dipper is a PC-first voice dictation project focused on fast, accurate text
-insertion and a complete local journal of recordings, recognition attempts,
-and explicit corrections.
+Dipper aims to turn speech into accurate text with low resource use and fast
+responses. You choose what to keep: recordings, transcripts, corrections, and
+diagnostic logs, with comprehensive retention for those who want the full history.
 
 The first pilot targets Fedora KDE on Wayland, with German speech and English
-technical terms. It covers the core dictation workflow, journal, and correction.
+technical terms. It covers the core dictation workflow, configurable data retention, and explicit
+correction, including comprehensive retention for Kyle's pilot.
 Wispr Flow and Superwhisper provide ideas for optional features; feature parity
 is not a project requirement.
+
+Desktop comes first. Phone and other mobile use are a long-term ambition, well
+beyond the initial desktop work.
 
 Status, 2026-10-13: project preparation. The foundation, stack, license, and
 numerical acceptance targets remain open. There are no application setup,

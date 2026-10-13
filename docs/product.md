@@ -1,10 +1,14 @@
 # Product direction
 
-This document preserves the intended product from the initial project brief. The broader first-release feature set and numerical acceptance targets remain open.
+This document records the current product direction. The broader first-release feature set and numerical acceptance targets remain open.
 
 ## Accepted pilot scope
 
-On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with a complete journal and explicit correction for the first pilot. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. Target application scenarios, numerical acceptance limits, and recovery limits still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
+On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflow with configurable data retention and explicit correction for the first pilot. Kyle's pilot uses comprehensive retention of recordings, recognition attempts, processing results, corrections, and diagnostic logs. Other users must be able to retain less data. Feature parity is not a project requirement. Wispr Flow and Superwhisper are sources of optional ideas; select features only when they serve Dipper's workflow. Target application scenarios, numerical acceptance limits, and recovery limits still need agreement in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1).
+
+## Platform direction
+
+Desktop is the initial focus, starting with Fedora KDE on Wayland. Phone and other mobile use are a long-term ambition, well beyond the initial desktop work. Mobile platforms and delivery plans remain undecided.
 
 ## Intended workflow
 
@@ -13,20 +17,25 @@ Recording state and cancellation should be clear. The daily target apps include
 T3, browsers, Obsidian, and terminals.
 
 A second shortcut should open the latest dictation for playback and explicit
-correction. A searchable journal connects its audio, raw transcript, processed
-text, insertion outcome, and confirmed wording. Reprocessing and analysis run
+correction. When retained, a searchable journal connects its audio, raw transcript, processed
+text, insertion outcome, and confirmed wording. Available playback and replay
+depend on the retained data. Reprocessing and analysis run
 separately from normal dictation so experiments do not delay the daily workflow.
 
 ## Product priorities
 
-- Measure performance through the whole workflow: recording readiness, speech
-  recognition, text processing, and insertion. Cold and warm starts matter.
-- Assess quality by meaning preservation, technical vocabulary, names, numbers,
-  negations, and the manual effort needed to reach accepted text.
-- Select useful features through concrete user scenarios rather than a reference
-  product checklist.
-- Keep sufficient source data to investigate errors and compare configurations.
-  Recording failures, cancellation, and retries must remain distinguishable.
+- Resource efficiency: assess CPU/GPU use, memory, idle overhead, and storage
+  growth across recognition, processing, and the chosen retention policy.
+  Measure power use where the target environment permits it.
+- Performance: measure recording readiness, recognition, processing, and
+  insertion through the whole workflow, including cold and warm starts.
+- Quality: preserve meaning, technical vocabulary, names, numbers, and negations,
+  and measure the effort needed to reach accepted text.
+
+Data retention is configurable. Kyle wants comprehensive history for analysis
+and model comparison; other users may choose less retention. Retention defaults,
+limits, and deletion behavior remain open. Optional features must support these
+priorities and concrete user scenarios.
 
 German dictation with English keywords needs its own evaluation. Manufacturer
 benchmarks and performance on other hardware do not establish Dipper's quality
@@ -62,6 +71,6 @@ plus [Superwhisper's custom modes](https://github.com/superultrainc/superwhisper
 Language, platform, and editor support differ between these features. Automatic
 field-context access and final-text collection are unverified on KDE Wayland.
 
-Mobile use remains optional. Server deployment, fine-tuning, unattended correction
+Mobile implementation is deferred to the long term. Server deployment, fine-tuning, unattended correction
 learning, and a general voice assistant are outside the proposed initial pilot.
 Sync, meeting notes, and team features need explicit scope decisions if selected. OpenWhispr was rejected for workflow and quality.

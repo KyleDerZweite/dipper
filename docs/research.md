@@ -1,6 +1,6 @@
 # Foundation research
 
-This is the research snapshot recorded on 2026-10-13, moved from the initial README. It has not been revalidated during the documentation split. Candidates and dependencies remain proposals.
+This is the research snapshot recorded on 2026-10-13, moved from the initial README. It has not been revalidated during the documentation split. Candidates and dependencies remain proposals. References to a complete journal concern the comprehensive retention use case; the current product direction makes retention configurable.
 
 The research dated 2026-10-13 suggests these candidates for a workstation pilot:
 

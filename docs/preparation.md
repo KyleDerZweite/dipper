@@ -2,13 +2,13 @@
 
 The following sequence preserves the initial preparation plan. GitHub Issues owns live status, triage notes, and dependencies. None of these steps is complete merely because it is documented.
 
-Kyle selected the core dictation workflow, complete journal, and explicit correction as the first pilot scope on 2026-10-13. The benchmark contract must refine that direction. Feature parity is not a requirement; ideas from reference products remain optional.
+Kyle selected the core dictation workflow, configurable retention, and explicit correction, with comprehensive history for his pilot as the first pilot scope on 2026-10-13. The benchmark contract must refine that direction. Feature parity is not a requirement; ideas from reference products remain optional.
 
 ## Start development here
 
 1. Agree a short pilot benchmark and acceptance contract. Track this work in [issue #1](https://github.com/KyleDerZweite/dipper/issues/1). Select mandatory features,
    supported languages and target apps, output examples, and measurable latency
-   and quality limits. Keep optional feature ideas separate from mandatory pilot scenarios.
+   and quality limits, plus resource-use budgets and retention scenarios. Keep optional feature ideas separate from mandatory pilot scenarios.
 2. Run a bounded workstation pilot. Track this work in [issue #2](https://github.com/KyleDerZweite/dipper/issues/2). Start with roughly 20 representative German
    clips with English keywords, short prompts, longer speech, numbers, pauses,
    and spoken corrections. Keep additional unseen clips for validation.
@@ -24,7 +24,8 @@ Kyle selected the core dictation workflow, complete journal, and explicit correc
 
 Measure recording readiness, end-of-speech to insertion, correction time, and
 time to accepted text. Separate cold and warm runs and record CPU/GPU selection,
-RAM, and VRAM. Median and p95 require repeated runs and a stated sample size;
+RAM, VRAM, CPU/GPU use, idle overhead, and storage growth under the selected
+retention policies. Measure power use where available. Median and p95 require repeated runs and a stated sample size;
 20 different clips alone do not establish a reliable p95.
 
 WER and CER use literal reference transcripts. Processed output also needs
