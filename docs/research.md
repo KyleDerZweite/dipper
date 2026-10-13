@@ -72,5 +72,6 @@ accepting Rust core and Tauri desktop; mobile UI remains deferred.
 
 The [model-lifetime investigation](model-lifetime.md) separates existing
 startup-inclusive observations, native load time, model-buffer diagnostics,
-and unexecuted resident-worker comparisons. Its lifecycle recommendation remains
-a proposal pending owner acceptance.
+and unexecuted resident-worker comparisons. The owner accepted loading a worker
+on hold and exiting it after each job. Capture/load overlap and resource release
+still need app evidence.

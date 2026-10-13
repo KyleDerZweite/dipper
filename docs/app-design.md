@@ -51,8 +51,8 @@ An unclear insertion outcome must not trigger an automatic duplicate retry.
 
 Use a Rust core and Tauri 2 desktop shell. Keep core behavior behind interfaces
 that do not depend on Tauri or desktop controls. Mobile UI and the frontend
-framework remain deferred choices. Model lifetime, insertion verification, and
-the Journal implementation details still need decisions. SQLite with separate
+framework remain deferred choices. Insertion verification and detailed Journal
+contracts still need decisions. SQLite with separate
 lossless audio and interrupted-recording recovery are accepted in ADR-0003. Long-term update requirements include both
 desktop whole-app delivery without manual downloads and compatible mobile
 UI/JS updates without a new store release. Native-code changes and model-weight
@@ -76,17 +76,26 @@ Clipboard transfer and input-event delivery do not confirm that the target field
 accepted the text. Preserve an unverified outcome until actual target evidence
 is available, and do not automatically retry an unclear insertion.
 
-## Open model lifetime
+## Accepted model lifetime
 
-The owner does not want the model held in RAM/VRAM indefinitely. No model-lifetime
-policy is accepted yet. Investigate on-demand loading and prompt unloading versus
-a bounded idle grace period, using existing timing evidence before choosing a
-default. Do not infer resident-worker performance from one-shot CLI runs or
-resume prototype iterations to settle this decision. The app's actual lifecycle
-will need target measurements during implementation. The
-[model-lifetime investigation](model-lifetime.md) records existing load-time
-observations and the proposed on-demand worker policy without claiming new
-benchmark evidence.
+On 2026-10-13, the owner accepted a dedicated recognition worker per dictation.
+Begin model preparation when hold starts, while Capture records independently.
+Recognize complete capture audio after release and exit the worker after the job.
+Do not intentionally retain the model between dictations. A configurable bounded
+idle grace period remains a possible later optimization.
+
+The [model-lifetime investigation](model-lifetime.md) records existing load-time
+observations and runtime behavior. Capture/load overlap and resource release are
+accepted goals, not measured app behavior. Cancellation, busy behavior, worker
+failure, and stale-result suppression still need a reviewed contract. Do not
+resume prototype iterations to establish these app-specific checks.
+
+[Streaming recognition and cleanup](https://github.com/KyleDerZweite/dipper/issues/11)
+are deferred optimizations. They may reduce work remaining after release, but
+repeated inference can increase resource use.
+Interim text can change with later speech, including spoken self-corrections.
+Keep complete capture audio and final quality checks. Streaming insertion into
+the target application is not an accepted requirement.
 
 ## Proposed module responsibilities
 
@@ -146,9 +155,9 @@ Mobile UI remains deferred; no new hybrid dependency is selected.
 
 - Resolve frontend needs, packaging, and license for the accepted Rust/Tauri
   foundation. Existing runtimes can be reused without adopting prototype structure.
-- Define model lifetime, cancellation, and process strategy for the accepted
-  Whisper large-v3 live baseline. Qwen is not an active candidate. Other models
-  can be evaluated later without blocking app progress.
+- Finalize supervised-worker cancellation, busy behavior, and stale-result
+  suppression for the accepted on-demand Whisper large-v3 worker. Qwen is not an
+  active candidate. Other models can be evaluated later without blocking app progress.
 - Specify the first slice's durable completion checkpoints, crash-loss limit,
   recovery actions, and reduced-retention semantics. SQLite with separate lossless audio is accepted in ADR-0003. Never infer an
   atomic transaction across those artifacts.

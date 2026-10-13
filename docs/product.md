@@ -14,7 +14,9 @@ prototype iterations. Additional recordings can be collected incrementally;
 corpus completion is not an app-start gate. The [preparation plan](preparation.md)
 records the preserved evidence and separate final acceptance work. The subsequent foundation decision is an independent Dipper app, recorded in
 [ADR-0001](adr/0001-own-dipper-app.md). Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
-Mobile UI, model lifetime, and license remain separate decisions. Journal
+Mobile UI and license remain separate decisions. The accepted initial model
+policy loads a worker on hold and exits it after each job, as recorded in
+[app design](app-design.md#accepted-model-lifetime). Journal
 metadata and lossless audio storage are accepted in
 [ADR-0003](adr/0003-journal-storage.md).
 

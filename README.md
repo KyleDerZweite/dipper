@@ -28,9 +28,9 @@ beyond the initial desktop work.
 
 Status, 2026-10-13: app foundation and module design. The recorder/transcription
 experiment is accepted as a provisional baseline; recordings can accumulate
-alongside development. Dipper uses a Rust core and Tauri desktop shell. Mobile UI, license, model
-lifetime, detailed persistence, and recovery contracts remain open. There are no application setup,
-build, or run commands yet.
+alongside development. Dipper uses a Rust core and Tauri desktop shell. Mobile UI,
+license, worker cancellation, detailed persistence, and recovery contracts remain
+open. There are no application setup, build, or run commands yet.
 
 ## Documentation
 

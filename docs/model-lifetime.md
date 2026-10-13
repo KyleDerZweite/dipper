@@ -1,15 +1,13 @@
 # Whisper model lifetime
 
-Research date: 2026-10-13. Recommendation: evaluate one recognition worker per
-dictation, load Whisper large-v3 when hold begins, and exit after the job.
-This follows the owner's resource-first preference without requiring a model to
-remain resident between dictations. It is a proposal, not an accepted lifetime
-policy or a measured implementation.
+Research and owner acceptance date: 2026-10-13. Use one recognition worker per
+dictation, begin loading Whisper large-v3 when hold begins, and exit after the job.
+This is the accepted initial resource policy. The app has not implemented or
+measured capture/load overlap or post-exit resource use.
 
 Rust/Tauri desktop, Whisper large-v3 on the RX 7700S, SQLite with separate lossless
-audio, and initial clipboard paste are accepted directions. Model lifetime remains
-open. This research did not run models, change settings, or read recordings or
-transcripts. It inspected existing attempt settings/timings and whitelisted native
+audio, and initial clipboard paste are accepted directions. This research did
+not run models, change settings, or read recordings or transcripts. It inspected existing attempt settings/timings and whitelisted native
 diagnostic lines, plus the pinned runtime source.
 
 ## Existing observations
@@ -69,14 +67,14 @@ also requires completed GPU work and release of bound-resource references.
 
 | Policy | Between dictations | Tradeoff |
 | --- | --- | --- |
-| Load on hold, unload after every job | No intentionally resident recognition worker | Repeated initialization and transfers; proposed recording/load overlap |
+| Load on hold, unload after every job | No intentionally resident recognition worker | Repeated initialization and transfers; unverified recording/load overlap |
 | Bounded idle grace | Keep the model until an idle deadline | Reuse during bursts, temporary resource occupancy, additional deadline/cancellation behavior |
 | Always resident | Keep the model while Dipper runs | Avoid repeated loading, continuous model resource occupancy |
 
 Always resident conflicts with the owner's stated preference. A bounded grace
 period may later be configurable, but the evidence supports no fixed duration.
 
-## Proposed initial behavior and unexecuted checks
+## Accepted initial behavior and unexecuted checks
 
 Start model preparation in a separate worker when hold begins while Capture
 continues independently. Recognition receives complete capture audio after
@@ -86,7 +84,7 @@ Existing CLI measurements do not prove this preload overlap; a worker request
 interface would need a reviewed contract rather than reading an unfinished audio
 file.
 
-Owner acceptance and app evidence are still needed for cancellation during load
+Detailed contracts and app evidence are still needed for cancellation during load
 or inference, worker failure, rapid repeated holds, shutdown, and resource release.
 Verify that cancellation prevents insertion, capture remains complete during
 loading, and no worker survives its completed or canceled job. Later app checks
