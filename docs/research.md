@@ -69,3 +69,8 @@ The [React Native and Rust comparison](toolchain-research.md) owns the
 It reflects the accepted Whisper live baseline and Qwen exclusion while
 preserving the historical experiment. The subsequent [ADR-0002](adr/0002-rust-core-tauri-desktop.md) records the owner
 accepting Rust core and Tauri desktop; mobile UI remains deferred.
+
+The [model-lifetime investigation](model-lifetime.md) separates existing
+startup-inclusive observations, native load time, model-buffer diagnostics,
+and unexecuted resident-worker comparisons. Its lifecycle recommendation remains
+a proposal pending owner acceptance.

@@ -52,11 +52,41 @@ An unclear insertion outcome must not trigger an automatic duplicate retry.
 Use a Rust core and Tauri 2 desktop shell. Keep core behavior behind interfaces
 that do not depend on Tauri or desktop controls. Mobile UI and the frontend
 framework remain deferred choices. Model lifetime, insertion verification, and
-minimal persistence/recovery semantics still need decisions. Long-term update requirements include both
+the Journal implementation details still need decisions. SQLite with separate
+lossless audio and interrupted-recording recovery are accepted in ADR-0003. Long-term update requirements include both
 desktop whole-app delivery without manual downloads and compatible mobile
 UI/JS updates without a new store release. Native-code changes and model-weight
 updates require separate versioning and delivery; update implementation is not
 added to the first raw-chain slice by this requirement. The scope is accepted; the implementation contract is not Ready.
+
+## Accepted persistence and initial insertion
+
+Use SQLite for journal metadata and separate lossless audio files, as recorded
+in [ADR-0003](adr/0003-journal-storage.md). Write audio during capture and preserve
+available data on interruption. Recovery marks unfinished recordings as
+interrupted and performs no automatic insertion after restart. Detailed schema,
+audio codec, commit checkpoints, and numerical crash-loss bounds remain open.
+
+For the first slice, insertion may use Clipboard plus Paste while the intended
+T3 target remains valid. Leave the transcript in the clipboard after insertion;
+do not automatically restore its former content. If focus changes away from T3,
+do not automatically insert or overwrite the clipboard merely to make the
+transcript available. Keep it in the journal for explicit use instead.
+Clipboard transfer and input-event delivery do not confirm that the target field
+accepted the text. Preserve an unverified outcome until actual target evidence
+is available, and do not automatically retry an unclear insertion.
+
+## Open model lifetime
+
+The owner does not want the model held in RAM/VRAM indefinitely. No model-lifetime
+policy is accepted yet. Investigate on-demand loading and prompt unloading versus
+a bounded idle grace period, using existing timing evidence before choosing a
+default. Do not infer resident-worker performance from one-shot CLI runs or
+resume prototype iterations to settle this decision. The app's actual lifecycle
+will need target measurements during implementation. The
+[model-lifetime investigation](model-lifetime.md) records existing load-time
+observations and the proposed on-demand worker policy without claiming new
+benchmark evidence.
 
 ## Proposed module responsibilities
 
@@ -120,8 +150,8 @@ Mobile UI remains deferred; no new hybrid dependency is selected.
   Whisper large-v3 live baseline. Qwen is not an active candidate. Other models
   can be evaluated later without blocking app progress.
 - Specify the first slice's durable completion checkpoints, crash-loss limit,
-  recovery actions, and reduced-retention semantics. SQLite with separate audio
-  remains a candidate. Never infer an atomic transaction across those artifacts.
+  recovery actions, and reduced-retention semantics. SQLite with separate lossless audio is accepted in ADR-0003. Never infer an
+  atomic transaction across those artifacts.
 
 Record consequential accepted choices in `docs/adr/` when agreed. Keep unaccepted
 ideas here and in issue discussion. Do not create Ready implementation tickets
