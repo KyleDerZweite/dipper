@@ -1,8 +1,9 @@
 # Desktop pilot contract
 
 Status: partial contract. Kyle accepted the scope, recording modes, primary
-target, corpus sizes, and latency gate on 2026-10-13. Quality behavior,
-resource-use acceptance, and reduced-retention scenarios remain open in
+target, corpus sizes, latency gate, light cleanup, baseline-first resource
+evaluation, and reduced-retention comparison on 2026-10-13. Detailed quality
+examples, measurement procedure, and recovery acceptance remain open in
 [issue #1](https://github.com/KyleDerZweite/dipper/issues/1). This document does
 not authorize implementation or select a foundation.
 
@@ -21,6 +22,14 @@ explicit correction. Kyle's pilot requires comprehensive retention of capture
 audio, recognition attempts, processing results, insertion outcomes, corrections,
 and diagnostic logs. Other users must be able to retain less data. Product
 defaults and detailed retention controls remain undecided.
+
+Light cleanup adds punctuation and removes unambiguous filler words, while
+preserving the intended meaning as far as possible. Strong rewriting is outside
+the pilot. Assess changes to technical terms, names, numbers, and negations
+explicitly rather than treating fluent output as proof of correctness.
+
+A personal vocabulary list for expanding spoken abbreviations into configured
+text is a desired later feature. It is not required for pilot acceptance.
 
 Reference products supply optional feature ideas. Feature parity and mobile
 implementation are outside this pilot. Mobile use remains a long-term ambition.
@@ -58,6 +67,19 @@ Repeat warm measurements and report cold starts separately. The gate applies to 
 cold and warm conditions and repetition counts before running acceptance. Report the sample size and individual
 failures; do not turn the small corpus into a claimed P95/P99 latency result.
 
+## Accepted retention comparison
+
+Compare comprehensive retention with a reduced-retention configuration that does
+not persist audio or detailed diagnostic logs, while retaining text and explicit
+corrections. This is a pilot comparison, not the product default.
+
+Private reference corpus audio remains available for repeatable evaluation
+outside the application's retained history. Its use does not prove that the
+application can replay audio omitted by its retention policy. Check that missing
+playback and replay data are represented honestly. Keep measurement summaries
+separate from detailed application diagnostic logs; report retained artifacts
+and storage growth for each configuration.
+
 ## Evidence to collect
 
 Record candidate versions, model configuration, CPU/GPU selection, recording
@@ -67,7 +89,8 @@ Record raw recognition and processed output separately.
 
 Measure CPU/GPU use, RAM/VRAM, idle overhead, and storage growth. Measure power
 use where available and identify missing measurements. Compare resource costs
-with observed latency and quality; no hard resource budget has been accepted.
+with observed latency and quality. First establish measured baselines, then
+derive resource budgets. No hard resource budget has been accepted.
 
 Check cancellation, retries, focus changes, recovery, export, and explicit
 correction using retained data. Record failures and unavailable evidence. A
@@ -75,10 +98,9 @@ substitute text field does not establish insertion in the actual T3 application.
 
 ## Open acceptance decisions
 
-- Allowed text processing and concrete quality acceptance examples.
-- Whether the first comparison establishes resource baselines before hard
-  budgets are chosen.
-- Reduced-retention behavior to exercise alongside comprehensive retention.
+- Concrete quality acceptance examples for light cleanup and correction.
+- Detailed retained text artifacts and collection behavior in reduced retention;
+  product defaults remain undecided.
 - Cold/warm definitions and repetition counts.
 - Recording-readiness and correction acceptance limits, crash-loss and
   storage-full behavior, and the private corpus location.

@@ -24,6 +24,15 @@ retained or has been deleted. Missing history must not appear to be a complete
 record. A retention policy change does not resolve what happens to existing
 data; that behavior must be specified explicitly.
 
+## Pilot comparison
+
+The pilot compares comprehensive retention with a reduced-retention configuration
+that does not persist audio or detailed diagnostic logs, but retains text and
+explicit corrections. This comparison does not choose a product default. The
+exact text artifacts to retain and transient collection behavior still need a
+contract. Privately stored evaluation recordings remain separate from the
+application's retained history.
+
 ## Comprehensive history
 
 Create a durable recording identity at capture start. Preserve complete capture

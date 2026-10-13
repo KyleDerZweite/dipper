@@ -75,3 +75,7 @@ _Avoid_: Complete journal as an assumption for every user.
 **Comprehensive retention**:
 A retention policy that keeps the full available dictation history and diagnostic logs, including cancellations and failures, without automatic expiry.
 _Avoid_: Default retention when no default has been chosen.
+
+**Text replacement**:
+A user-defined mapping from a spoken abbreviation or phrase to the text that should replace it.
+_Avoid_: Recognition vocabulary when referring to an expansion rather than guidance on recognizing a term.

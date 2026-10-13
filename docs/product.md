@@ -32,6 +32,9 @@ separately from normal dictation so experiments do not delay the daily workflow.
 - Quality: preserve meaning, technical vocabulary, names, numbers, and negations,
   and measure the effort needed to reach accepted text.
 
+The first resource comparison establishes baselines; budgets follow measured
+results. The pilot uses light cleanup rather than strong rewriting.
+
 Data retention is configurable. Kyle wants comprehensive history for analysis
 and model comparison; other users may choose less retention. Retention defaults,
 limits, and deletion behavior remain open. Optional features must support these
@@ -53,6 +56,9 @@ decision. Candidate areas include:
 - Raw transcription and processed output with punctuation, paragraphs, lists,
   filler-word handling, and spoken self-corrections.
 - Personal vocabulary, reviewed spelling corrections, replacements, and snippets.
+  Kyle wants configurable expansion of spoken abbreviations into replacement
+  text as a later feature, not a pilot acceptance requirement. Track it in
+  [issue #8](https://github.com/KyleDerZweite/dipper/issues/8).
 - Modes for raw text, messages, email, and technical prompts, with appropriate
   model, language, and processing settings.
 - Context-aware output and editing selected text through a shortcut or spoken
