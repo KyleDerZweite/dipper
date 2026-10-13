@@ -32,6 +32,11 @@ Dipper runs as a background/tray app. UI polishing is deferred. The first slice
 still needs clear recording, processing, cancellation, and error feedback;
 no polished overlay design has been selected.
 
+The owner wants desktop interaction to feel as native as possible. Use that
+goal to evaluate KDE integration, shortcut configuration, status feedback,
+theme behavior, and focus handling. It does not replace the accepted Rust/Tauri
+foundation or select a new UI toolkit.
+
 By default, Dipper uses the system's default input device. It must list available
 input devices and allow an explicit choice. Resolve the system default at each recording start and keep that input fixed
 for the recording. A changed default applies to the next recording. If the
@@ -75,6 +80,20 @@ transcript available. Keep it in the journal for explicit use instead.
 Clipboard transfer and input-event delivery do not confirm that the target field
 accepted the text. Preserve an unverified outcome until actual target evidence
 is available, and do not automatically retry an unclear insertion.
+
+## Accepted busy and cancellation behavior
+
+On 2026-10-13, the owner endorsed rejecting a new hold while the current
+dictation is busy, with visible feedback rather than a recording queue.
+Cancellation stops the current operation, preserves available capture audio,
+and prevents late recognition results from triggering insertion. Recovery
+keeps interrupted data available and performs no automatic insertion.
+
+The implementation contract must define when the operation becomes idle,
+how the worker is terminated and reaped, and how insertion authorization is
+invalidated. Cancellation cannot retract text already delivered to another
+application. The boundary between cancellation and dispatch needs an explicit
+outcome rather than a promise of undo.
 
 ## Accepted model lifetime
 
@@ -150,6 +169,47 @@ The [React Native and Rust comparison](toolchain-research.md) records primary
 sources, update mechanisms, platform constraints, and performance evidence gaps.
 The owner accepted its Rust-core/Tauri-desktop recommendation in ADR-0002.
 Mobile UI remains deferred; no new hybrid dependency is selected.
+
+## First-slice integration research
+
+Three primary-source investigations dated 2026-10-13 refine the open contracts.
+Their recommendations are not accepted implementation choices or runtime evidence.
+
+- [Native KDE integration](native-desktop-research.md) recommends an ashpd
+  GlobalShortcuts adapter, tray menus, setup-time permission handling, and
+  actual T3 accessibility checks. KDE forwards press and release, but chord
+  release order and shortcut inhibition need tests. Tauri uses WebKitGTK,
+  so native desktop interaction does not imply Qt widgets.
+- [Worker lifecycle](worker-lifecycle-research.md) recommends a direct one-job
+  library worker, bounded events and requests, explicit termination/reaping,
+  and Dictation-owned insertion authorization. The pinned CLI can preload via
+  stdin, but does not provide structured readiness. Process separation does
+  not guarantee capture is unaffected by resource contention.
+- [Journal recovery](journal-recovery-research.md) recommends a bounded audio
+  queue, sequential WAV writer, and SQLite WAL with FULL synchronization for
+  acknowledged metadata transitions. Audio synchronization precedes completion
+  acknowledgment. The selected input must prevent backend fallback or movement;
+  a symbolic default route is insufficient.
+
+The integrated proposal commits a recording identity and recognition-attempt
+identity before worker preparation starts. Preparation overlaps capture;
+inference still waits for complete finalized audio. The worker writes no
+independent journal. Dictation becomes idle only after capture finalization,
+worker cleanup, and settlement of any insertion dispatch.
+
+The examined APIs do not make T3 field validation, clipboard mutation, and
+Paste one atomic operation. AT-SPI and KWin can provide different levels of
+target evidence; their support in the actual T3 build remains unverified.
+The accepted focus-change guard stays in force. Decide how to enforce it, or
+explicitly review any proposed change to its guarantee, before marking the
+automatic insertion contract Ready. A cooperative T3 endpoint is an unaccepted
+alternative mechanism, not an assumed existing capability.
+
+Remaining design work includes target identity and focus-loss invalidation,
+permission/session lifetime, lost-release handling, protocol limits and
+supervision deadlines, audio synchronization cadence and crash-loss acceptance.
+Runtime checks belong to the production slice; none of these reports executed
+new microphone/model runs, permission setup, insertion, or fault tests.
 
 ## Consequential choices to resolve
 

@@ -75,3 +75,12 @@ startup-inclusive observations, native load time, model-buffer diagnostics,
 and unexecuted resident-worker comparisons. The owner accepted loading a worker
 on hold and exiting it after each job. Capture/load overlap and resource release
 still need app evidence.
+
+The first-slice investigations cover [native KDE interaction and insertion
+limits](native-desktop-research.md), [supervised recognition
+workers](worker-lifecycle-research.md), and [capture durability and Journal
+recovery](journal-recovery-research.md). They use primary sources and distinguish
+recommendations from accepted decisions. The [app design](app-design.md)
+reconciles their interfaces. Native HOLD, actual T3 target validation, device
+pinning, cancellation, durability, and resource behavior remain unverified in
+the app.
