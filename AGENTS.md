@@ -1,6 +1,8 @@
 # Dipper agent instructions
 
-Read `README.md` for the intended product, current decisions, and open preparation work. Proposals in the README do not establish accepted implementation scope.
+Read `README.md` for the project overview and documentation map. Read the linked product, journal, research, or preparation document relevant to the task. Proposals in the README do not establish accepted implementation scope.
+
+Write repository documentation, issues, pull request titles, bodies, and comments in English. Conversations with Kyle may mix German and English.
 
 ## Agent skills
 
