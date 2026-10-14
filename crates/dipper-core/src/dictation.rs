@@ -128,6 +128,7 @@ impl Dictation {
             "Dipper is shutting down."
         );
         let mut active = self.active.lock().unwrap();
+        ensure!(self.accepting.load(Ordering::SeqCst), "Dipper is shutting down.");
         // Repeated activation of the admitted Hold cannot create another recording.
         if active.is_some() {
             let mut state = self.snapshot();
@@ -179,7 +180,7 @@ impl Dictation {
             let worker = worker_slot.lock().unwrap().take();
             if let Some(worker) = worker {
                 worker.cancel();
-                let outcome = worker.wait().await;
+                let outcome = this.await_worker(generation, &worker, &CancellationToken::new()).await;
                 if result.is_err() {
                     let _ = this.record_attempt(outcome.identity.attempt_id, &outcome);
                 }
@@ -367,7 +368,7 @@ impl Dictation {
                 target_task.abort();
                 if let Some(worker) = &worker {
                     worker.cancel();
-                    let outcome = worker.wait().await;
+                    let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
                 return Err(match other {
@@ -425,7 +426,7 @@ impl Dictation {
             Err(error) => {
                 if let Some(worker) = &worker {
                     worker.cancel();
-                    let outcome = worker.wait().await;
+                    let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
                 target_task.abort();
@@ -450,7 +451,7 @@ impl Dictation {
             || !capture_result.persisted
         {
             worker.cancel();
-            let outcome = worker.wait().await;
+            let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
             self.record_attempt(attempt_id, &outcome)?;
             target_task.abort();
             return Ok(format!(
@@ -579,6 +580,7 @@ impl Dictation {
         canceled: &CancellationToken,
     ) -> crate::recognition::RecognitionOutcome {
         let mut state = worker.subscribe();
+        let mut cancellation_seen = false;
         loop {
             let snapshot = state.borrow().clone();
             if let Some(outcome) = snapshot.outcome {
@@ -605,7 +607,7 @@ impl Dictation {
                 snapshot.cleanup_warning.is_some(),
             );
             tokio::select! {
-                _ = canceled.cancelled() => { worker.cancel(); return worker.wait().await; }
+                _ = canceled.cancelled(), if !cancellation_seen => { cancellation_seen = true; worker.cancel(); }
                 changed = state.changed() => { if changed.is_err() { return worker.wait().await; } }
             }
         }

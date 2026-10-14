@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::{
-    Arc,
+    Arc, Weak,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -25,11 +25,25 @@ impl TargetPermit {
             valid: Arc::new(AtomicBool::new(true)),
         }
     }
+    pub fn downgrade(&self) -> WeakTargetPermit {
+        WeakTargetPermit { identity: self.identity.clone(), valid: Arc::downgrade(&self.valid) }
+    }
     pub fn revoke(&self) {
         self.valid.store(false, Ordering::SeqCst);
     }
     pub fn is_valid(&self) -> bool {
         self.valid.load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WeakTargetPermit {
+    identity: TargetIdentity,
+    valid: Weak<AtomicBool>,
+}
+impl WeakTargetPermit {
+    pub fn upgrade(&self) -> Option<TargetPermit> {
+        self.valid.upgrade().map(|valid| TargetPermit { identity: self.identity.clone(), valid })
     }
 }
 

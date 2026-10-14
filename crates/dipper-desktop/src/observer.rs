@@ -1,6 +1,6 @@
 use crate::DesktopEvent;
 use anyhow::{Context, Result, ensure};
-use dipper_core::target::{TargetIdentity, TargetPermit};
+use dipper_core::target::{TargetIdentity, TargetPermit, WeakTargetPermit};
 use futures_util::StreamExt;
 use serde::Deserialize;
 use std::{
@@ -22,24 +22,23 @@ const INTERFACE: &str = "org.dipper.Observer";
 pub(crate) struct State {
     pub healthy: bool,
     current: Option<TargetIdentity>,
-    permits: Vec<TargetPermit>,
+    permits: Vec<WeakTargetPermit>,
     sequence: u64,
     pending: HashMap<u64, oneshot::Sender<Option<TargetIdentity>>>,
 }
 
 impl State {
     fn observe(&mut self, current: Option<TargetIdentity>) {
-        for permit in &self.permits {
-            if current.as_ref() != Some(&permit.identity) {
-                permit.revoke();
-            }
-        }
+        self.permits.retain(|weak| {
+            if let Some(permit) = weak.upgrade() {
+                if current.as_ref() != Some(&permit.identity) { permit.revoke(); }
+                permit.is_valid()
+            } else { false }
+        });
         self.current = current;
     }
     pub(crate) fn revoke(&mut self) {
-        for permit in &self.permits {
-            permit.revoke();
-        }
+        for weak in &self.permits { if let Some(permit) = weak.upgrade() { permit.revoke(); } }
     }
 }
 
@@ -295,8 +294,8 @@ impl Observer {
             state.healthy && state.current.as_ref() == Some(&permit.identity),
             "Target changed before admission"
         );
-        state.permits.retain(TargetPermit::is_valid);
-        state.permits.push(permit);
+        state.permits.retain(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
+        state.permits.push(permit.downgrade());
         Ok(())
     }
     pub fn revoke_all(&self) {
@@ -463,7 +462,7 @@ mod tests {
         let mut state = State {
             healthy: true,
             current: Some(original.clone()),
-            permits: vec![permit.clone()],
+            permits: vec![permit.downgrade()],
             ..State::default()
         };
         state.observe(Some(target("other")));
@@ -474,7 +473,7 @@ mod tests {
     fn disappearance_and_session_loss_revoke() {
         let permit = TargetPermit::new(target("original"));
         let mut state = State {
-            permits: vec![permit.clone()],
+            permits: vec![permit.downgrade()],
             ..State::default()
         };
         state.observe(None);

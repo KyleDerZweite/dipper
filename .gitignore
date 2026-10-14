@@ -5,3 +5,4 @@
 *.rf64
 *.sqlite*
 *.log
+/apps/desktop/gen/

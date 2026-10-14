@@ -87,3 +87,8 @@ latency need their own current-revision integration evidence. See the
 [first-slice contract](app-design.md#first-slice-implementation-contract).
 Cleanup, spoken self-corrections, explicit Corrections, reduced retention,
 Replay/export, mobile, OTA, and full-pilot acceptance remain follow-up work.
+
+GitHub CI checks the workspace with system PipeWire headers and an explicitly
+unavailable native Whisper backend, so protocol and resampling fixtures need no
+model download. It does not establish native Whisper ABI or GPU acceptance;
+those require the local pinned-runtime build and integration evidence.
