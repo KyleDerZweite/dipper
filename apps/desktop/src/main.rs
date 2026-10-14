@@ -362,6 +362,7 @@ fn toggle_quick(app: &tauri::AppHandle, x: f64, y: f64) {
             .skip_taskbar(true)
             .visible(false)
             .focused(false)
+            .focusable(false)
             .build()
             {
                 Ok(window) => window,
