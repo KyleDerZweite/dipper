@@ -128,7 +128,10 @@ impl Dictation {
             "Dipper is shutting down."
         );
         let mut active = self.active.lock().unwrap();
-        ensure!(self.accepting.load(Ordering::SeqCst), "Dipper is shutting down.");
+        ensure!(
+            self.accepting.load(Ordering::SeqCst),
+            "Dipper is shutting down."
+        );
         // Repeated activation of the admitted Hold cannot create another recording.
         if active.is_some() {
             let mut state = self.snapshot();
@@ -180,7 +183,9 @@ impl Dictation {
             let worker = worker_slot.lock().unwrap().take();
             if let Some(worker) = worker {
                 worker.cancel();
-                let outcome = this.await_worker(generation, &worker, &CancellationToken::new()).await;
+                let outcome = this
+                    .await_worker(generation, &worker, &CancellationToken::new())
+                    .await;
                 if result.is_err() {
                     let _ = this.record_attempt(outcome.identity.attempt_id, &outcome);
                 }
@@ -368,7 +373,9 @@ impl Dictation {
                 target_task.abort();
                 if let Some(worker) = &worker {
                     worker.cancel();
-                    let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
+                    let outcome = self
+                        .await_worker(generation, &worker, &CancellationToken::new())
+                        .await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
                 return Err(match other {
@@ -397,8 +404,15 @@ impl Dictation {
                 _ = timer.tick() => {
                     let progress = capture.progress();
                     if let Some(error) = progress.error { break CaptureStop::Failed(error); }
-                    if progress.ready && !self.snapshot().recording {
-                        self.publish(generation, "Recording", "Release the Hold key to finish recording. Use no other keys.", true, true, false);
+                    if progress.ready {
+                        let failure = worker.as_ref().and_then(|worker| worker.subscribe().borrow().outcome.clone())
+                            .and_then(|outcome| outcome.error).or_else(|| worker_start_error.clone());
+                        let current = self.snapshot();
+                        if !current.recording || current.error != failure.is_some() {
+                            let detail = failure.as_ref().map(|error| format!("Recording continues; recognition failed: {error}. Release to retain audio."))
+                                .unwrap_or_else(|| "Release the Hold key to finish recording. Use no other keys.".into());
+                            self.publish(generation, "Recording", &detail, true, true, failure.is_some());
+                        }
                     }
                 }
             }
@@ -426,7 +440,9 @@ impl Dictation {
             Err(error) => {
                 if let Some(worker) = &worker {
                     worker.cancel();
-                    let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
+                    let outcome = self
+                        .await_worker(generation, &worker, &CancellationToken::new())
+                        .await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
                 target_task.abort();
@@ -451,7 +467,9 @@ impl Dictation {
             || !capture_result.persisted
         {
             worker.cancel();
-            let outcome = self.await_worker(generation, worker, &CancellationToken::new()).await;
+            let outcome = self
+                .await_worker(generation, &worker, &CancellationToken::new())
+                .await;
             self.record_attempt(attempt_id, &outcome)?;
             target_task.abort();
             return Ok(format!(

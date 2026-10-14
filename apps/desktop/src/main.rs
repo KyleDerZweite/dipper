@@ -88,11 +88,11 @@ async fn configure_hold(state: State<'_, AppState>, preferred: String) -> Result
         .map_err(|e| format!("{e:#}"))
 }
 #[tauri::command]
-async fn effective_binding(state: State<'_, AppState>) -> Option<String> {
-    match &state.desktop {
+async fn effective_binding(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    Ok(match &state.desktop {
         Some(desktop) => desktop.effective_binding().await,
         None => None,
-    }
+    })
 }
 #[tauri::command]
 async fn open_shortcut_settings(state: State<'_, AppState>) -> Result<(), String> {

@@ -31,14 +31,22 @@ impl State {
     fn observe(&mut self, current: Option<TargetIdentity>) {
         self.permits.retain(|weak| {
             if let Some(permit) = weak.upgrade() {
-                if current.as_ref() != Some(&permit.identity) { permit.revoke(); }
+                if current.as_ref() != Some(&permit.identity) {
+                    permit.revoke();
+                }
                 permit.is_valid()
-            } else { false }
+            } else {
+                false
+            }
         });
         self.current = current;
     }
     pub(crate) fn revoke(&mut self) {
-        for weak in &self.permits { if let Some(permit) = weak.upgrade() { permit.revoke(); } }
+        for weak in &self.permits {
+            if let Some(permit) = weak.upgrade() {
+                permit.revoke();
+            }
+        }
     }
 }
 
@@ -238,7 +246,7 @@ impl Observer {
                     _ = task_stop.cancelled() => break,
                     _ = health_tick.tick() => {
                         // Only armed dictations incur a small script-health check.
-                        let armed = task_state.lock().unwrap().permits.iter().any(TargetPermit::is_valid);
+                        let armed = task_state.lock().unwrap().permits.iter().any(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
                         if armed && observer_loaded(&health_connection).await.is_err() {
                             lost(&task_state, &events, "KWin observer script is unavailable");
                             break;
@@ -294,7 +302,9 @@ impl Observer {
             state.healthy && state.current.as_ref() == Some(&permit.identity),
             "Target changed before admission"
         );
-        state.permits.retain(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
+        state
+            .permits
+            .retain(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
         state.permits.push(permit.downgrade());
         Ok(())
     }

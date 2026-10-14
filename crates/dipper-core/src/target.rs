@@ -26,7 +26,10 @@ impl TargetPermit {
         }
     }
     pub fn downgrade(&self) -> WeakTargetPermit {
-        WeakTargetPermit { identity: self.identity.clone(), valid: Arc::downgrade(&self.valid) }
+        WeakTargetPermit {
+            identity: self.identity.clone(),
+            valid: Arc::downgrade(&self.valid),
+        }
     }
     pub fn revoke(&self) {
         self.valid.store(false, Ordering::SeqCst);
@@ -43,7 +46,10 @@ pub struct WeakTargetPermit {
 }
 impl WeakTargetPermit {
     pub fn upgrade(&self) -> Option<TargetPermit> {
-        self.valid.upgrade().map(|valid| TargetPermit { identity: self.identity.clone(), valid })
+        self.valid.upgrade().map(|valid| TargetPermit {
+            identity: self.identity.clone(),
+            valid,
+        })
     }
 }
 
