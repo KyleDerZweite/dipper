@@ -61,3 +61,26 @@ The following background links use Kyle's local checkout layout and are not avai
 - [Original project brief](../../../Projects/fleet/ideas/personal-dictation.md)
 - [Technical research and pilot scenarios](../../../Projects/fleet/docs/evaluations/voice-project.md)
 - [Target workstation record](../../../Projects/fleet/devices/kyle-ff/README.md)
+
+## Current toolchain investigation
+
+The [React Native and Rust comparison](toolchain-research.md) owns the
+2026-10-13 desktop/mobile, OTA, resource-use, and codebase-maintenance findings.
+It reflects the accepted Whisper live baseline and Qwen exclusion while
+preserving the historical experiment. The subsequent [ADR-0002](adr/0002-rust-core-tauri-desktop.md) records the owner
+accepting Rust core and Tauri desktop; mobile UI remains deferred.
+
+The [model-lifetime investigation](model-lifetime.md) separates existing
+startup-inclusive observations, native load time, model-buffer diagnostics,
+and unexecuted resident-worker comparisons. The owner accepted loading a worker
+on hold and exiting it after each job. Capture/load overlap and resource release
+still need app evidence.
+
+The first-slice investigations cover [native KDE interaction and insertion
+limits](native-desktop-research.md), [supervised recognition
+workers](worker-lifecycle-research.md), and [capture durability and Journal
+recovery](journal-recovery-research.md). They use primary sources and distinguish
+recommendations from accepted decisions. The [app design](app-design.md)
+reconciles their interfaces. Native HOLD, actual T3 target validation, device
+pinning, cancellation, durability, and resource behavior remain unverified in
+the app.

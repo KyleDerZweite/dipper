@@ -64,11 +64,20 @@ Use measured storage growth to inform limits and policy choices in issue #4.
 
 ## Storage and export
 
-SQLite with separate lossless audio files remains a candidate. Their writes do
+SQLite with separate lossless audio files is accepted in
+[ADR-0003](adr/0003-journal-storage.md). Their writes do
 not share one atomic transaction, so recovery and consistent export need a
-concrete design. Store private recordings, journals, logs, and credentials
+concrete implementation contract. Unfinished recordings are marked interrupted,
+available data is preserved, and restart performs no automatic insertion. Store private recordings, journals, logs, and credentials
 outside the Git checkout. Credentials remain in protected stores and must not
 be copied into diagnostic logs.
+
+On 2026-10-14, Kyle accepted confirming capture completion only after successful
+audio synchronization and the corresponding metadata commit. A hard system
+crash may lose the unsynchronized tail. Preserve available audio and expose the
+last successful synchronization point; measure observed loss before setting a
+numerical maximum. This does not claim atomic persistence across audio and
+SQLite or complete recovery of every byte accepted by Capture.
 
 Export preserves the retained audio, identities, attempts, settings, and
 corrections independently of the application UI. Measure the storage and

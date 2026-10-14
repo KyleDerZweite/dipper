@@ -9,8 +9,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/status-planning-64748b?style=flat-square" alt="Status: planning">
   <img src="https://img.shields.io/badge/target-Fedora_KDE-2563eb?style=flat-square" alt="Target: Fedora KDE">
-  <img src="https://img.shields.io/badge/language-TBD-64748b?style=flat-square" alt="Implementation language: to be decided">
-  <img src="https://img.shields.io/badge/stack-TBD-64748b?style=flat-square" alt="Stack: to be decided">
+  <img src="https://img.shields.io/badge/language-Rust-64748b?style=flat-square" alt="Core language: Rust">
+  <img src="https://img.shields.io/badge/stack-Tauri_2-64748b?style=flat-square" alt="Desktop shell: Tauri 2">
 </p>
 
 Dipper aims to turn speech into accurate text with low resource use and fast
@@ -28,9 +28,9 @@ beyond the initial desktop work.
 
 Status, 2026-10-13: app foundation and module design. The recorder/transcription
 experiment is accepted as a provisional baseline; recordings can accumulate
-alongside development. Dipper will be an independent app. The language, UI stack, license, and
-remaining quality, resource, and recovery acceptance details remain open. There are no application setup,
-build, or run commands yet.
+alongside development. Dipper uses a Rust core and Tauri desktop shell. Mobile UI,
+license, worker cancellation, detailed persistence, and recovery contracts remain
+open. There are no application setup, build, or run commands yet.
 
 ## Documentation
 
@@ -38,6 +38,7 @@ build, or run commands yet.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
+- [Native desktop research](docs/native-desktop-research.md): KDE interaction, target validation, and insertion limits. Related reports cover [worker supervision](docs/worker-lifecycle-research.md) and [Journal recovery](docs/journal-recovery-research.md).
 - [Pilot procedure](docs/pilot-procedure.md): recording slots, measurement steps, and quality examples.
 - [Desktop pilot contract](docs/pilot.md): accepted scenarios, corpus, latency gate, and open acceptance decisions.
 - [Development preparation](docs/preparation.md): pilot sequence and acceptance evidence.

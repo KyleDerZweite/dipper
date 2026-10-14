@@ -13,12 +13,31 @@ provisional baseline on 2026-10-13. Proceed toward the real app and stop further
 prototype iterations. Additional recordings can be collected incrementally;
 corpus completion is not an app-start gate. The [preparation plan](preparation.md)
 records the preserved evidence and separate final acceptance work. The subsequent foundation decision is an independent Dipper app, recorded in
-[ADR-0001](adr/0001-own-dipper-app.md). Production language, UI stack, storage,
-and model configuration remain TBD.
+[ADR-0001](adr/0001-own-dipper-app.md). Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
+Mobile UI and license remain separate decisions. The accepted initial model
+policy loads a worker on hold and exits it after each job, as recorded in
+[app design](app-design.md#accepted-model-lifetime). Journal
+metadata and lossless audio storage are accepted in
+[ADR-0003](adr/0003-journal-storage.md).
 
 ## Platform direction
 
 Desktop is the initial focus, starting with Fedora KDE on Wayland. Phone and other mobile use are a long-term ambition, well beyond the initial desktop work. Mobile platforms and delivery plans remain undecided.
+
+## First app delivery
+
+The first usable slice runs in the background/tray and delivers the raw
+hold-to-record, capture, recognition, and T3 insertion chain. UI polishing is
+deferred. Use the system default input by default and list devices for explicit
+selection. Resolve the input at recording start and keep it fixed; device loss fails the
+recording while preserving available audio. A focus change away from T3 prevents
+automatic insertion and leaves the transcript available for explicit use.
+
+Whisper large-v3 is the first live baseline. Qwen is excluded from active
+candidates; historical experiment evidence remains preserved. The accepted Rust/Tauri desktop direction follows the sourced toolchain
+research. Mobile UI is deferred, and both long-term update goals remain in scope. Detailed behavior and unresolved choices belong to the
+[app design record](app-design.md). Cleanup remains part of the overall pilot,
+not a requirement to add before the first raw-chain slice.
 
 ## Intended workflow
 

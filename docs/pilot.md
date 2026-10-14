@@ -54,7 +54,8 @@ may accumulate incrementally; all 13 slots are not a prerequisite for app design
 or useful implementation slices. Final pilot quality and workflow acceptance
 remain separate from permission to start building. This baseline acceptance does not choose a model or toolchain. The subsequent
 independent-app decision is recorded in [ADR-0001](adr/0001-own-dipper-app.md);
-programming language and UI stack remain TBD.
+Rust/Tauri desktop is subsequently accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md),
+while mobile UI and remaining slice contracts are undecided.
 
 ## Accepted corpus
 

@@ -1,0 +1,427 @@
+# Native KDE Wayland integration for Dipper
+
+Research date: 2026-10-13. This report evaluates the accepted Rust core and Tauri 2 desktop shell on Fedora KDE Wayland. It is research, not an accepted implementation contract. [App design](app-design.md), [ADR-0002](adr/0002-rust-core-tauri-desktop.md), and [ADR-0003](adr/0003-journal-storage.md) own the current direction.
+
+The shortest credible path is a small Rust desktop adapter for portal shortcuts, a background tray, and explicit integration checks against the installed T3 build. KDE's source implements shortcut press and release signals. The examined public APIs do not atomically validate the intended field, change the clipboard, and deliver Paste. The owner subsequently accepted a conservative OS guard and its residual race for the pilot, as recorded below. That removes atomic target binding as a prerequisite; reviewed observer/dispatch interfaces and actual integration evidence still matter.
+
+Native desktop interaction and native widgets are separate goals. Tauri can use KDE-owned permission dialogs, system notifications, and a tray while its application content remains HTML in WebKitGTK. Replacing Tauri with Qt would change ADR-0002 and would not, by itself, solve the target validation or focus race.
+
+## Scope and evidence
+
+The accepted requirements are global HOLD, background/tray operation, and initial Clipboard plus Paste into a valid intended T3 target. Dipper must not pull focus back, overwrite the clipboard when the target is invalid, or automatically retry an unclear insertion. Retained transcripts support explicit later use. Raw-chain delivery still needs real app acceptance; polished UI is deferred.
+
+The worktree was clean at `a743e079caa86c2e8cb034c52409648675025a12`, branch `research/native-desktop`. Research used official specifications, library documentation, and upstream source. Source snapshots are linked by revision where behavior matters:
+
+| Component | Inspected revision or documentation |
+| --- | --- |
+| KDE portal backend | `bfc7ac333b9ecf06c2f928e0fbb1adf24b219f30` |
+| KWin | `db6e482628aacc4543bd6d6a78b455960cd90c5e` |
+| KGlobalAccel daemon | `5b7f39b88d33877aeecaf9e73e80cbf755c14f12` |
+| Plasma Wayland protocols | `1db07441870d54157e937674b99380a7dcc0fb32` |
+| Rust portal wrapper | `ashpd 0.13.4` |
+| Tauri clipboard plugin | `clipboard-manager-v2.4.2` |
+| Public T3 source | `a01c48f86245f2a779f9af84042f3b09fbdeb91f` |
+
+These upstream versions do not establish the versions installed on Kyle's Fedora machine. No application was installed or implemented, no shortcut or permission was registered, and no private application state, clipboard, audio, or model was read. Every runtime scenario below remains unexecuted.
+
+## Global HOLD and permission UX
+
+The [GlobalShortcuts specification](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html) defines sessions, binding, binding changes, and `Activated`/`Deactivated` events independently of application focus. Version 2 adds `ConfigureShortcuts`. Activation tokens authorize a possible window activation; Dipper must not use them to focus its UI during dictation. Timestamps have millisecond granularity and an undefined base, so they are not wall-clock journal timestamps.
+
+KDE supplies more than an abstract capability. Its [shortcut backend](https://github.com/KDE/xdg-desktop-portal-kde/blob/bfc7ac333b9ecf06c2f928e0fbb1adf24b219f30/src/globalshortcuts.cpp) maps KGlobalAccel's `globalShortcutPressed` and `globalShortcutReleased` to portal activation and deactivation. New bindings show a KDE configuration dialog with conflicts. Existing shortcut IDs reuse stored bindings. Rejected new shortcuts are recorded with empty key combinations to avoid prompting on every restart. Configuration opens the relevant System Settings shortcut page. Consequently, a successful request alone is insufficient evidence that HOLD has an assigned usable binding.
+
+Release behavior needs care. In the inspected [KGlobalAccel registry](https://github.com/KDE/kglobalacceld/blob/5b7f39b88d33877aeecaf9e73e80cbf755c14f12/src/globalshortcutsregistry.cpp), any subsequent key-release event releases `m_lastShortcut`; activating another shortcut also releases the previous one. Modifier-only shortcuts become active during modifier release. This is not an independent stream of raw physical key states. A modifier-only binding is therefore a poor HOLD candidate. Chords require tests for both release orders and unrelated keys.
+
+KWin's [input filter](https://github.com/KDE/kwin/blob/db6e482628aacc4543bd6d6a78b455960cd90c5e/src/input.cpp) forwards both presses and repeats to shortcut handling and checks shortcut inhibition on press and release. Dipper should suppress duplicate activation for one recording and handle session loss or missing release as a failure/cancellation condition. A timeout can bound a stuck recording, but cannot prove the physical release occurred. Choose that bound in the reviewed dictation contract.
+
+The stock Tauri plugin's underlying [`global-hotkey` library](https://github.com/tauri-apps/global-hotkey/blob/35b81e58ffb6b7c333851ee4b75121616ea0ab3b/README.md) documents Linux X11 only. Do not use XWayland shortcut support as acceptance evidence for a native Wayland HOLD. A portal adapter is the smaller appropriate change within the accepted foundation.
+
+[`ashpd 0.13.4`](https://docs.rs/ashpd/0.13.4/ashpd/desktop/global_shortcuts/struct.GlobalShortcuts.html) wraps session creation, binding/listing, configuration, and activation/deactivation streams. Its [feature metadata](https://docs.rs/crate/ashpd/0.13.4/features) allows selected portal features and a Tokio runtime without enabling the optional GTK4 integration. Tauri's Linux GTK integration does not require adding GTK4 to use these D-Bus APIs. Prefer ashpd for the standard portals; direct zbus proxies are reasonable for KDE-specific APIs or an unsupported portal method. Direct proxies also make Dipper responsible for request response races, signal subscriptions, session closure, and version handling that a wrapper already covers.
+
+Recommendation: establish stable Dipper desktop identity and shortcut IDs, show the effective binding, and offer an explicit configuration action. Prepare permission-dependent integrations in setup, before dictation. A dialog appearing while transcription finishes can invalidate the original target. Handle denial and revocation visibly without repeated automatic prompts. Portal parenting requires an exported Wayland handle; a pointer or numeric native window ID is insufficient. An empty parent is permitted if no suitable handle exists, according to [window identifiers](https://flatpak.github.io/xdg-desktop-portal/docs/window-identifiers.html).
+
+## What can identify the intended target
+
+Ordinary Wayland clients receive keyboard focus for their own surfaces. The [core protocol](https://wayland.freedesktop.org/docs/html/apa.html) defines keyboard enter/leave events and a data-device selection request tied to an input serial. It does not give an arbitrary background client an API to enumerate every other application's focused field. A global shortcut activation therefore does not identify T3 or its composer.
+
+There are three distinct candidates for further validation:
+
+| Candidate | Useful evidence | Limits and maintenance |
+| --- | --- | --- |
+| AT-SPI accessibility | Application/object identity, focus events, role, state, and editable-text interfaces | Depends on the actual T3 accessibility tree and state freshness; no atomic focus-conditioned clipboard transaction |
+| KWin scripting | `activeWindow`, window identity, process/desktop-file information, activation changes | KDE-specific installed script and IPC; cannot see T3's internal editable field |
+| Plasma window-management protocol or KWin D-Bus | Window UUID, app ID, process ID, active state or queried metadata | KDE-specific support and packaging constraints; still only window evidence |
+
+AT-SPI is the best first candidate for field-level evidence. Its [Accessible API](https://gnome.pages.gitlab.gnome.org/at-spi2-core/libatspi/class.Accessible.html) exposes application ancestry, process identity, interfaces, and object state. The [state definitions](https://gnome.pages.gitlab.gnome.org/at-spi2-core/libatspi/enum.StateType.html) distinguish focused, editable, enabled, sensitive, defunct, visible/showing, and read-only objects. A recommendation is to identify the intended T3 window and composer object at HOLD start, then require matching current identity, editable focus, and no observed invalidation before insertion. Ambiguous, missing, stale, or defunct evidence must fail closed. Exclude password and unrelated fields. Never call an accessibility focus-grab operation to repair a failed check.
+
+This is a proposed validation strategy, not proof that T3 exposes sufficient evidence. [T3's public README](https://github.com/pingdotgg/t3code/tree/a01c48f86245f2a779f9af84042f3b09fbdeb91f) identifies an Electron desktop app. Electron [documents accessibility-tree support](https://www.electronjs.org/docs/latest/tutorial/accessibility), but that does not prove this installed build's Linux composer identity. T3's [editor contract](https://github.com/pingdotgg/t3code/blob/a01c48f86245f2a779f9af84042f3b09fbdeb91f/docs/internals/composer-editors.md) uses Tiptap, remounts editors on mode changes, and applies Markdown serialization and paste transformations. A generic editable role or window title cannot distinguish its prompt from search, a terminal, another composer, or a modal. Object remounting also makes cached field references unsafe. Test the actual build using synthetic content and record whether accessibility is available without changing system settings.
+
+The [KWin scripting API](https://develop.kde.org/docs/plasma/kwin/api/) exposes `workspace.activeWindow`, `windowActivated`, and window metadata such as `internalId`, `pid`, and `desktopFileName`. A read-only observer script could publish target window changes over an authenticated local channel. Its packaging, installation, restart behavior, version support, and removal become Dipper responsibilities. This may complement AT-SPI when window identity is insufficient there. It still cannot determine which DOM editor accepts Paste.
+
+KWin's [D-Bus implementation](https://github.com/KDE/kwin/blob/db6e482628aacc4543bd6d6a78b455960cd90c5e/src/dbusinterface.cpp) makes `queryWindowInfo()` interactive through window selection; it is unsuitable for silent per-dictation focus checks. `getWindowInfo(uuid)` queries a known window and returns its metadata, not the active input field. Treat KDE implementation APIs as a tested desktop adapter, not a portable core dependency. Avoid using private fake-input APIs as a substitute for the portal permission flow.
+
+The [Plasma protocol](https://github.com/KDE/plasma-wayland-protocols/blob/1db07441870d54157e937674b99380a7dcc0fb32/src/protocols/plasma-window-management.xml) advertises window IDs, active state, app IDs, and PIDs. Its prose says only one client can bind. The inspected [KWin implementation](https://github.com/KDE/kwin/blob/db6e482628aacc4543bd6d6a78b455960cd90c5e/src/wayland/plasmawindowmanagement.cpp) uses resource maps and sends existing windows on bind. Do not resolve this source/spec discrepancy by assuming compatibility. The [KWin global filter](https://github.com/KDE/kwin/blob/db6e482628aacc4543bd6d6a78b455960cd90c5e/src/wayland_server.cpp) denies the window-management and data-control interfaces to sandboxed clients. Native unsandboxed packaging may permit them, but this needs installed-version evidence and does not validate a field.
+
+## Clipboard, Paste, and honest insertion outcomes
+
+The [RemoteDesktop portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.RemoteDesktop.html) can request keyboard control without requesting pointer, touchscreen, or ScreenCast. `Start` may show a permission dialog. Version 2 supports restore tokens and persistence; restoration can fail and prompt again. `ConnectToEIS` is the recommended input transport. Once EIS is connected, the same session must not use the D-Bus `Notify*` input methods.
+
+[`ashpd::RemoteDesktop`](https://docs.rs/ashpd/0.13.4/ashpd/desktop/remote_desktop/struct.RemoteDesktop.html) exposes both EIS connection and D-Bus keyboard methods. EIS additionally needs a sender implementation, device negotiation, event dispatch, and balanced key state. [libei's documentation](https://libinput.pages.freedesktop.org/libei/api/index.html) makes the compositor responsible for processing emulated input. An accepted keyboard event is therefore transport evidence, not proof that T3 consumed a paste. D-Bus `NotifyKeyboardKeysym` is a smaller initial transport candidate where supported; EIS is a separate alternative, not an extra simultaneous fallback. Verify modifier handling against the current layout and physically held keys.
+
+KDE's [RemoteDesktop implementation](https://github.com/KDE/xdg-desktop-portal-kde/blob/bfc7ac333b9ecf06c2f928e0fbb1adf24b219f30/src/remotedesktop.cpp) supports restoration, forwards EIS connections to KWin, and owns a Remote Control status indicator. Restored sessions can emit a Remote Control Started notification. Its KDE-specific broad authorization mechanism is not a recommended Dipper setup step. Use the normal permission flow. A long-lived keyboard session avoids a permission dialog per dictation but leaves desktop control authorized while Dipper runs. The owner must choose session lifetime and restoration behavior.
+
+The [Clipboard portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Clipboard.html) extends an authorized session rather than supplying an unrestricted clipboard API. For a RemoteDesktop session, request clipboard access before `Start` and inspect `clipboard_enabled`. `SetSelection` publishes MIME types; transfer requests require writing data through the supplied file descriptor and reporting completion. Do not advertise a pasteable selection before its data supplier is ready. [`ashpd::Clipboard`](https://docs.rs/ashpd/0.13.4/ashpd/desktop/clipboard/struct.Clipboard.html) wraps these methods and signals.
+
+KDE's [Clipboard implementation](https://github.com/KDE/xdg-desktop-portal-kde/blob/bfc7ac333b9ecf06c2f928e0fbb1adf24b219f30/src/clipboard.cpp) uses Wayland data control and enables clipboard access only for supported sessions. It unsets its selection when the owning session closes. Keeping the transcript in the clipboard after insertion therefore needs a live data owner or verified clipboard-manager persistence. Dipper must not promise persistence after process/session exit solely because `SetSelection` succeeded.
+
+A native unsandboxed path may be smaller. The released [Tauri clipboard plugin manifest](https://github.com/tauri-apps/plugins-workspace/blob/clipboard-manager-v2.4.2/plugins/clipboard-manager/Cargo.toml) enables arboard's `wayland-data-control` support. [arboard documents the feature](https://docs.rs/arboard/latest/arboard/) as depending on compositor data-control support. This is stronger evidence than assuming a foreground GTK clipboard write works from a hidden tray app. It is not a portable sandbox guarantee. Select one clipboard provider after packaging and actual KDE checks, including evidence that it uses native Wayland rather than an X11 fallback. The plugin's Linux support table alone is insufficient. Keep automatic writes inside Insertion rather than exposing an unconditional frontend copy command for recognition completion.
+
+The focus race remains with either provider. Consider this sequence:
+
+1. Dipper queries a valid T3 composer.
+2. The user switches away or opens a modal before the query result reaches Dipper.
+3. Dipper updates the global clipboard based on the stale result.
+4. Paste reaches the field focused when KWin processes the injected keys, or a later field when the application handles them.
+
+Extra rechecks and focus-event invalidation reduce the interval but do not make these operations atomic. Clipboard ownership, input delivery, and T3's editor run in different components. The examined methods contain no expected-window or expected-field condition. Loss of focus between the clipboard write and Paste cannot be repaired by pulling focus back, restoring old clipboard content, or automatically retrying; those conflict with the accepted behavior.
+
+AT-SPI's object-directed insert/paste operations can avoid redirecting a key event to another app, but are still separate from the focus check and may alter an old object after focus moved. They are also a different insertion mechanism whose T3 support and editor semantics need acceptance. Native Qt widgets would not change this conclusion.
+
+An exact guarantee requires cooperation at the component owning the contested state. A possible T3 endpoint could check current composer identity, editability, focus, and a generation token in the same operation that accepts text, then acknowledge the insertion ID. That is a new integration proposal requiring an owner decision and T3 support. Keeping the strict clipboard guard as well would require coordinated compositor/clipboard behavior; a T3 acknowledgement alone does not make an earlier global clipboard write conditional. No such complete integration was verified here. Do not silently replace the accepted guard with best-effort checks or replace automatic delivery with manual-only copying and call the first slice complete.
+
+## Background UX, visual fit, and resource cost
+
+Tauri's [tray guide](https://v2.tauri.app/learn/system-tray/) supports native tray menus, but documents unsupported direct tray mouse events on Linux. Menu actions are the reliable candidate for opening the journal/settings, explicit copy, cancellation, and quit. Closing a secondary window must preserve the authorized background dictation process. Make quit explicit and test it separately from close/hide.
+
+Prefer tray icon/tooltip updates for recording and processing, with actionable system notifications for a retained result or failure. KDE's [status guidance](https://develop.kde.org/hig/status_changes/) recommends sparing notifications, forbids application use of Plasma OSDs, and generally discourages permanent tray icons. Dipper's accepted background/tray direction is a deliberate product exception. This guidance does not authorize removing the tray requirement. Notifications can be suppressed by desktop settings, so they cannot be the sole evidence that recording is ready.
+
+A status window requires explicit no-focus behavior. The [Tauri window builder](https://docs.rs/tauri/2.11.6/tauri/webview/struct.WebviewWindowBuilder.html) exposes initial focus, focusability, and taskbar visibility; window creation focuses by default. These are configuration capabilities, not proof of KDE compositor behavior. Start with a tray and verify whether its status feedback is sufficient. If an overlay is later selected, test focus on create/show/update and all virtual desktops before claiming that it cannot steal focus.
+
+Tauri's [WebView documentation](https://v2.tauri.app/reference/webview-versions/) identifies WebKitGTK on Linux. HTML controls do not become Qt/Kirigami widgets because Fedora runs Plasma. Use portal-owned dialogs, platform keyboard conventions, accessible HTML, and theme-aware CSS. KDE's [icon guidance](https://develop.kde.org/hig/icons/) favors theme-aware standard icons and Breeze compatibility. The [Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html) supplies appearance preferences, but does not provide a complete Qt style engine for HTML. Exact Qt visual matching would need explicit design work; it is not a reason to reopen the accepted shell during this first slice.
+
+Resource costs are architectural observations, not measurements. Portal signals and focused accessibility events can avoid polling and repeated subprocess startup. AT-SPI observers, EIS dispatch, clipboard ownership, and any KWin script add persistent work. The [Tauri process model](https://v2.tauri.app/concept/process-model/) includes the core and WebView processes; hiding a WebView does not prove it releases memory. A tray-first shell that creates UI on demand is a candidate for measurement, not an established optimization. No Dipper RAM, CPU, power, or integration-latency numbers were measured. Keep model startup and recognition-worker measurements separate from desktop adapter overhead.
+
+## Recommended implementation path and owner decisions
+
+The smallest production path consistent with accepted scope is to keep the Rust/Tauri foundation, use ashpd for native HOLD, and implement desktop adapters behind the proposed Dictation and Insertion responsibilities. Use only the required portal features. Begin with tray menus and state feedback. Test AT-SPI against the installed T3 composer before selecting a field-validation strategy; add a KWin observer only if window evidence requires it. Avoid a daemon, a private input bypass, screen capture, continuous UI polling, or a new Qt shell without an accepted need.
+
+Source research alone does not make automatic Clipboard plus Paste Ready. The owner has accepted the conservative OS guard, so exact atomic target binding is not required for the pilot. Its observer lifecycle, eligibility invalidation, and dispatch interface still need a reviewed contract. Implementing unrelated Capture, Recognition, and Journal behavior can continue when their own contracts are coherent.
+
+The remaining insertion decisions and contract work are:
+
+- Use the checked focused composer in the intended T3 window. The owner assumes no internal switch while holding and does not require thread/draft identity or a pinned editor object for the pilot. Observed departure from the target application permanently removes insertion eligibility.
+- Implement the accepted conservative guard and document its residual race. Atomic target binding and cooperative T3 integration are optional later work.
+- Choose packaging, session lifetime, and permission restoration together. Sandboxed and native packages have different data-control and KWin access limits. Define permission revocation and session-loss behavior.
+- Choose the supported HOLD chord and lost-release policy from actual KDE evidence. A toggle is not an equivalent replacement.
+
+## Read-only installed T3 observations, 2026-10-14
+
+The owner authorized checking the running system without stopping or interrupting
+anything. The probe used the already-running session and accessibility buses.
+It issued only getters, enumeration, and interface introspection. It did not
+change accessibility flags, subscribe to events, activate a window, request a
+portal session, register a shortcut, modify clipboard contents, invoke an
+action, send keys, read text content, or stop/restart a process.
+
+The observed AppImage wrapper filename identifies build
+`0.0.46-nightly.20261013.3066`; no application version API was queried.
+Installed packages were KWin and KDE portal `6.7.5-1.fc43`, desktop portal
+`1.20.4-1.fc43`, AT-SPI core `2.58.9-1.fc43`, and pyatspi `2.58.2-1.fc43`.
+The live portal advertises GlobalShortcuts version 1, RemoteDesktop version 2,
+and Clipboard version 1. These property reads do not establish functional HOLD
+or input delivery. Accessibility `IsEnabled` was true and
+`ScreenReaderEnabled` false throughout the probes.
+
+Method: resolve T3 by accessibility-bus connection PID and process identity,
+then walk only its exported objects using `GetChildren`, `GetRoleName`,
+`GetState`, `GetInterfaces`, and filtered `GetAttributes`. Do not print object
+names, paths, IDs, placeholder values, or text. A temporary Python/dbus probe
+used a 650-object and 12-second walk limit with one-second per-object timeouts.
+It called no Text or EditableText methods. No browser automation was involved.
+
+The first walk exposed only the application and a frame. Later reads exposed
+the document tree without explicit activation or settings changes. The cause
+and initialization delay were not established. Three subsequent complete walks
+examined 529, 552, and 552 objects with no D-Bus query errors. Their elapsed
+times were 0.421, 0.302, and 0.385 seconds. These are diagnostic snapshots, not
+production adapter benchmarks or a recommended continuous polling strategy.
+
+Each complete snapshot contained one composer candidate: a `div` with role
+`entry`, Tiptap/ProseMirror class markers, and focused, editable, enabled,
+sensitive, showing, visible, and multi-line states. A separate editable
+`input` appeared as a single-line `combo box` without the editor class marker.
+Editable paragraph/static descendants also existed, so filtering every
+editable object would produce false candidates. This proves usable structural
+field evidence in the observed layout, not universal composer identification.
+
+The candidate exposes Text and Hypertext but does not advertise EditableText.
+Direct EditableText insertion is therefore not established for this build.
+The same final walk reported `active=false` and `focused=false` for its frame
+while the candidate reported focused. No compositor active-window identity was
+queried. Field-local focus alone is insufficient proof of desktop target
+validity; the meaning and reliability of frame activation require further
+validation. The T3 main PID remained present and unchanged.
+
+This partially verifies the AT-SPI candidate. It does not establish focus-loss
+events, window-switch invalidation, composer remounts, different threads or
+modes, blocked modal/search/password cases, insertion or its acknowledgement,
+clipboard behavior, HOLD, or an atomic target guard. The accepted contract and
+readiness remain unchanged. A future adapter should tolerate initial missing
+tree state, select the editor container rather than its editable descendants,
+and independently validate the intended active window.
+
+## Interactive Paste and focus observations, 2026-10-14
+
+The owner subsequently authorized actual Paste and switching between the
+running game and T3. No existing application or service was stopped or
+restarted. The probes used temporary, individually loaded KWin scripts,
+AT-SPI getters, native Wayland clipboard ownership, and the already-running
+ydotool keyboard daemon. No Enter/send key was issued. This verifies test
+mechanisms, not an implemented Dipper adapter or a selected production backend.
+
+KWin's `workspace.activeWindow` identified the intended T3 window and the
+running game. Setting the active window completed asynchronously: the report
+immediately after requesting activation could still name the previous window.
+The harness waited for a subsequent report matching the requested window before
+continuing. Each script was unloaded by its own unique name; no other scripts
+or persistent KDE settings were changed.
+
+With the game confirmed active, the T3 composer still reported focused through
+AT-SPI. A harness guard requiring both the intended KWin window and the
+editable composer rejected insertion. It issued no clipboard write or keys on
+that blocked path. All existing clipboard format payloads and the editor's
+observed baseline remained unchanged. This exercises a sampled guard; it does
+not establish Dipper focus-loss events, irreversible invalidation of a previous
+job, or atomic enforcement against a later focus change.
+
+After restoring T3 focus and checking the composer, a temporary source served
+this synthetic UTF-8 text as `text/plain;charset=utf-8` and `text/plain`:
+
+```text
+DIPPER_PASTE_TEST_20261014 Grüße 123
+zweite Zeile
+```
+
+The source used the advertised `ext_data_control_manager_v1` protocol. Its
+temporary C client was generated from [upstream protocol XML](https://github.com/wayland-mirror/wayland-protocols/blob/main/staging/ext-data-control/ext-data-control-v1.xml) using the existing
+wayland-scanner and compiler, with existing libwayland-client 1.26.0. It did
+not request screen capture or a RemoteDesktop permission session. The existing
+keyboard daemon delivered Ctrl+V only after the sampled target checks, with
+`ydotool key --key-delay=10 29:1 47:1 47:0 29:0`.
+The actual T3 paragraph objects subsequently contained both synthetic lines
+exactly, including the umlaut. This is target-level observation of the test
+Paste rather than keyboard-transport success alone.
+
+The first automated acknowledgement check failed because it read the editor
+container's Hypertext, which represented its paragraphs as U+FFFC object
+replacement characters. The inserted text was present in its paragraph and
+static descendants. The follow-up queried those objects and established exact
+synthetic text. Do not treat a container's Text interface as the flat final
+composer string or apply this diagnostic parser to every future rich editor.
+
+Cleanup also exposed a layout issue. The active keyboard layout was `de`,
+German without dead keys. Raw evdev keycode 44 is physical US Z but maps to Y
+in this layout; Ctrl with that key did not undo. The layout-aware physical
+keycode 21 produced Ctrl+Z with
+`ydotool key --key-delay=10 29:1 21:1 21:0 29:0` and removed the synthetic Paste. The final editor
+had one empty paragraph with no test marker. The initial container-only
+baseline did not establish preservation of arbitrary rich drafts; test that
+separately before claiming general draft recovery. No original text was printed
+or published.
+
+The clipboard probe backed up all seven unique offered MIME formats and their
+bytes into private temporary files. It restored all seven formats, verified
+byte equality, then removed the payload files. Its restoration source serves
+the original data from memory until a subsequent clipboard owner replaces it.
+The synthetic source exited on selection cancellation. Clipboard-manager
+history was not purged. This checks restoration for testing; the accepted
+product policy still leaves a successful transcript in the clipboard.
+
+One early combined-harness attempt failed during D-Bus main-loop setup before
+any key or clipboard mutation. Correcting initialization permitted the actual
+checks above. Preserve these failed checks and their explanations rather than
+calling every initial probe successful. At completion the same T3 and game
+processes remained running, T3 was active, temporary KWin scripts were removed,
+and no synthetic editor text remained.
+
+Observed checks passed for window switching, blocked dispatch while the game
+was active, actual Unicode/multi-line Paste into T3, layout-aware synthetic
+text cleanup, and original clipboard format/byte restoration. Still untested
+are the production portal/EIS or Tauri clipboard providers, global HOLD,
+focus-change events, controlled dispatch races, target remounts and other
+fields, unclear-delivery recovery, and full voice-to-text latency. A successful
+sample does not make the strict target guard or first slice Ready.
+
+## Subsequent accepted pilot policies, 2026-10-14
+
+The owner selected a conservative OS guard using the intended KWin window,
+a checked composer, and permanent suppression after observed focus loss.
+Returning to T3 does not reauthorize an old result. The residual race between
+OS checks, clipboard mutation, and Paste is explicitly accepted for the pilot.
+This supersedes the earlier unresolved strict-guard choice in this report;
+atomic target binding and a cooperative T3 endpoint do not gate the first slice.
+Unavailable or ambiguous target evidence still blocks automatic clipboard and
+input mutation. Observer lifecycle and dispatch behavior need a coherent
+implementation contract and real evidence.
+
+The owner additionally assumes no internal composer/window switch during Hold
+and wants the checked focused composer used for Paste. The pilot does not add
+thread/draft identity or a permanently pinned editor object. A single left-hand
+hold key is preferred; a multi-key chord is only a one-handed fallback.
+
+The owner also accepted synchronization before capture-completion acknowledgment,
+preservation of available data, and measurement of the unsynchronized tail
+that a hard system crash can lose. No numerical maximum is selected until
+measurement. These decisions are recorded in [app design](app-design.md) and
+[Journal requirements](journal.md); they do not establish unexecuted fault tests.
+
+An event-based follow-up loaded one temporary KWin observer and received real
+`windowActivated` changes from T3 to the game and back. The harness revoked
+insertion eligibility on the first away event and kept it revoked after the
+return event. A synthetic late-result admission was suppressed. All clipboard
+formats remained unchanged; no clipboard write or key was dispatched. The
+observer was removed, and final focus was T3. This verifies an actual OS
+activation event stream with a test lifecycle latch, not a real Recognition
+worker, a completed Dipper adapter, or field-local focus invalidation.
+
+The first event-test attempt safely timed out because the earlier game's
+window identity no longer existed. A fresh inventory found a replacement game
+window, and the next attempt passed. No application was stopped or restarted
+by the probe. Test setup may discover a new window before admission; an active
+dictation must not silently replace its pinned target after disappearance.
+
+## Live Caps-to-Menu portal test, 2026-10-14
+
+The owner authorized any suitable test key and wants the eventual keybind
+configurable. A dedicated temporary desktop identity registered its own
+GlobalShortcuts v1 session and one `hold` action with `preferred_trigger=Menu`.
+The KDE dialog displayed only that named test action and Menu binding; its OK
+action was confirmed through AT-SPI. Effective assignment was checked through
+ListShortcuts before changing the keyboard map or sending keys.
+
+The test exclusively created the previously absent user `kxkbrc`, preserving
+pc105, de,de and nodeadkeys, while adding caps:menu and ResetOldOptions=true.
+A final KConfig notification applied the live map without restarting KWin.
+Reported layouts remained unchanged. The existing ydotool daemon then sent
+Caps evdev key 58 into the normal KWin input pipeline while T3 was active.
+The portal delivered real Activated/Deactivated events. No Capture,
+Recognition, clipboard mutation, or Enter/send action was attached to them.
+
+The 150 ms Hold produced one Activated followed by one Deactivated. The
+800 ms Hold did the same, with no duplicate activation observed in that run.
+A third test pressed and released Shift while Caps remained down. Deactivated
+arrived before Caps release, confirming the source-level last-shortcut release
+limitation. The owner explicitly accepted the pilot rule of holding only the
+Hold key, with clear feedback when recording ends. Exact physical-key Hold
+while other keys are used is not required for this pilot.
+
+The first binding attempt timed out in the dialog and removed only its own
+action/session without applying a remap. A subsequent attempt confirmed the
+specific test dialog and completed all three event checks. In cleanup the
+test released its keys, removed only its own configuration keys with KConfig
+notifications, restored the original layout index and layout list, and removed
+the newly empty config file. It closed its own portal session, unregistered
+only its dedicated hold action, and removed its hidden desktop entry. Menu was
+globally available afterward and no own desktop entries remained. Existing
+apps/services were not stopped or restarted.
+
+The command was `python3 /tmp/dipper-live-hold-test.py`. This tests a live
+Wayland map and actual KDE portal events driven by synthetic keyboard input.
+Physical hardware behavior, game shortcut inhibition, missing-release and
+session-failure handling, production adapter integration, and voice-to-insertion
+remain unexecuted. Caps-to-Menu is a proven temporary route, not a product
+default or an instruction to remap every user's keyboard.
+
+### Own-session closure follow-up
+
+`python3 /tmp/dipper-session-loss-probe.py` created a separate dedicated
+identity and empty GlobalShortcuts session. It subscribed to that session's
+`Closed` signal before calling its own `Session.Close`, then processed events
+for 750 ms. No `Closed` signal arrived after explicit closure. A subsequent
+ListShortcuts call rejected the closed handle with
+`org.freedesktop.DBus.Error.AccessDenied`. The probe removed its desktop entry
+and closed its private bus connection. It bound no shortcut and sent no keys.
+
+The adapter must handle its own close path directly rather than depend on a
+`Closed` signal acknowledging explicit closure. Unexpected session closure
+and portal connection loss must interrupt an active dictation and revoke
+insertion eligibility. This check establishes session invalidation only. It
+does not test backend failure, recording interruption, audio preservation,
+or suppression by a production Dictation implementation. Existing portal,
+KWin, and application processes were left running.
+
+## Acceptance evidence still required
+
+### Native HOLD setup facts, 2026-10-14
+
+A read-only follow-up inspected the installed portal and KGlobalAccel.
+GlobalShortcuts v1 exposes CreateSession, BindShortcuts, ListShortcuts, and
+activation/deactivation signals; ConfigureShortcuts is unavailable on this
+frontend. Meta+F9 and several other function-key chords were globally available
+with no reported KDE conflicts. `LOGO+F9` is the portal preferred-trigger
+spelling. This is a candidate test binding, not a selected product default or
+proof of absence of game-local shortcuts.
+
+The owner then requested a single left-hand hold key, with a one-handed chord
+only as fallback. F1 through F5 and Caps Lock were globally conflict-free.
+Ctrl+Space and Super+Space were free; Alt+Space was already assigned to KRunner.
+Ctrl or Alt alone, and Ctrl+Alt without a normal key, retain modifier-only
+release activation and are unsuitable for press-to-start HOLD. Portal mouse
+side-button triggers were not supported by the inspected KDE parser/handler.
+
+Caps Lock remapping is acceptable in principle to the owner. The installed
+builtin `caps:menu` option is the smallest native candidate: an isolated
+libxkbcommon 1.11.0/xkeyboard-config 2.46 state test mapped Caps to Menu with
+no locked modifier or Caps LED. The ordinary unmodified map toggled Caps Lock.
+Menu was globally free. This does not establish live reload or physical keys.
+The same binding would also consume a physical Menu key. Selection of this
+concrete variant was pending at read-only screening. The subsequently
+authorized live test above exercises it and restores its changes.
+
+The current user keyboard configuration file is absent. A reversible test must
+preserve the current pc105 model, de,de layouts, nodeadkeys, variants, and
+empty options while applying and later undoing the temporary option with a
+KConfig notification. A caps-only file must not replace those layout choices.
+The option covers the user's KWin session keyboards and needs no new daemon.
+There is no installed caps:F13 option. Newly created user XKB include roots
+are not verified to become visible to KWin's existing long-lived context
+without restart, which is excluded from these running-system tests.
+
+The [Registry interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.host.portal.Registry.html)
+was exercised on a fresh private D-Bus connection with an exclusively created
+hidden test desktop entry. Dedicated identity registration succeeded. The
+connection and entry were removed afterward; no shortcut session or binding
+was created by this identity probe. This prevents borrowing T3's desktop
+identity when testing persistent shortcut configuration.
+
+A subsequent real portal probe registered another dedicated identity, created
+a GlobalShortcuts session, listed its initially empty shortcuts, and closed
+only that session. All calls succeeded and its hidden desktop entry was removed.
+No BindShortcuts request or input injection was performed in that probe.
+
+Binding tests must subscribe to Request.Response before asynchronous methods,
+filter activation events by their own session/action, inspect the effective
+trigger, and close only their own session. KDE persists bindings beyond session
+closure. Cleanup must unregister only the exact dedicated test component/action,
+verify that the test action is absent and its chord free, then remove its own
+desktop entry. Restarting daemons or restoring an entire shortcut settings file
+is unnecessary and would affect unrelated work. Physical HOLD still needs real
+key/release-order evidence; injected events alone are narrower evidence.
+
+The follow-ups above provide partial evidence for field structure, actual Paste, clipboard restoration, and sampled window switching. The full app-integration scenarios remain unexecuted. Use synthetic text, record installed Fedora/Plasma/KWin/portal/Tauri/T3 versions and packaging, and tie the results to the tested Dipper revision. Dipper owns adapter/lifecycle traces and honest Journal outcomes; T3 owns evidence that its intended composer accepted text. The owner approves actual workflow usefulness. Do not use a mock target as final T3 acceptance.
+
+| Scenario | Required evidence |
+| --- | --- |
+| Native HOLD with Dipper hidden | One recording begins on activation and ends on physical release in T3 and another application; Dipper never becomes focused |
+| Chord details | Repeat, key-first/modifier-first release, unrelated key release, another shortcut, keyboard layout, and shortcut inhibition produce the documented behavior without duplicate recording |
+| Permission lifecycle | First bind, conflict, denial, empty binding, reconfiguration, restart, service loss, session revocation, and failed restoration remain visible and do not prompt inside insertion |
+| Intended field | Actual T3 prompt succeeds; search, terminal, read-only text, password, modal, other T3 window/thread, editor remount, missing accessibility, stale cache, and target exit block insertion and clipboard writes |
+| Focus loss before completion | Switching away at HOLD, release, model completion, and insertion preparation preserves the transcript without focus activation or clipboard overwrite; returning does not cause a stale automatic insertion |
+| Race at every boundary | Inject controlled focus changes after validation, during clipboard ownership, before Paste, and while T3 handles Paste; verify no disallowed write or wrong-field insertion. A race failure blocks a strict-guard claim |
+| Clipboard ownership | The selected provider writes from a hidden background app, serves the intended MIME/text, survives the required post-insertion lifetime, and preserves existing clipboard content on every blocked path |
+| Real Paste and outcome | Unicode, German technical text, newlines, existing selection, rich/plain composer mode, and physical modifier state work; no accidental Enter/send; transport-only success remains unverified |
+| Unclear outcome | Dropped acknowledgement, target hang/exit, clipboard ownership change, and partial input delivery never cause an automatic duplicate retry; synthetic keys are released |
+| Background UI | Tray menus work on Plasma; window close hides and explicit quit exits; recording/processing/failure indicators remain understandable under dark/light themes, scaling, multiple displays, and notification suppression |
+| Resource behavior | Compare release builds with no UI, settings/journal open, and hidden UI; record idle CPU/RSS, process count, wakeups, and adapter latency independently of recognition/model costs |
+
+A test passing a sampled focus-race schedule does not prove an atomic guarantee. The implementation contract must identify who enforces validity at each mutation, or retain the unresolved limitation. Actual synthetic T3 Paste and sampled focus checks are observed; production insertion and its race guarantees remain unverified. No live HOLD, rendered Dipper UI, permission UX, or resource acceptance has been established by this report.

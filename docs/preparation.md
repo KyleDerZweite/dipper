@@ -15,7 +15,8 @@ question. This changes delivery sequencing, not the final pilot acceptance gates
 1. Use the accepted [pilot contract](pilot.md) and existing experimental evidence
    to design a bounded app foundation and module interfaces in
    [issue #4](https://github.com/KyleDerZweite/dipper/issues/4). The owner selected an independent app in [ADR-0001](adr/0001-own-dipper-app.md).
-   Language, UI stack, and the first live recognition configuration remain TBD.
+   Rust core and Tauri desktop are selected in [ADR-0002](adr/0002-rust-core-tauri-desktop.md). Whisper large-v3 is the accepted first live
+   baseline; Qwen is excluded from active candidates, with historical evidence preserved.
 2. Once a useful slice has reviewed responsibilities, interfaces, dependency
    directions, and acceptance evidence, prepare its implementation issue through
    [issue #5](https://github.com/KyleDerZweite/dipper/issues/5). Keep one PR per

@@ -44,6 +44,10 @@ _Avoid_: Raw transcript, confirmed wording.
 The recorded result of an attempt to place text in the target application, including a failure or an unverified result.
 _Avoid_: Confirmed wording, accepted text inferred solely from insertion.
 
+**Insertion eligibility**:
+Whether a dictation may still insert its text automatically into its intended target application. It is distinct from the outcome of an insertion already attempted.
+_Avoid_: Insertion outcome when referring to permission to make an automatic attempt.
+
 **Correction**:
 An explicit user revision associated with a dictation's text.
 _Avoid_: Automatic formatting or an unconfirmed inferred edit.
