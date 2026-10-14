@@ -28,6 +28,9 @@ pub(crate) struct ClipboardOwner {
     child: Option<Child>,
     stdin: Option<ChildStdin>,
     counter: u64,
+    retiring: Vec<Child>,
+    #[cfg(test)]
+    retirement_failure: bool,
 }
 
 impl ClipboardOwner {
@@ -37,6 +40,9 @@ impl ClipboardOwner {
             child: None,
             stdin: None,
             counter: 0,
+            retiring: Vec::new(),
+            #[cfg(test)]
+            retirement_failure: false,
         }
     }
 
@@ -99,12 +105,15 @@ impl ClipboardOwner {
             .and_then(|result| result);
             if let Err(error) = handshake {
                 drop(stdin);
-                let _ = child.kill().await;
-                let _ = child.wait().await;
-                return Err(error);
+                let cleanup = self.retire_new(child).await;
+                return Err(error.context(format!("new helper cleanup: {cleanup:?}")));
             }
             // A new owner has published before the old helper is retired.
-            self.stop().await?;
+            if let Err(error) = self.stop().await {
+                drop(stdin);
+                let cleanup = self.retire_new(child).await;
+                return Err(error.context(format!("published helper cleanup: {cleanup:?}")));
+            }
             self.stdin = Some(stdin);
             self.child = Some(child);
             Ok(())
@@ -112,7 +121,7 @@ impl ClipboardOwner {
         .await;
         result.map_err(|error| PublishFailure {
             stage,
-            detail: error.to_string(),
+            detail: format!("{error:#}"),
         })
     }
 
@@ -128,29 +137,58 @@ impl ClipboardOwner {
         Ok(())
     }
 
+    async fn retire_new(&mut self, mut child: Child) -> Result<()> {
+        let result = settle_child(&mut child, true).await;
+        if result.is_err() {
+            self.retiring.push(child);
+        }
+        result
+    }
+
     pub async fn stop(&mut self) -> Result<()> {
+        #[cfg(test)]
+        if std::mem::take(&mut self.retirement_failure) {
+            anyhow::bail!("synthetic old helper retirement failure");
+        }
         self.stdin.take(); // EOF stops only our helper, including blocked serving.
-        if let Some(mut child) = self.child.take() {
-            let result: Result<()> = async {
-                match tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
-                    Ok(result) => {
-                        result?;
-                    }
-                    Err(_) => {
-                        child.kill().await?;
-                        child.wait().await?;
-                    }
-                }
-                Ok(())
-            }
-            .await;
-            if let Err(error) = result {
-                self.child = Some(child); // Retain ownership for another cleanup attempt.
-                return Err(error);
+        let mut failures = Vec::new();
+        if let Some(mut child) = self.child.take()
+            && let Err(error) = settle_child(&mut child, false).await
+        {
+            self.child = Some(child); // Retain ownership for another cleanup attempt.
+            failures.push(error.to_string());
+        }
+        for mut child in std::mem::take(&mut self.retiring) {
+            if let Err(error) = settle_child(&mut child, true).await {
+                self.retiring.push(child);
+                failures.push(error.to_string());
             }
         }
+        ensure!(
+            failures.is_empty(),
+            "Clipboard helper cleanup failed: {}",
+            failures.join("; ")
+        );
         Ok(())
     }
+}
+
+async fn settle_child(child: &mut Child, force: bool) -> Result<()> {
+    if force {
+        let _ = child.start_kill();
+    }
+    match tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
+        Ok(result) => {
+            result.context("Reap clipboard helper")?;
+        }
+        Err(_) => {
+            child.start_kill().context("Terminate clipboard helper")?;
+            tokio::time::timeout(Duration::from_secs(2), child.wait())
+                .await
+                .context("Clipboard helper reaping remains unconfirmed")??;
+        }
+    }
+    Ok(())
 }
 
 async fn read_ack(
@@ -214,6 +252,51 @@ mod tests {
         assert!(owner.child.is_none());
         assert!(owner.stdin.is_none());
     }
+    #[tokio::test]
+    async fn old_retirement_failure_reaps_new_published_helper() {
+        let directory = tempfile::tempdir().unwrap();
+        let pids = directory.path().join("pids");
+        let quoted = format!("'{}'", pids.display().to_string().replace('\'', "'\\''"));
+        let path = helper(
+            &directory,
+            &format!(
+                "#!/bin/sh\nread -r request\nprintf 'ready\\n'\nread -r publish\nprintf '%s\\n' \"$$\" >> {}\nprintf 'published\\n'\nexec cat >/dev/null\n",
+                quoted
+            ),
+        );
+        let mut owner = ClipboardOwner::new(path);
+        owner
+            .publish("first", None)
+            .await
+            .unwrap_or_else(|error| panic!("{}", error.detail));
+        let original_pid = owner.child.as_ref().unwrap().id().unwrap();
+        owner.retirement_failure = true;
+        let failed = owner.publish("second", None).await.err().unwrap();
+        assert_eq!(failed.stage, DispatchStage::ClipboardPublished);
+        assert!(failed.detail.contains("retirement failure"));
+        assert_eq!(owner.child.as_ref().unwrap().id(), Some(original_pid));
+        assert!(owner.retiring.is_empty());
+        let recorded: Vec<u32> = std::fs::read_to_string(pids)
+            .unwrap()
+            .lines()
+            .map(|line| line.parse().unwrap())
+            .collect();
+        assert_eq!(recorded.len(), 2);
+        assert_ne!(recorded[1], original_pid);
+        // The newly published helper was waited/reaped rather than dropped with kill_on_drop.
+        assert_eq!(
+            unsafe { libc::waitpid(recorded[1] as i32, std::ptr::null_mut(), libc::WNOHANG) },
+            -1
+        );
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
+        owner.stop().await.unwrap();
+        assert!(owner.child.is_none());
+        assert!(owner.retiring.is_empty());
+    }
+
     #[tokio::test]
     async fn publication_failure_retains_irreversible_stage() {
         let directory = tempfile::tempdir().unwrap();

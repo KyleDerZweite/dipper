@@ -46,6 +46,7 @@ async fn inspect(pid: u32) -> Result<()> {
     );
     let mut seen = HashSet::new();
     let mut composers = 0;
+    let mut frames = 0;
     while let Some((destination, path)) = queue.pop_front() {
         if !seen.insert((destination.clone(), path.clone())) {
             continue;
@@ -62,6 +63,12 @@ async fn inspect(pid: u32) -> Result<()> {
         )
         .await?;
         let role: String = object.call("GetRoleName", &()).await?;
+        if role == "frame" {
+            let states: Vec<u32> = object.call("GetState", &()).await?;
+            if !has_state(&states, 6) {
+                frames += 1;
+            }
+        }
         if role == "entry" {
             let attributes: HashMap<String, String> = object.call("GetAttributes", &()).await?;
             let classes = attributes
@@ -70,18 +77,9 @@ async fn inspect(pid: u32) -> Result<()> {
                 .unwrap_or_default();
             if classes.contains("tiptap") || classes.contains("prosemirror") {
                 let states: Vec<u32> = object.call("GetState", &()).await?;
-                let has = |bit: usize| {
-                    states
-                        .get(bit / 32)
-                        .is_some_and(|word| word & (1 << (bit % 32)) != 0)
-                };
-                // AT-SPI StateType: DEFUNCT=6, EDITABLE=7, ENABLED=8,
-                // FOCUSED=12, MULTI_LINE=17, SENSITIVE=24, SHOWING=25, VISIBLE=30.
-                ensure!(
-                    !has(6) && !has(27) && [7, 8, 12, 17, 24, 25, 30].into_iter().all(has),
-                    "T3 composer is not focused, editable, and visible"
-                );
-                composers += 1;
+                if qualifies_composer(&role, &classes, &states) {
+                    composers += 1;
+                }
             }
         }
         let children: Vec<(String, OwnedObjectPath)> = object.call("GetChildren", &()).await?;
@@ -91,8 +89,80 @@ async fn inspect(pid: u32) -> Result<()> {
             }
         }
     }
-    if composers != 1 {
-        bail!("T3 composer is missing or ambiguous");
+    ensure_unique_composer(composers, frames)
+}
+
+fn has_state(states: &[u32], bit: usize) -> bool {
+    states
+        .get(bit / 32)
+        .is_some_and(|word| word & (1 << (bit % 32)) != 0)
+}
+
+fn qualifies_composer(role: &str, classes: &str, states: &[u32]) -> bool {
+    let classes = classes.to_ascii_lowercase();
+    // AT-SPI: DEFUNCT=6, EDITABLE=7, ENABLED=8, FOCUSED=12,
+    // MULTI_LINE=17, SENSITIVE=24, SHOWING=25, STALE=27, VISIBLE=30.
+    role == "entry"
+        && (classes.contains("tiptap") || classes.contains("prosemirror"))
+        && !has_state(states, 6)
+        && !has_state(states, 27)
+        && [7, 8, 12, 17, 24, 25, 30]
+            .into_iter()
+            .all(|bit| has_state(states, bit))
+}
+
+fn ensure_unique_composer(composers: usize, frames: usize) -> Result<()> {
+    if frames != 1 {
+        bail!("T3 accessibility windows are missing or cannot be mapped uniquely");
     }
+    ensure!(composers == 1, "T3 composer is missing or ambiguous");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn valid_states() -> Vec<u32> {
+        vec![
+            [7, 8, 12, 17, 24, 25, 30]
+                .into_iter()
+                .fold(0, |bits, bit| bits | (1 << bit)),
+        ]
+    }
+    #[test]
+    fn unfocused_editor_does_not_disqualify_current_unique_composer() {
+        let focused = valid_states();
+        let mut unfocused = focused.clone();
+        unfocused[0] &= !(1 << 12);
+        let candidates = [
+            (&focused, "entry", "Tiptap ProseMirror"),
+            (&unfocused, "entry", "tiptap"),
+        ];
+        let count = candidates
+            .into_iter()
+            .filter(|(states, role, classes)| qualifies_composer(role, classes, states))
+            .count();
+        assert_eq!(count, 1);
+        ensure_unique_composer(count, 1).unwrap();
+    }
+    #[test]
+    fn invalid_or_ambiguous_candidates_and_unmapped_windows_fail() {
+        let focused = valid_states();
+        for missing in [7, 8, 12, 17, 24, 25, 30] {
+            let mut states = focused.clone();
+            states[0] &= !(1 << missing);
+            assert!(!qualifies_composer("entry", "ProseMirror", &states));
+        }
+        for prohibited in [6, 27] {
+            let mut states = focused.clone();
+            states[0] |= 1 << prohibited;
+            assert!(!qualifies_composer("entry", "Tiptap", &states));
+        }
+        assert!(!qualifies_composer("password text", "Tiptap", &focused));
+        assert!(!qualifies_composer("entry", "search", &focused));
+        assert!(ensure_unique_composer(0, 1).is_err());
+        assert!(ensure_unique_composer(2, 1).is_err());
+        assert!(ensure_unique_composer(1, 2).is_err());
+        assert!(ensure_unique_composer(1, 0).is_err());
+    }
 }
