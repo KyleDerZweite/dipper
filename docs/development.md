@@ -298,3 +298,26 @@ configured the binding before admission. Do not treat this evidence as automatic
 shortcut restoration acceptance. The test used disposable Journal/audio and
 owned virtual input resources; normal user data and the system default input
 were preserved. Actual spoken corpus quality remains separate.
+
+## Saved Hold restoration verification, 2026-10-14
+
+The #18 repair supersedes the restart limitation above. A fresh Dipper process
+started directly in the tray with its saved F2 assignment, without Configure Hold
+or a permission dialog. Actual press/release captured synthetic audio and
+completed native T3 Paste with exact transcript acknowledgement. Release to
+terminal outcome was approximately 4.140 seconds. Undo restored the empty
+composer, all original clipboard formats were restored, and the worker was reaped.
+The configured F2 key was preserved without a preferred trigger during restoration.
+
+A separate away-and-return run completed Recognition but kept insertion suppressed
+at unchanged stage, with the composer and clipboard preserved. Selection tests
+cover absent, empty, ambiguous and localized saved assignments. Native absence
+and concurrent KDE configuration removal were not exercised; their behavior
+remains fail-closed selection or the documented portal/backend race.
+
+The workspace suite passed 77 tests with three child-entrypoint fixtures ignored
+in the parent enumeration and exercised by their parent tests. The documented
+serial command was used. An exploratory parallel desktop run failed an existing
+helper-output assertion; its required serial run passed. Clippy with warnings
+denied, formatting, the native build and four existing UI regressions passed.
+Independent review found no blockers in the query or restoration repair.

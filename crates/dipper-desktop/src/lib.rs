@@ -70,7 +70,7 @@ impl DesktopAdapter {
         Ok(binding)
     }
 
-    /// Restore an existing assignment without BindShortcuts or a permission dialog.
+    /// Register an existing KDE assignment without choosing a new key.
     pub async fn restore_hold(&self) -> Result<Option<String>> {
         self.observer.ensure_healthy()?;
         let mut slot = self.shortcuts.lock().await;

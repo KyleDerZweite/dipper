@@ -75,36 +75,26 @@ impl HoldSession {
         .await?;
         let mut owners = dbus.receive_signal("NameOwnerChanged").await?;
         let binding_result = async {
-            if let Some(preferred) = preferred {
-                tokio::time::timeout(
-                    Duration::from_secs(120),
-                    portal.bind_shortcuts(
-                        &session,
-                        &[NewShortcut::new("hold", "Hold to dictate")
-                            .preferred_trigger(Some(preferred))],
-                        None,
-                        Default::default(),
-                    ),
-                )
-                .await
-                .context("Shortcut setup timed out")??
-                .response()?;
+            if preferred.is_none() && listed_binding(&portal, &session).await?.is_none() {
+                return Ok(None);
             }
-            let response = tokio::time::timeout(
-                Duration::from_secs(5),
-                portal.list_shortcuts(&session, Default::default()),
+            // KDE loads saved descriptions at CreateSession, but only BindShortcuts
+            // registers the action with KGlobalAccel. Existing IDs restore without
+            // a configuration dialog on our supported KDE backend. Do not reinterpret
+            // localized trigger descriptions or supply a new preferred key on restore.
+            tokio::time::timeout(
+                Duration::from_secs(if preferred.is_some() { 120 } else { 5 }),
+                portal.bind_shortcuts(
+                    &session,
+                    &[NewShortcut::new("hold", "Hold to dictate").preferred_trigger(preferred)],
+                    None,
+                    Default::default(),
+                ),
             )
             .await
-            .context("Shortcut listing timed out")??
+            .context("Shortcut setup timed out")??
             .response()?;
-            let triggers: Vec<_> = response
-                .shortcuts()
-                .iter()
-                .filter(|s| s.id() == "hold")
-                .map(|s| s.trigger_description().to_owned())
-                .collect();
-            ensure!(triggers.len() <= 1, "KDE Hold shortcut is ambiguous");
-            Ok::<_, anyhow::Error>(triggers.into_iter().next().filter(|s| !s.trim().is_empty()))
+            listed_binding(&portal, &session).await
         }
         .await;
         let effective = match binding_result {
@@ -257,5 +247,46 @@ pub(crate) async fn paste(
                 ),
             })
         }
+    }
+}
+
+async fn listed_binding(
+    portal: &GlobalShortcuts,
+    session: &Session<GlobalShortcuts>,
+) -> Result<Option<String>> {
+    let response = tokio::time::timeout(
+        Duration::from_secs(5),
+        portal.list_shortcuts(session, Default::default()),
+    )
+    .await
+    .context("Shortcut listing timed out")??
+    .response()?;
+    assigned_hold(
+        response
+            .shortcuts()
+            .iter()
+            .filter(|s| s.id() == "hold")
+            .map(|s| s.trigger_description()),
+    )
+}
+
+fn assigned_hold<'a>(mut triggers: impl Iterator<Item = &'a str>) -> Result<Option<String>> {
+    let first = triggers.next();
+    ensure!(triggers.next().is_none(), "KDE Hold shortcut is ambiguous");
+    Ok(first.filter(|s| !s.trim().is_empty()).map(str::to_owned))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_unique_nonempty_saved_hold_is_restored_without_reinterpreting_its_key() {
+        assert_eq!(
+            assigned_hold(["Strg+F2"].into_iter()).unwrap(),
+            Some("Strg+F2".into())
+        );
+        assert!(assigned_hold([].into_iter()).unwrap().is_none());
+        assert!(assigned_hold(["  "].into_iter()).unwrap().is_none());
+        assert!(assigned_hold(["F2", "F3"].into_iter()).is_err());
     }
 }

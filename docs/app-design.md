@@ -628,3 +628,24 @@ on 2026-10-14 before implementation.
 Primary references: [Collection protocol](https://github.com/GNOME/at-spi2-core/blob/2.58.9/xml/Collection.xml),
 [provider traversal](https://github.com/GNOME/at-spi2-core/blob/2.58.9/atk-adaptor/adaptors/collection-adaptor.c),
 and [provider limit](https://github.com/GNOME/at-spi2-core/blob/2.58.9/atspi/atspi-constants.h).
+
+## Saved Hold restoration repair, 2026-10-14
+
+Issue #18 belongs to the KDE DesktopAdapter shortcut owner. CreateSession and
+ListShortcuts alone restore saved descriptions, not active KGlobalAccel actions.
+Startup now lists the session, requires one nonempty existing hold action, binds
+that same ID without a preferred trigger, and relists before exposing the binding.
+Missing, empty, ambiguous or failed assignments remain unconfigured. Ordered
+press/release subscriptions exist before binding; teardown and focus guards remain
+unchanged. Core, Journal, and UI interfaces do not change.
+
+This supersedes the earlier literal prohibition on startup BindShortcuts. The
+installed KDE 6.7.5 backend returns immediately without a configuration dialog
+when all requested IDs already exist. The portable portal API does not guarantee
+that behavior; removal between listing and binding remains a backend race. New
+assignments still require explicit configuration. Independent primary-source
+review established this repair contract before implementation. Acceptance requires
+a fresh process with no Configure Hold click, no dialog, actual press/release,
+saved-key preservation, and safe missing/empty/ambiguous selection.
+
+Source: [installed KDE registration path](https://github.com/KDE/xdg-desktop-portal-kde/blob/v6.7.5/src/globalshortcuts.cpp).
