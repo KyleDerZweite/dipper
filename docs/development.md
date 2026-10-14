@@ -33,12 +33,18 @@ cmake -S /absolute/path/to/whisper.cpp -B /absolute/path/to/whisper.cpp/build -D
 cmake --build /absolute/path/to/whisper.cpp/build --parallel 2
 ```
 
-Model weights remain external files. Set `DIPPER_MODEL_PATH` to the existing
-`ggml-large-v3.bin`, or select it in Dipper Settings.
+Model weights remain external files. New settings select the float16
+`large_v3_turbo` profile and `models/ggml-large-v3-turbo.bin` inside the data
+directory. `DIPPER_MODEL_PATH` overrides that path for new settings only.
+Existing settings without a profile retain `large_v3` and their saved path.
+To switch an existing app, select Whisper large-v3-turbo in Recognition setup,
+set its matching float16 model path, and save while idle. The next dictation
+uses both saved values. Filenames never choose a profile; a mismatched model
+fails preparation explicitly and cannot produce an insertion.
 
 ```sh
 export DIPPER_WHISPER_DIR=/absolute/path/to/whisper.cpp
-export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3.bin
+export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3-turbo.bin
 ./scripts/build.sh
 ./scripts/run.sh --show
 ```
@@ -321,3 +327,72 @@ serial command was used. An exploratory parallel desktop run failed an existing
 helper-output assertion; its required serial run passed. Clippy with warnings
 denied, formatting, the native build and four existing UI regressions passed.
 Independent review found no blockers in the query or restoration repair.
+
+## Explicit model-profile replay
+
+The native check below adds an attempt to a disposable Journal containing an
+existing recording. Use a private fixture copy, not the normal app store.
+The example defaults to `large_v3` for compatibility. Turbo is explicit:
+
+```sh
+source scripts/dev-env.sh
+export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3-turbo.bin
+export DIPPER_MODEL_PROFILE=large_v3_turbo
+cargo build -p dipper-worker --example native_job --bin dipper-worker --locked
+cargo run -p dipper-worker --example native_job --locked -- /absolute/path/to/private-fixture
+```
+
+Use `large_v3` with its matching full float16 file for a baseline replay.
+`DIPPER_MODEL_PROFILE` applies to this example only. The desktop app reads its
+saved Settings profile. Existing attempts and their configuration remain intact.
+
+## Turbo activation and shared control repair, 2026-10-14
+
+The owner selected large-v3-turbo as the active default. Native replay using the
+explicit Turbo profile completed on RX 7700S/Vulkan and reaped its worker. Both
+mismatches, baseline profile with Turbo weights and Turbo profile with baseline
+weights, failed with the expected profile error and reaped their workers. Model
+digests were recorded. Legacy missing-profile configuration retains large-v3.
+
+A fresh private native app used the Turbo profile, retained its restored F2 Hold,
+saved profile and path through Settings, then hid in the tray. Actual PipeWire
+Capture and Turbo Recognition dispatched Paste into the long T3 conversation.
+The composer exactly matched the raw transcript; Friday meaning was preserved.
+Release to terminal outcome was approximately 1.210 seconds for this short
+synthetic case. Worker inference was 873 ms and preparation 3,792 ms, overlapping
+Capture. Undo restored the empty composer and the worker was reaped. This is
+not a percentile measurement or representative spoken-corpus evaluation.
+
+The first test cleanup encountered a 32-format limit in the owned test restoration
+helper on a 39-format image clipboard. The private snapshot remained intact.
+The helper limit was extended; the repeated Paste journey restored its complete
+text clipboard baseline. The original image's PNG bytes were separately restored
+and verified. Exact restoration of all Qt image aliases was not established.
+A later clipboard change was preserved rather than overwritten. No clipboard
+restoration behavior was added to the application.
+
+The shared control rule previously allocated 16 px of content inside a 34 px
+input/select while inherited text line height was approximately 19.5 px. Zero
+vertical padding and normal control line height now preserve the glyph box;
+selects use a shared app-owned chevron while retaining native HTML semantics.
+Buttons already grow to their text and were inspected alongside the fields.
+Native [wide](evidence/controls-fixed-wide.png) and
+[narrow](evidence/controls-fixed-narrow.png) Settings renders verified controls
+at 680 by 540 and 420 by 420 logical pixels, including 1.25 display scaling.
+Keyboard selection and Save persisted the correct Turbo profile/path. A first
+keyboard probe assumed the wrong option order and missed a field after the
+feedback banner moved it; the corrected observed coordinates confirmed Save.
+
+The normal app's profile/path were switched atomically with its existing Settings
+owner, then saved again through the native UI. Other input, Hold and runtime
+settings and the normal Journal were retained. Only the owned virtual input and
+private test app were stopped; the updated normal app runs in the tray.
+Workspace tests passed 80 cases with three child-entrypoint fixtures exercised
+by their parent tests, plus four UI regressions. Formatting, Clippy with warnings
+denied, native worker/app build and native matching/mismatch checks passed.
+Independent profile implementation review found no blockers.
+
+The [cleanup research](recognition-cleanup-research.md) and
+[public synthetic trial artifact](evidence/cleanup-models-20261014.json) record
+separate small-model experiments. Cleanup and model management are not integrated
+into the app by this slice. No comparison model remains intentionally resident.

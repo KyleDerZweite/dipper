@@ -28,9 +28,29 @@ pub struct AudioSource {
     pub data_offset: u64,
 }
 
+/// Explicit model architecture. Missing fields retain the original large-v3 contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecognitionModel {
+    #[default]
+    LargeV3,
+    LargeV3Turbo,
+}
+
+impl RecognitionModel {
+    pub fn decoder_layers(self) -> i32 {
+        match self {
+            Self::LargeV3 => 32,
+            Self::LargeV3Turbo => 4,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecognitionSettings {
+    #[serde(default)]
+    pub model_profile: RecognitionModel,
     pub model_path: PathBuf,
     pub language: String,
     pub beam_size: u32,
@@ -41,7 +61,12 @@ pub struct RecognitionSettings {
 
 impl RecognitionSettings {
     pub fn large_v3(model_path: PathBuf) -> Self {
+        Self::for_model(RecognitionModel::LargeV3, model_path)
+    }
+
+    pub fn for_model(model_profile: RecognitionModel, model_path: PathBuf) -> Self {
         Self {
+            model_profile,
             model_path,
             language: "auto".into(),
             beam_size: 5,

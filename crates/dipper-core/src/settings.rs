@@ -1,3 +1,4 @@
+use crate::protocol::RecognitionModel;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -10,6 +11,8 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default)]
+    pub model_profile: RecognitionModel,
     pub input_name: Option<String>,
     pub model_path: PathBuf,
     pub native_lib_dir: PathBuf,
@@ -20,11 +23,12 @@ impl Settings {
     pub fn defaults(data_dir: &Path) -> Self {
         let model_path = std::env::var_os("DIPPER_MODEL_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|| data_dir.join("models/ggml-large-v3.bin"));
+            .unwrap_or_else(|| data_dir.join("models/ggml-large-v3-turbo.bin"));
         let native_lib_dir = std::env::var_os("DIPPER_WHISPER_DIR")
             .map(|dir| PathBuf::from(dir).join("build/bin"))
             .unwrap_or_else(|| data_dir.join("runtime/lib"));
         Self {
+            model_profile: RecognitionModel::LargeV3Turbo,
             input_name: None,
             model_path,
             native_lib_dir,

@@ -9,6 +9,7 @@ use dipper_core::{
     },
     dictation::Dictation,
     journal::{CaptureOutcome, CaptureTicket, Journal, RecordingSnapshot},
+    protocol::RecognitionModel,
     settings::Settings,
     target::{
         DeliveryStatus, DispatchStage, Insertion, InsertionOutcome, TargetIdentity, TargetPermit,
@@ -41,6 +42,7 @@ def marker(name, content=''):
 def emit(event):
     print(json.dumps({'version':launch['version'],'identity':launch['identity'],'event':event}),flush=True)
 marker('pid',str(os.getpid()))
+marker('settings',json.dumps(launch['settings']))
 print('worker-pid='+str(os.getpid()),file=sys.stderr,flush=True)
 if mode=='loading': time.sleep(30)
 gpu={'backend':'Vulkan','name':'Vulkan1','description':'AMD Radeon RX 7700S','pci_id':'0000:03:00.0','gpu_index':1}
@@ -292,6 +294,7 @@ impl Fixture {
         let capture = Arc::new(CaptureControl::new());
         let target = Arc::new(TargetControl::new(journal.clone()));
         let settings = Settings {
+            model_profile: RecognitionModel::LargeV3,
             input_name: None,
             model_path: root.join("model.bin"),
             native_lib_dir: root.to_owned(),
@@ -829,4 +832,31 @@ async fn delayed_qualification_timeout_after_recognition_revokes_original_permit
     .await
     .expect("qualification deadline must settle the Dictation");
     assert_failed_qualification_suppressed_delivery(&fixture);
+}
+
+#[tokio::test]
+async fn turbo_settings_reach_worker_and_journal_as_one_snapshot() {
+    let fixture = Fixture::new("normal");
+    let mut settings = fixture.dictation.settings();
+    settings.model_profile = RecognitionModel::LargeV3Turbo;
+    // An arbitrary filename must not determine the profile.
+    settings.model_path = fixture.directory.path().join("renamed-model.bin");
+    fs::write(&settings.model_path, b"abc").unwrap();
+    fixture.dictation.save_settings(settings.clone()).unwrap();
+    fixture.dictation.begin().unwrap();
+    fixture.recording().await;
+    let mut changed = settings.clone();
+    changed.model_profile = RecognitionModel::LargeV3;
+    assert!(fixture.dictation.save_settings(changed).is_err());
+    fixture.dictation.release();
+    fixture.idle().await;
+    let launch: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture.marker("settings")).unwrap()).unwrap();
+    let record = fixture.record();
+    assert_eq!(launch["model_profile"], "large_v3_turbo");
+    assert_eq!(launch["model_path"], serde_json::json!(settings.model_path));
+    assert_eq!(record.attempts[0].configuration, launch);
+    assert_eq!(record.attempts[0].raw_text.as_deref(), Some(TEXT));
+    assert_eq!(fixture.target.delivered(), vec![TEXT]);
+    fixture.reaped(&record);
 }

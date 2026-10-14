@@ -44,9 +44,9 @@ for the recording. A changed default applies to the next recording. If the
 active device disappears, stop with a failure outcome, preserve available audio,
 and do not automatically insert text. Input-selection UX may be refined later.
 
-Whisper large-v3 through whisper.cpp/Vulkan on the RX 7700S is the accepted first
-live baseline. Evaluate other configurations later without treating this as a
-final model ranking. Qwen is excluded from active candidates by owner decision:
+Whisper large-v3 through whisper.cpp/Vulkan on the RX 7700S was the first
+live baseline. The reviewed Turbo profile contract below records the subsequent
+owner decision for live recognition. Qwen ASR was excluded from active candidates by owner decision:
 the observed CPU startup-inclusive latency exceeded the tolerable wait, despite
 useful experimental quality. Preserve its historical evidence and installed
 artifacts; do not delete or reinterpret them as a failed capture.
@@ -649,3 +649,31 @@ a fresh process with no Configure Hold click, no dialog, actual press/release,
 saved-key preservation, and safe missing/empty/ambiguous selection.
 
 Source: [installed KDE registration path](https://github.com/KDE/xdg-desktop-portal-kde/blob/v6.7.5/src/globalshortcuts.cpp).
+
+## Reviewed Turbo profile contract, 2026-10-14
+
+The owner selected Whisper large-v3-turbo for live dictation. New Settings use
+that profile and its float16 model path. Existing Settings and worker requests
+without a profile deserialize as large-v3, so upgrading does not reinterpret
+an existing path or historical attempt. The baseline constructor also retains
+large-v3. Unknown profiles fail deserialization.
+
+Settings owns the saved profile and path as one idle-only, atomic update.
+Dictation snapshots both at admission, passes them through Recognition to the
+single-job worker, and records that exact configuration in the Journal before
+launch. The UI offers both profiles and reports the saved selection. A filename
+never determines the model architecture.
+
+The native bridge validates the selected profile's decoder depth, four layers
+for Turbo and 32 for large-v3. Both retain 128 mel bins, 32 audio layers, 1280
+state width, float16 weights, the pinned whisper.cpp revision, and the RX 7700S
+Vulkan requirement. A mismatch fails preparation without inference or Paste.
+Auto language, no translation, beam size five, eight threads, cancellation,
+worker reaping, and insertion guards retain their existing contracts.
+
+Acceptance requires legacy and new-settings coverage, profile persistence,
+worker-launch and Journal configuration agreement, real Turbo recognition,
+and a native mismatch failure. Native replay and rendered Settings evidence
+must identify the tested revision; passing process fixtures alone does not
+establish native model acceptance. Download, GGUF folder discovery, Reload,
+and cleanup execution belong to later slices.
