@@ -10,6 +10,9 @@ mode = 'MODE'
 identity = launch['identity']
 version = launch['version']
 print('worker-pid=' + str(os.getpid()), file=sys.stderr, flush=True)
+if mode == 'parent_loss':
+    with open(os.path.join(os.path.dirname(launch['settings']['model_path']), 'worker.pid'), 'w') as marker:
+        marker.write(str(os.getpid()))
 def emit(event):
     print(json.dumps({'version':version,'identity':identity,'event':event}), flush=True)
 gpu={'backend':'Vulkan','name':'Vulkan1','description':'AMD Radeon RX 7700S','pci_id':'0000:03:00.0','gpu_index':1}
@@ -372,10 +375,9 @@ fn abruptly_lost_parent_closes_control_pipe() {
         .status()
         .unwrap();
     assert!(status.success());
-    let log = fs::read_to_string(fixture.directory.path().join("parent.log")).unwrap();
-    let pid = log
-        .lines()
-        .find_map(|line| line.strip_prefix("worker-pid="))
+    // The fixture writes this before Ready. Abrupt parent exit deliberately does
+    // not wait for the independent diagnostics reader to flush its log.
+    let pid = fs::read_to_string(fixture.directory.path().join("worker.pid"))
         .unwrap()
         .parse::<i32>()
         .unwrap();
