@@ -1,22 +1,74 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dipper</title><link rel="stylesheet" href="styles.css"></head>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dipper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
 <body>
-<main>
-  <header><div class="wordmark"><span class="mark" aria-hidden="true">d</span><div><h1>Dipper</h1><p>Speak. Keep the details.</p></div></div><span id="binding" class="pill">Hold not configured</span></header>
-  <section class="status-card" aria-live="polite"><div class="status-top"><span id="status-light" class="light"></span><h2 id="phase">Starting</h2><button id="cancel" class="secondary" disabled>Cancel</button></div><p id="detail">Connecting to the desktop.</p><p class="hint">Use only your Hold key during dictation. Closing this window keeps Dipper in the tray.</p></section>
-  <div id="feedback" role="status" hidden></div>
-  <section><div class="section-title"><h2>Setup</h2><button id="refresh" class="text-button">Refresh devices</button></div>
-  <form id="settings">
-    <label for="input">Microphone</label><select id="input"><option value="">System default at each recording</option></select>
-    <label for="model">Whisper large-v3 model</label><input id="model" spellcheck="false" placeholder="/path/to/ggml-large-v3.bin"><p class="hint">Model weights stay local. The worker exits after each dictation.</p>
-    <label for="runtime">Native runtime libraries</label><input id="runtime" spellcheck="false" placeholder="/path/to/whisper.cpp/build/bin">
-    <label for="hold">Preferred Hold key</label><div class="row"><input id="hold" value="F2" spellcheck="false"><button id="configure-hold" type="button" class="secondary">Configure Hold</button></div><p class="hint">KDE controls the effective binding. Choose a single key; Dipper does not remap your keyboard.</p>
-    <div class="row actions"><button id="save" type="submit">Save settings</button><button id="kde-shortcuts" type="button" class="text-button">KDE Shortcuts</button></div>
-  </form></section>
-  <section><div class="section-title"><h2>Journal</h2><span class="pill">Comprehensive retention</span></div><button id="retry-recovery" class="text-button">Retry interrupted-data recovery</button><p class="hint">Recordings and diagnostics are retained, including canceled and failed work. No automatic deletion.</p><div id="journal" class="journal"><p class="empty">No recordings yet. Focus the T3 composer, then press and hold your configured key.</p></div></section>
-  <footer>Raw transcription slice. Cleanup and Corrections follow later.</footer>
-</main>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
+<div class="app-frame">
+  <header class="window-titlebar" aria-label="Window controls">
+    <div class="window-drag" data-tauri-drag-region="deep"><span>Dipper</span></div>
+    <div class="window-actions">
+      <button id="window-minimize" class="window-button" type="button" aria-label="Minimize" title="Minimize"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-minimize"/></svg></button>
+      <button id="window-maximize" class="window-button" type="button" aria-label="Maximize" title="Maximize"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-maximize"/></svg></button>
+      <button id="window-close" class="window-button window-close" type="button" aria-label="Close to tray" title="Close to tray"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-close"/></svg></button>
+    </div>
+  </header>
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Dipper sidebar">
+    <a class="brand" href="#dictation" aria-label="Dipper, Dictation"><img src="logo.png" alt="" width="44" height="44"><span>Dipper</span></a>
+    <nav aria-label="Main navigation">
+      <a class="nav-link" href="#dictation" aria-label="Dictation" title="Dictation"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg><span>Dictation</span></a>
+      <a class="nav-link" href="#journal" aria-label="Journal" title="Journal"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-journal"/></svg><span>Journal</span></a>
+      <a class="nav-link" href="#settings" aria-label="Settings" title="Settings"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-settings"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="sidebar-bottom"><span class="sidebar-note">Runs in the tray</span></div>
+  </aside>
+  <main id="main-content" class="workspace" tabindex="-1">
+    <header class="workspace-header"><h1 id="view-title">Dictation</h1><div class="activity" role="status"><span id="status-light" class="status-light" aria-hidden="true"></span><span id="phase">Starting</span><button id="cancel" type="button" class="quiet-button" disabled>Cancel</button></div></header>
+    <p id="detail" class="activity-detail" aria-live="polite">Connecting to the desktop.</p>
+    <div id="feedback" class="feedback" role="status" hidden></div>
+    <div class="view-scroll">
+      <section id="view-dictation" class="view dictation-view" aria-label="Dictation">
+        <div class="dictation-prompt"><p id="hold-instruction" class="prompt-title">Configure your Hold key</p><kbd id="binding">Unassigned</kbd></div>
+        <a href="#settings" class="microphone-row" aria-label="Microphone settings"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg><span id="input-summary">Loading input devices…</span><svg class="icon row-arrow" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></a>
+        <p class="hold-note">Use only your Hold key during recording.</p>
+        <div id="last-transcript" class="last-transcript"></div>
+        <div class="view-actions"><a href="#journal" class="text-link">Open Journal <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></a><span class="local-note">Whisper large-v3 · Auto language</span></div>
+      </section>
+      <section id="view-journal" class="view" aria-label="Journal" hidden>
+        <div class="view-toolbar"><span id="journal-count" class="muted">Recent recordings</span><button id="retry-recovery" type="button" class="secondary-button">Retry recovery</button></div>
+        <p class="retention-note">Audio and diagnostics are retained. Nothing is automatically deleted.</p>
+        <div id="journal" class="journal" aria-busy="true"><p class="empty">Loading recordings…</p></div>
+      </section>
+      <section id="view-settings" class="view" aria-label="Settings" hidden>
+        <form id="settings" novalidate>
+          <fieldset id="settings-fields">
+            <div class="field"><div class="field-label"><label for="input">Microphone</label><button id="refresh" type="button" class="text-button">Refresh devices</button></div><select id="input" aria-describedby="input-help"><option value="">System default</option></select><p id="input-help" class="field-help">System default is resolved at the start of each recording.</p></div>
+            <div class="field"><label for="hold">Preferred Hold key</label><div class="control-row"><input id="hold" value="F2" required maxlength="128" spellcheck="false" aria-describedby="hold-help"><button id="configure-hold" type="button" class="secondary-button">Configure Hold</button></div><p id="hold-help" class="field-help">KDE assigns the effective shortcut. Use one key during dictation.</p><button id="kde-shortcuts" type="button" class="text-button">Open KDE Shortcuts</button></div>
+            <details id="recognition-settings"><summary>Recognition setup</summary><div class="field"><label for="model">Whisper large-v3 model</label><input id="model" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/ggml-large-v3.bin" aria-describedby="model-help"><p id="model-help" class="field-help">Local model file. The worker exits after each dictation.</p></div><div class="field"><label for="runtime">Native runtime libraries</label><input id="runtime" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/whisper.cpp/build/bin" aria-describedby="runtime-help"><p id="runtime-help" class="field-help">Directory containing the pinned Whisper/Vulkan libraries.</p></div></details>
+            <div class="form-actions"><button id="save" type="submit" class="primary-button">Save settings</button><span class="field-help">Changes apply to the next dictation.</span></div>
+          </fieldset>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+</div>
+<div class="resize-edge north" data-resize="North" aria-hidden="true"></div>
+<div class="resize-edge east" data-resize="East" aria-hidden="true"></div>
+<div class="resize-edge south" data-resize="South" aria-hidden="true"></div>
+<div class="resize-edge west" data-resize="West" aria-hidden="true"></div>
+<div class="resize-edge north-west" data-resize="NorthWest" aria-hidden="true"></div>
+<div class="resize-edge north-east" data-resize="NorthEast" aria-hidden="true"></div>
+<div class="resize-edge south-west" data-resize="SouthWest" aria-hidden="true"></div>
+<div class="resize-edge south-east" data-resize="SouthEast" aria-hidden="true"></div>
+<script src="transcript.js"></script>
 <script src="app.js"></script>
+<script src="window.js"></script>
 </body>
 </html>

@@ -20,3 +20,10 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 
 [build-dependencies]
 tauri-build = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tray-icon = { version = "=0.25.1", default-features = false, features = ["ksni"] }
+zbus = "5"
+
+[dependencies.tokio-util]
+workspace = true

@@ -1,0 +1,22 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+test('Copy retains the displayed Journal identity during a newer preview update', async () => {
+  const elements=[];
+  const document={createElement:()=>{const el={children:[],append(...items){this.children.push(...items)},addEventListener(_,cb){this.click=cb}};elements.push(el);return el;}};
+  const window={};vm.runInNewContext(fs.readFileSync('ui/transcript.js','utf8'),{window,document});
+  let finish;
+  const calls=[];
+  const view=window.DipperTranscript.mount({append(){}},(name,args)=>{calls.push({name,args});return new Promise(resolve=>{finish=resolve})},()=>{});
+  const old={id:'old',raw_text:'First transcript',state:'Insertion suppressed'};
+  view.update([old]);
+  const button=elements.find(el=>el.textContent==='Copy');
+  const operation=button.click();
+  view.update([{id:'new',raw_text:'New transcript',state:'Insertion delivered'}]);
+  assert.equal(calls[0].args.recordingId,'old');
+  assert.equal(button.disabled,true);
+  finish();await operation;
+  assert.equal(button.disabled,false);
+  view.update([]);assert.equal(button.disabled,true);
+});

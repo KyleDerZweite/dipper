@@ -43,7 +43,7 @@ impl RecognitionSettings {
     pub fn large_v3(model_path: PathBuf) -> Self {
         Self {
             model_path,
-            language: "de".into(),
+            language: "auto".into(),
             beam_size: 5,
             cpu_threads: 8,
             required_gpu: "AMD Radeon RX 7700S".into(),
@@ -57,8 +57,12 @@ impl RecognitionSettings {
             "unsupported native runtime revision"
         );
         anyhow::ensure!(
-            self.language == "de" && self.beam_size == 5 && self.cpu_threads == 8,
-            "first-slice recognition settings must use German, beam size five and eight threads"
+            matches!(self.language.as_str(), "auto" | "de"),
+            "recognition language must be auto or the legacy German replay setting"
+        );
+        anyhow::ensure!(
+            self.beam_size == 5 && self.cpu_threads == 8,
+            "first-slice recognition settings must use beam size five and eight threads"
         );
         anyhow::ensure!(
             self.required_gpu.contains("RX 7700S"),

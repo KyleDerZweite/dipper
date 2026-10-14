@@ -367,8 +367,25 @@ Reserve stdout for protocol and stderr for logs. Reject unknown versions, wrong
 identities, malformed frames, second requests, duplicate terminal events, and
 invalid event order.
 
-Use German transcription, beam size five, eight CPU threads, no vocabulary
-prompt, gain, VAD, or intentional trimming. Resolve and require the RX 7700S
+On 2026-10-14, the owner selected automatic language detection after English
+speech produced German text with the fixed German configuration. New attempts
+use `language: "auto"` and transcribe the spoken language without translation.
+Recognition owns this default and validates the configuration before launching
+its worker. The native bridge passes Auto to the pinned whisper.cpp API with
+`translate = false` and `detect_language = false`. In this API, the latter flag
+requests detection only when true; Auto itself detects the language and then
+continues transcription. The [pinned runtime implementation](https://github.com/ggml-org/whisper.cpp/blob/0c7be696371069e0baa2515ed7aa08d5a5473aa6/src/whisper.cpp#L6992-L7015)
+owns these API semantics. Previously recorded `language: "de"` configurations
+remain valid for Replay. Existing attempts and transcripts are unchanged.
+No language selector or new persisted setting is part of this fix.
+
+Acceptance covers the default configuration crossing the worker transport,
+legacy German configuration compatibility, rejection of unsupported language
+values, and native English and German fixtures producing text in their spoken
+language. A transport fixture does not establish native language quality.
+
+Use beam size five, eight CPU threads, no vocabulary prompt, gain, VAD, or
+intentional trimming. Resolve and require the RX 7700S
 Vulkan backend each job, recording its actual identity. Do not silently select
 CPU fallback. Resample finalized 48 kHz audio to mono 16 kHz in the worker;
 use rubato with explicit configuration/version provenance. Flush the final
@@ -468,3 +485,114 @@ directory durability, original-preserving recovery, orphan handling, schema
 invariants, and observed discontinuity failure. No further owner decision
 blocks implementation. These reviews establish contract readiness, not runtime
 acceptance or deployment.
+
+## Desktop interface polish contract, 2026-10-14
+
+The owner requested a consistent app interface with a sidebar and the existing
+Dipper logo. `ui/index.html` owns one shell and three local views: Dictation,
+Journal, and Settings. `ui/styles.css` owns neutral dark/light tokens, spacing,
+control geometry, and responsive sidebar behavior. `ui/app.js` owns local view
+navigation; `ui/window.js` owns app window controls and host window state. Existing Tauri commands
+and Dictation/Journal responsibilities remain the behavior boundary.
+
+Dictation remains the primary screen. Status and Cancel stay available across
+views. Settings retain their entered values on navigation and errors, use native
+inputs, and expose runtime paths as advanced settings. Journal preserves separate
+Audio/Recognition/Insertion outcomes and explicit Copy/recovery. No new recording
+mode, retention policy, model, or insertion behavior is introduced.
+
+Use root `Logo.png` as the canonical brand asset. The frontend build and native
+window/tray icons derive from this asset rather than invent another mark. Keep
+one quiet sidebar with labeled links at normal widths and an accessible icon rail
+at narrow widths. Respect the requested sidebar instead of the skill's horizontal
+navbar default. Use an underline for active navigation, restrained green accents,
+system typography, and flat neutral surfaces. Use fixed dark appearance for content and app-owned window chrome.
+
+Acceptance covers all three views, hash/back navigation, keyboard focus, unchanged
+form drafts, loading/error/retry/copy/busy states, fixed dark rendering regardless of OS or old stored appearance, narrow/wide layouts and zoom, native window/tray
+branding, and actual native controls. Browser fixtures establish frontend behavior
+only; the real Tauri app owns native command evidence.
+
+Reference workflows: [Handy documentation](https://handy.computer/docs) and
+[history](https://handy.computer/docs/history) informed shortcut-first operation,
+explicit transcript Copy, and device/paste recovery. Handy was not installed;
+its full native journey was unavailable. The existing T3 interface provided an
+installed reference for a quiet sidebar. Dipper keeps its own retention contract.
+
+Native branding uses a cached 32 px logo with a recording/processing/error badge
+and textual tray status. GTK's Wayland window identifies itself as `dipper` on
+this host, so the development host creates a hidden `dipper.desktop` alias in
+addition to its portal identifier. Existing installed or edited entries are
+preserved. Recognized generated entries and brand assets use synchronized atomic
+replacement. The frontend uses a symlink to canonical `Logo.png`; the actual
+Tauri build was checked to embed and render it.
+
+The owner extended this polish slice to app-owned window controls after providing
+Sotto screenshots. Replace server decorations with one shared themed titlebar,
+standard Minimize/Maximize/Restore and Close-to-tray buttons, a Tauri drag region,
+and bounded resize edges. `ui/window.js` owns window presentation and delegates
+to Tauri window APIs with narrowly scoped permissions for the main window.
+Existing CloseRequested behavior still hides the window and preserves ongoing
+Dictation. Controls use native button semantics, keyboard focus and explicit
+names; the app owns their appearance. Recording, retention and target validation
+remain unchanged. Reference images informed integrated chrome and compact
+geometry, not new Dictionary/model-management features. Screenshots establish
+visual reference only; the Sotto native workflow was unavailable.
+
+Acceptance adds real native minimize/restore, maximize/restore, double-click,
+move, edge resize, close/reopen from tray, keyboard operation, themes and narrow
+geometry. Browser fixtures exercise presentation and errors only. Moving/resizing
+is a host interaction; it does not mutate Dictation or steal focus elsewhere.
+
+Owner revision: Dipper uses dark appearance only. Remove the appearance switcher,
+Light/System tokens and persistence owner. `ui/styles.css` is the single fixed
+palette for content and app-owned window chrome. This supersedes the earlier
+three-mode polish requirement. Existing retained recordings/settings and window
+behavior remain unchanged. Acceptance now checks no switcher and fixed dark
+rendering regardless of old persisted choice or OS preference.
+
+## Compact desktop and tray panel contract, 2026-10-14
+
+The owner requires Auto recognition and a denser desktop/tray experience inspired
+by the supplied Sotto screenshots. The useful screen keeps Hold and its key on
+one row, a microphone link, and the actual last transcript with explicit Copy.
+Remove decorative microphone space and repeated configuration summaries. Keep
+Journal and Settings reachable, fixed dark appearance, and existing retention.
+`ui/styles.css` owns compact shared geometry; a shared transcript presenter owns
+preview and Copy for main and quick views. No unsupported feature controls.
+
+The desktop host owns a lazy, frameless quick window. Left tray activation toggles
+it; Escape, Close, and observed focus loss dismiss it. A small right-click menu
+keeps Open Dipper, Cancel and Quit available. Use tray-icon 0.25.1's existing KSNI
+backend to receive Linux activation through Tauri, preserving menu callbacks and
+status updates. Scope quick-window capabilities separately. Opening/focusing
+windows remains forbidden while Dictation is busy, and completion never opens one.
+The quick panel shows actual state, Hold binding, selected microphone and retained
+last transcript; Copy uses the existing explicit command. Open and Quit delegate
+to established host behavior.
+
+KDE tray activation supplies placement hints, but Wayland GTK cannot position a
+normal window globally. A small desktop-shell placement helper may position only
+Dipper's quick window, identified by owned PID and exact title, near the active
+tray output using KWin. It owns its temporary script lifecycle and never changes
+another window or the target-observer contract. If placement is unavailable, the
+compositor-selected quick window remains dismissible. This is a KDE integration,
+not cross-platform positioning evidence.
+
+Acceptance: real Auto English/German transcription; compact main/quick views and
+long/empty/error/busy states; native left/right tray paths, Copy, open/close,
+Escape/outside dismissal and reopen; focus preserved during busy Dictation;
+placement and multi-output limits; idle resource overhead measured. Preserve
+existing recordings/attempts and settings. Technical evidence and remaining
+owner judgment are recorded separately.
+
+The tray implementation uses [the pinned KSNI backend](https://docs.rs/tray-icon/0.25.1/tray_icon/).
+Short host show/focus actions use the same admission lock as Hold through
+`Dictation::with_idle`; no slow work or await occurs inside that callback.
+Placement tasks use an explicit Tauri runtime handle, request cancellation,
+a serial cleanup gate, and a post-await generation/idle check. The quick window
+starts non-focusable while positioning, then enables focus for interaction.
+One-time dismissal handlers are installed on creation; initialization also
+focuses the dismiss button so the first keyboard path does not depend on an
+event arriving after the WebView has loaded. Temporary scripts use unique names,
+bounded setup/operation/cleanup, authenticated replies, and reported file cleanup.

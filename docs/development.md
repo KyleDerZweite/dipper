@@ -67,6 +67,12 @@ insertion. Observed departure from the original T3 window permanently suppresses
 that dictation's insertion, even if you return. The raw text remains in Journal
 for explicit Copy. Dipper never sends Enter or pulls focus back.
 
+Recognition automatically detects the spoken language and transcribes without
+translation. Each new attempt records `language: "auto"` in its configuration.
+Older attempts keep their original configuration and transcript; saved German
+settings remain valid for Replay. Auto detects one language per attempt, so
+this does not establish quality for speech that switches languages mid-recording.
+
 Closing Settings hides the window and keeps the tray app running. Cancel
 preserves available audio and blocks late insertion. Quit waits for capture
 finalization and worker cleanup. If a physical release is missed, use Cancel;
@@ -145,3 +151,122 @@ capture and spoken quality remain unexecuted. The short synthetic case establish
 integration, not the pilot's quality corpus, P95/P99 latency, resource budgets,
 or owner acceptance. Cleanup, explicit Corrections, reduced retention, and the
 complete comparison remain required follow-up scope.
+
+## Sidebar verification, 2026-10-14
+
+The sidebar slice is based on raw-app revision `915a057`. The frontend now has
+three local views and one shared appearance owner. Browser fixtures were served
+outside the repository and are not production Tauri integration evidence.
+
+Observed browser checks: Dictation/Journal/Settings navigation; preserved form
+drafts; keyboard Skip to content retaining the Settings route; dark/light/system
+cycling and persistence after navigation/reload; emulated OS preference changes;
+busy Settings disabled with Cancel available; Journal load failure and Retry,
+empty-state navigation, and long unbroken transcript wrapping. Inspected layouts
+at 1280x800, 840x760, 420x560 and 360x640, plus 420x380 reflow and CSS zoom 200%.
+No horizontal overflow was observed. True browser zoom and touch hardware were
+not exercised. Dark muted text contrast is 7.96:1 and essential borders 3.72:1;
+light muted text 5.89:1. Shared native inputs/buttons have 40 px controls and 44 px
+sidebar links. The apparent rendering remains an owner judgment.
+
+Real KDE/Wayland Tauri evidence: the embedded canonical logo renders in the
+sidebar and KDE titlebar; the native tray PNG was inspected. Actual Refresh,
+Save (persisted F2), Retry recovery, and Journal Copy commands succeeded. Copy
+used a retained synthetic transcript and restored every original clipboard MIME
+format byte-for-byte after the test. A virtual input with priority 0 was used for
+a physical F2 Hold test; Settings controls were disabled while recording, Cancel
+remained enabled, 44544 available frames were preserved, and no insertion or
+clipboard mutation occurred. The OS default microphone was not changed.
+
+An initial Hold attempt after relaunch produced no recording; explicitly
+Configure Hold and retry succeeded. A repeated full synthetic Recognition/Paste
+journey completed Recognition but safely suppressed Insertion because the current
+long T3 thread exceeds the existing 650-node qualification bound. Original
+clipboard formats were restored. This is not a successful repeated Paste check;
+see the dedicated tracker issue. The earlier raw-app short-thread Paste evidence
+remains historical evidence for that environment, not proof for long threads.
+HyperX is now visible to PipeWire, but real owner speech and latency percentiles
+were not evaluated during UI polish.
+
+Current slice checks: JavaScript syntax, cargo fmt, clippy with warnings denied,
+workspace tests (72 passed; 3 ignored child fixtures exercised by parent tests),
+and native build. Independent review findings were resolved: contrast, skip-link
+routing, failed input discovery preserving the selected microphone, and atomic
+migration of generated desktop entries. Installed/user-edited entries remain
+preserved; frontend logo is a symlink to root `Logo.png`.
+
+## App-owned window controls, 2026-10-14
+
+The owner replaced system decorations with app controls and selected dark-only
+appearance. The switcher, light palette and appearance persistence code are
+removed. `ui/window.js` delegates Minimize, Maximize/Restore, Close and edge
+Resize to the existing Tauri host. Close still hides to the tray.
+
+Native KDE/Wayland checks on the updated artifact passed: Maximize/Restore,
+Minimize and restore from tray, titlebar move, edge resize from 840 to 900 px,
+titlebar double-click to maximize, keyboard Enter to restore, and Close/reopen.
+An unsaved Settings draft survived Close/reopen and was restored without Save.
+Rendered frameless views were inspected at 840x760 and 420x480. Controls measured
+44x41 CSS px. Browser fixtures checked keyboard focus, failed action recovery,
+narrow geometry, and fixed dark rendering under an emulated light OS preference.
+Earlier stored appearance choices have no effect. Physical touch was not tested.
+
+The state-refresh race found by independent review is fixed: a resize received
+while a host state query is pending invalidates its reply and triggers a trailing
+query. `node --test tests/ui-window.cjs` covers that delayed-reply case and passes.
+JavaScript syntax, native build, cargo fmt/clippy and focused independent review
+passed. The prior 72-test domain suite remains evidence for unchanged domain code;
+window interactions above establish this artifact's native evidence.
+
+## Auto language and compact tray verification, 2026-10-14
+
+New Recognition attempts use Auto, with translation disabled. A replay of a
+private copy of the owner's retained English recording completed with detected
+language `en` and English text; the retained German synthetic phrase completed
+with detected language `de` and German text. Both workers were reaped. The
+original Journal/audio was read-only and unchanged. Historical German attempts
+remain preserved. Mixed-language speech and quality/latency percentiles still
+need the representative pilot corpus.
+
+The compact main window defaults to 680x540 logical pixels, with a 164 px sidebar,
+smaller shared controls and a one-row Hold prompt. Main and tray share the last
+transcript presenter and explicit Copy. The app-owned quick panel is 320x360.
+Its Linux left-activation path uses the existing pinned tray-icon KSNI backend;
+the smaller native context menu remains available as fallback.
+
+Native KDE/Wayland evidence: real StatusNotifier Activate calls opened/toggled
+and reopened the panel. Placement from top-tray hint 500,60 produced 200,72; a bottom
+hint 4400,1400 placed it above the tray on the second output. Escape, outside focus
+loss, Open Dipper and explicit Copy passed. Copy was scoped to the quick window
+and restored all original clipboard MIME bytes after the check. Right-menu
+DBusMenu labels/state and the now nonempty real tray tooltip were inspected.
+A physical pointer click on the tray icon was not separately exercised.
+
+During a real F2 recording on the owned silent virtual input, a native tray
+activation preserved the active window and opened no panel. Cancel was enabled
+while Settings were disabled; 52224 available frames were retained, no Insertion
+occurred and clipboard bytes were unchanged. Configure Hold was used before this
+check. An earlier post-relaunch attempt produced no recording; restored-shortcut
+startup behavior still needs isolated investigation. The test source was removed;
+the OS default and normal application store were restored.
+
+The first native activation exposed a GTK-thread Tokio-context panic in the new
+code, fixed by using the explicit Tauri runtime handle. Subsequent native runs
+passed. Independent review also resolved file cleanup, setup deadlines and stale
+placement generations. Superseded tasks cancel and complete cleanup before a new
+placement, and popup focus is rechecked against admission. No owned placement
+script files remained after the tests.
+
+Workspace tests: 74 passed, plus 4 Node regression checks for stale window-state
+replies, immutable Copy identity, owned placement and ambiguous windows.
+JavaScript syntax, cargo fmt/clippy and native build passed on the current slice.
+Rendered main/Settings/quick views, long content, error/busy states and narrow
+420x420 layout were inspected. Native controls measured 38x34 in the titlebar,
+with 34 px form controls and a compact quick-panel variant. Physical touch is untested.
+
+Resource samples are not budgets or a controlled backend comparison: the old
+AppIndicator parent was 138796 KiB RSS/40 threads; the new KSNI parent after creating
+the second WebView was 236600 KiB/55 threads. This includes UI/runtime changes and
+cannot isolate KSNI overhead. The quick WebView is lazy and remains cached after
+first use; no Recognition worker remains warm after settlement. A matched idle
+PSS/CPU comparison remains needed before selecting budgets.

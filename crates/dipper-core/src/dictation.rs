@@ -190,6 +190,20 @@ impl Dictation {
         }
         result
     }
+    /// Serialize short host actions with Hold admission. Never await or perform
+    /// slow work inside the callback; prepare it first, then recheck here.
+    pub fn with_idle<T>(&self, action: impl FnOnce() -> Result<T>) -> Result<T> {
+        let active = self.active.lock().unwrap();
+        ensure!(
+            self.accepting.load(Ordering::SeqCst),
+            "Dipper is shutting down."
+        );
+        ensure!(
+            active.is_none() && !self.maintaining.load(Ordering::SeqCst),
+            "Wait until dictation finishes before opening Dipper."
+        );
+        action()
+    }
     pub fn begin(self: &Arc<Self>) -> Result<()> {
         ensure!(
             self.accepting.load(Ordering::SeqCst),

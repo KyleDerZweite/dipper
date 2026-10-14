@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dipper Quick Panel</title><link rel="stylesheet" href="styles.css"></head>
+<body class="quick-body">
+  <main class="quick-panel">
+    <header class="quick-header"><div class="activity" role="status"><span id="status-light" class="status-light" aria-hidden="true"></span><span id="phase">Connecting</span></div><button id="quick-close" type="button" class="quick-icon-button" aria-label="Dismiss quick panel" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-close"/></svg></button></header>
+    <div class="dictation-prompt"><p class="prompt-title">Hold to dictate</p><kbd id="binding">Unassigned</kbd></div>
+    <button id="microphone" type="button" class="microphone-row" aria-label="Open microphone settings"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg><span id="input-summary">Loading input devices…</span><svg class="icon row-arrow" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></button>
+    <div id="last-transcript" class="last-transcript"></div>
+    <p id="feedback" class="quick-feedback" role="status" hidden></p>
+    <footer class="quick-actions"><button id="open-app" type="button" class="quick-action">Open Dipper <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></button><button id="cancel-quick" type="button" class="quick-action" hidden>Cancel dictation</button><button id="quit-app" type="button" class="quick-action">Quit Dipper</button></footer>
+  </main>
+<script src="transcript.js"></script><script src="quick.js"></script>
+</body></html>

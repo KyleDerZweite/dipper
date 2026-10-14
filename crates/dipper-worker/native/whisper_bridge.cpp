@@ -107,6 +107,8 @@ extern "C" int dipper_whisper_recognize(void * opaque, const float * samples, in
         auto * context = static_cast<DipperContext *>(opaque);
         auto parameters = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
         parameters.language = language;
+        // "auto" detects the spoken language and continues transcription. In the
+        // pinned API, detect_language=true returns after detection without text.
         parameters.detect_language = false;
         parameters.translate = false;
         parameters.n_threads = threads;

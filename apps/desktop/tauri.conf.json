@@ -12,11 +12,12 @@
       {
         "label": "main",
         "title": "Dipper",
-        "width": 840,
-        "height": 760,
+        "width": 680,
+        "height": 540,
         "minWidth": 420,
-        "minHeight": 480,
-        "visible": false
+        "minHeight": 420,
+        "visible": false,
+        "decorations": false
       }
     ],
     "security": {
