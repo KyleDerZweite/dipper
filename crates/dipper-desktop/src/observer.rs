@@ -208,27 +208,29 @@ pub(crate) struct Observer {
 const INFO: &str = "function info(w){return w ? {id:String(w.internalId),pid:w.pid,app:String(w.desktopFileName),normal:w.normalWindow}:null;}";
 
 fn observer_script(service: &str) -> Result<String> {
+    // KWin v6.7.5 calls sessionBus().asyncCall inline on each scripting invocation.
+    // https://github.com/KDE/kwin/blob/v6.7.5/src/scripting/scripting.cpp
+    // The shared connection preserves same-recipient method-call send order.
+    // https://dbus.freedesktop.org/doc/dbus-tutorial.html#messages
+    // Receiver dispatch stays serial. Reply gating would let Snapshot bypass a departure.
     Ok(format!(
         r#"{INFO}
 var sequence=0;
-var reports=[];
-var inFlight=false;
-function deliver() {{
-    if (inFlight || reports.length===0) return;
-    inFlight=true;
-    var next=reports.shift();
-    callDBus({}, {}, {}, 'Report', next.sequence, next.payload, function() {{
-        inFlight=false;
-        deliver();
-    }});
-}}
 function report() {{
-    reports.push({{sequence:String(++sequence), payload:JSON.stringify(info(workspace.activeWindow))}});
-    deliver();
+    callDBus({}, {}, {}, 'Report', String(++sequence), JSON.stringify(info(workspace.activeWindow)));
 }}
 workspace.windowActivated.connect(report);
 workspace.windowRemoved.connect(report);
 report();"#,
+        serde_json::to_string(service)?,
+        serde_json::to_string(OBJECT)?,
+        serde_json::to_string(INTERFACE)?
+    ))
+}
+
+fn snapshot_script(service: &str, request: u64) -> Result<String> {
+    Ok(format!(
+        "{INFO}\ncallDBus({}, {}, {}, 'Snapshot', '{request}', JSON.stringify(info(workspace.activeWindow)));",
         serde_json::to_string(service)?,
         serde_json::to_string(OBJECT)?,
         serde_json::to_string(INTERFACE)?
@@ -520,23 +522,29 @@ impl SnapshotOperation {
         let mut file_created = false;
         let mut load_attempted = false;
         let result = async {
-            let script = format!(
-                "{INFO}\ncallDBus({}, {}, {}, 'Snapshot', '{request}', JSON.stringify(info(workspace.activeWindow)));",
-                serde_json::to_string(&self.service)?,
-                serde_json::to_string(OBJECT)?,
-                serde_json::to_string(INTERFACE)?
-            );
-            let mut file = std::fs::OpenOptions::new().write(true).create_new(true)
-                .mode(0o600).open(&path)?;
+            let script = snapshot_script(&self.service, request)?;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&path)?;
             file_created = true;
             std::io::Write::write_all(&mut file, script.as_bytes())?;
             load_attempted = true;
-            self.state.lock().unwrap().cleanup_scripts.insert(name.clone());
+            self.state
+                .lock()
+                .unwrap()
+                .cleanup_scripts
+                .insert(name.clone());
             load_run(&self.connection, &path, &name).await?;
             let current = tokio::time::timeout(Duration::from_secs(2), receive).await??;
-            ensure!(self.state.lock().unwrap().healthy, "KWin observer is unavailable");
+            ensure!(
+                self.state.lock().unwrap().healthy,
+                "KWin observer is unavailable"
+            );
             Ok(current)
-        }.await;
+        }
+        .await;
         // Finally always runs inside this owned task, including write/load/query failure.
         let unload = if load_attempted {
             unload_script(&self.connection, &name).await
@@ -808,9 +816,11 @@ mod tests {
     }
 
     #[test]
-    fn queued_reports_capture_departure_and_return_in_fifo_order() {
-        let script = observer_script("org.dipper.Synthetic").unwrap();
-        let source = serde_json::to_string(&script).unwrap();
+    fn snapshot_cannot_overtake_departures_when_report_replies_are_delayed() {
+        let source =
+            serde_json::to_string(&observer_script("org.dipper.Synthetic").unwrap()).unwrap();
+        let snapshot =
+            serde_json::to_string(&snapshot_script("org.dipper.Synthetic", 7).unwrap()).unwrap();
         let fixture = format!(
             r#"
 const assert = require('node:assert/strict');
@@ -823,22 +833,31 @@ global.workspace = {{activeWindow:original,
     windowRemoved:{{connect(_){{}}}}
 }};
 global.callDBus = (...args) => calls.push(args);
+let expected=1;
+let eligible=true;
+const delivered=[];
+function receive(call) {{
+    const value=JSON.parse(call[5]);
+    delivered.push([call[3],value.id]);
+    if (call[3]==='Report') {{
+        assert.equal(call[4],String(expected++));
+        if (value.id!=='original') eligible=false;
+        // Deliberately do not invoke callbacks or deliver method replies.
+    }} else {{
+        assert.equal(call[3],'Snapshot');
+        assert.equal(call[4],'7');
+        assert.equal(value.id,'original');
+        assert.equal(eligible,false,'Snapshot must follow the captured departure, even after return');
+    }}
+}}
 eval({source});
+receive(calls.shift());
 workspace.activeWindow=departed; activated(departed);
 workspace.activeWindow=original; activated(original);
-assert.equal(calls.length, 1, 'Only one report may be in flight');
-const received = [];
-for (let expected=1; expected<=3; expected++) {{
-    assert.equal(calls.length, 1);
-    const call = calls.shift();
-    assert.equal(call[3], 'Report');
-    assert.equal(call[4], String(expected));
-    received.push(JSON.parse(call[5]).id);
-    assert.equal(typeof call[6], 'function');
-    call[6]();
-}}
-assert.deepEqual(received, ['original','other','original']);
-assert.equal(calls.length, 0);
+eval({snapshot});
+while(calls.length) receive(calls.shift());
+assert.deepEqual(delivered,[['Report','original'],['Report','other'],['Report','original'],['Snapshot','original']]);
+assert.equal(eligible,false);
 "#
         );
         let output = std::process::Command::new("node")
