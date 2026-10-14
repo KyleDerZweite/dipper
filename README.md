@@ -7,7 +7,7 @@
 <p align="center">Voice dictation focused on efficiency, speed, and quality.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-planning-64748b?style=flat-square" alt="Status: planning">
+  <img src="https://img.shields.io/badge/status-development-64748b?style=flat-square" alt="Status: development">
   <img src="https://img.shields.io/badge/target-Fedora_KDE-2563eb?style=flat-square" alt="Target: Fedora KDE">
   <img src="https://img.shields.io/badge/language-Rust-64748b?style=flat-square" alt="Core language: Rust">
   <img src="https://img.shields.io/badge/stack-Tauri_2-64748b?style=flat-square" alt="Desktop shell: Tauri 2">
@@ -26,10 +26,12 @@ is not a project requirement.
 Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
-Status, 2026-10-14: the raw voice-to-T3 app slice is being implemented against
-reviewed contracts. Use the [development guide](docs/development.md) for native
-dependencies and build/run commands. Runtime acceptance remains in progress;
-cleanup, Corrections, reduced retention, and full pilot evaluation follow.
+Status, 2026-10-14: the raw voice-to-T3 development app records on Hold, retains
+its Journal, runs one Whisper large-v3/Vulkan job, and attempts guarded Paste.
+A real T3 integration test passed with synthetic German audio. Use the
+[development guide](docs/development.md) for build/run commands and verification
+limits. HyperX spoken testing, cleanup, Corrections, reduced retention, and full
+pilot evaluation remain open.
 
 ## Documentation
 
