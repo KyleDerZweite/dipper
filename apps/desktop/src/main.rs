@@ -278,19 +278,21 @@ fn request_quit(app: &tauri::AppHandle) {
         app.exit(0);
     });
 }
-fn main() {
+fn main() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
+    // GTK can contact portals during startup. Make the host desktop identity
+    // available before GTK initializes, including on the very first run.
+    let paths = paths::AppPaths::resolve()?;
+    let session_lock = paths.lock_session()?;
+    paths.private_directories()?;
+    paths.ensure_desktop_identity()?;
+    let settings = Settings::load(&paths.settings, &paths.data)?;
+    let journal = Arc::new(Journal::open(&paths.data, &paths.state)?);
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript])
-        .setup(|app| {
-            let paths = paths::AppPaths::resolve()?;
-            let session_lock = paths.lock_session()?;
-            paths.private_directories()?;
-            paths.ensure_desktop_identity()?;
-            let settings = Settings::load(&paths.settings, &paths.data)?;
-            let journal = Arc::new(Journal::open(&paths.data, &paths.state)?);
+        .setup(move |app| {
             let recovery = journal.recovery_report();
             let native = tauri::async_runtime::block_on(DesktopAdapter::new(paths.clipboard_helper));
             let (native, desktop_error): (Option<Arc<DesktopAdapter>>, Option<String>) = match native {
@@ -360,8 +362,7 @@ fn main() {
             if std::env::args().any(|arg| arg == "--show") || !dictation.settings().model_path.is_file() { show_window(app.handle()); }
             Ok(())
         })
-        .build(tauri::generate_context!())
-        .expect("Dipper startup failed");
+        .build(tauri::generate_context!())?;
     app.run(|app, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event
             && !app.state::<AppState>().exit_ready.load(Ordering::SeqCst)
@@ -370,4 +371,5 @@ fn main() {
             request_quit(app);
         }
     });
+    Ok(())
 }

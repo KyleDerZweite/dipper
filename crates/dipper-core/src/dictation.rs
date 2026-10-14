@@ -463,6 +463,7 @@ impl Dictation {
             }
         };
         let mut target_done = false;
+        let mut target_error = None;
         let mut timer = tokio::time::interval(Duration::from_millis(25));
         let reason = loop {
             if let Some(reason) = stop.borrow().clone() {
@@ -478,7 +479,14 @@ impl Dictation {
                             if canceled.is_cancelled() { permit.revoke(); }
                             *permit_slot.lock().unwrap() = Some(permit);
                         }
-                        _ => { if let Some(permit) = permit_slot.lock().unwrap().take() { permit.revoke(); } }
+                        failure => {
+                            target_error = Some(match failure {
+                                Ok(Err(error)) => error.to_string(),
+                                Err(error) => error.to_string(),
+                                Ok(Ok(_)) => unreachable!(),
+                            });
+                            if let Some(permit) = permit_slot.lock().unwrap().take() { permit.revoke(); }
+                        }
                     }
                 }
                 _ = timer.tick() => {
@@ -590,7 +598,18 @@ impl Dictation {
                     }
                     *permit_slot.lock().unwrap() = Some(permit);
                 }
-                _ => target_task.abort(),
+                failure => {
+                    target_error = Some(match failure {
+                        Ok(Ok(Err(error))) => error.to_string(),
+                        Ok(Err(error)) => error.to_string(),
+                        Err(_) => "T3 admission validation timed out".into(),
+                        Ok(Ok(Ok(_))) => unreachable!(),
+                    });
+                    if let Some(permit) = permit_slot.lock().unwrap().take() {
+                        permit.revoke();
+                    }
+                    target_task.abort();
+                }
             }
         }
         if outcome.status != RecognitionStatus::Succeeded || canceled.is_cancelled() {
@@ -628,7 +647,12 @@ impl Dictation {
             InsertionOutcome {
                 stage: DispatchStage::Unchanged,
                 status: DeliveryStatus::Suppressed,
-                detail: "Target unavailable or ambiguous. Use Copy in Journal.".into(),
+                detail: format!(
+                    "{}. Use Copy in Journal.",
+                    target_error
+                        .as_deref()
+                        .unwrap_or("Target unavailable or ambiguous")
+                ),
             }
         };
         let delivery = match result.status {
