@@ -474,20 +474,10 @@ impl Dictation {
                 _ = canceled.cancelled() => { break stop.borrow().clone().unwrap_or(CaptureStop::Canceled); }
                 result = &mut target_task.0, if !target_done => {
                     target_done = true;
-                    match result {
-                        Ok(Ok(permit)) => {
-                            if canceled.is_cancelled() { permit.revoke(); }
-                            *permit_slot.lock().unwrap() = Some(permit);
-                        }
-                        failure => {
-                            target_error = Some(match failure {
-                                Ok(Err(error)) => error.to_string(),
-                                Err(error) => error.to_string(),
-                                Ok(Ok(_)) => unreachable!(),
-                            });
-                            if let Some(permit) = permit_slot.lock().unwrap().take() { permit.revoke(); }
-                        }
-                    }
+                    target_error = settle_target_qualification(
+                        &permit_slot, &canceled,
+                        result.map_err(anyhow::Error::from).and_then(|result| result),
+                    );
                 }
                 _ = timer.tick() => {
                     let progress = capture.progress();
@@ -591,25 +581,14 @@ impl Dictation {
         let outcome = self.await_worker(generation, &worker, &canceled).await;
         self.record_attempt(attempt_id, &outcome)?;
         if !target_done {
-            match tokio::time::timeout(Duration::from_secs(12), &mut target_task.0).await {
-                Ok(Ok(Ok(permit))) => {
-                    if canceled.is_cancelled() {
-                        permit.revoke();
-                    }
-                    *permit_slot.lock().unwrap() = Some(permit);
-                }
-                failure => {
-                    target_error = Some(match failure {
-                        Ok(Ok(Err(error))) => error.to_string(),
-                        Ok(Err(error)) => error.to_string(),
-                        Err(_) => "T3 admission validation timed out".into(),
-                        Ok(Ok(Ok(_))) => unreachable!(),
-                    });
-                    if let Some(permit) = permit_slot.lock().unwrap().take() {
-                        permit.revoke();
-                    }
-                    target_task.abort();
-                }
+            let result = tokio::time::timeout(Duration::from_secs(12), &mut target_task.0)
+                .await
+                .context("T3 admission validation timed out")
+                .and_then(|result| result.map_err(anyhow::Error::from))
+                .and_then(|result| result);
+            target_error = settle_target_qualification(&permit_slot, &canceled, result);
+            if target_error.is_some() {
+                target_task.abort();
             }
         }
         if outcome.status != RecognitionStatus::Succeeded || canceled.is_cancelled() {
@@ -743,6 +722,29 @@ impl Dictation {
                 _ = canceled.cancelled(), if !cancellation_seen => { cancellation_seen = true; worker.cancel(); }
                 changed = state.changed() => { if changed.is_err() { return worker.wait().await; } }
             }
+        }
+    }
+}
+
+// Both early and late completion must settle the same admission reservation.
+fn settle_target_qualification(
+    slot: &Mutex<Option<TargetPermit>>,
+    canceled: &CancellationToken,
+    result: Result<TargetPermit>,
+) -> Option<String> {
+    match result {
+        Ok(permit) => {
+            if canceled.is_cancelled() {
+                permit.revoke();
+            }
+            *slot.lock().unwrap() = Some(permit);
+            None
+        }
+        Err(error) => {
+            if let Some(permit) = slot.lock().unwrap().take() {
+                permit.revoke();
+            }
+            Some(error.to_string())
         }
     }
 }
