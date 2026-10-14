@@ -4,14 +4,14 @@ use dipper_core::target::{TargetIdentity, TargetPermit, WeakTargetPermit};
 use futures_util::StreamExt;
 use serde::Deserialize;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::sync::{Notify, broadcast, oneshot};
-use tokio_util::sync::CancellationToken;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use zbus::{Connection, Proxy, message::Header};
 
 const SCRIPT: &str = "org.dipper.Dipper.FocusObserver";
@@ -25,6 +25,7 @@ pub(crate) struct State {
     permits: Vec<WeakTargetPermit>,
     sequence: u64,
     pending: HashMap<u64, oneshot::Sender<Option<TargetIdentity>>>,
+    cleanup_scripts: HashSet<String>,
 }
 
 impl State {
@@ -163,7 +164,8 @@ pub(crate) struct Observer {
     stop: CancellationToken,
     monitor: Mutex<Option<tokio::task::JoinHandle<()>>>,
     request: std::sync::atomic::AtomicU64,
-    snapshot_lock: tokio::sync::Mutex<()>,
+    snapshot_lock: Arc<tokio::sync::Mutex<()>>,
+    snapshots: TaskTracker,
 }
 
 const INFO: &str = "function info(w){return w ? {id:String(w.internalId),pid:w.pid,app:String(w.desktopFileName),normal:w.normalWindow}:null;}";
@@ -210,30 +212,37 @@ impl Observer {
             serde_json::to_string(INTERFACE)?
         );
         write_script(&path, &script)?;
-        let scripting = Proxy::new(
-            &connection,
-            "org.kde.KWin",
-            "/Scripting",
-            "org.kde.kwin.Scripting",
-        )
-        .await?;
-        // Single-instance Dipper owns precisely this stable script name, including stale runs.
-        let loaded: bool = scripting.call("isScriptLoaded", &(SCRIPT,)).await?;
-        if loaded {
-            let _: bool = scripting.call("unloadScript", &(SCRIPT,)).await?;
-        }
-        let start = load_run(&connection, &path, SCRIPT).await;
-        if let Err(error) = start {
-            let _ = std::fs::remove_file(&path);
-            return Err(error);
-        }
-        if tokio::time::timeout(Duration::from_secs(3), initialized.notified())
+        let initialized_result: Result<()> = async {
+            let loaded = tokio::time::timeout(Duration::from_secs(2), async {
+                let scripting = Proxy::new(
+                    &connection,
+                    "org.kde.KWin",
+                    "/Scripting",
+                    "org.kde.kwin.Scripting",
+                )
+                .await?;
+                let loaded: bool = scripting.call("isScriptLoaded", &(SCRIPT,)).await?;
+                Ok::<_, anyhow::Error>(loaded)
+            })
             .await
-            .is_err()
-        {
-            let _: Result<bool, _> = scripting.call("unloadScript", &(SCRIPT,)).await;
-            let _ = std::fs::remove_file(&path);
-            anyhow::bail!("KWin observer did not initialize");
+            .context("KWin observer setup timed out")??;
+            // Single-instance Dipper owns this exact name, including stale runs.
+            if loaded {
+                unload_script(&connection, SCRIPT).await?;
+            }
+            load_run(&connection, &path, SCRIPT).await?;
+            tokio::time::timeout(Duration::from_secs(3), initialized.notified())
+                .await
+                .context("KWin observer did not initialize")?;
+            Ok(())
+        }
+        .await;
+        if let Err(error) = initialized_result {
+            let unload = unload_script(&connection, SCRIPT).await;
+            let remove = remove_script_file(&path);
+            return Err(error.context(format!(
+                "observer setup cleanup: unload={unload:?}, file={remove:?}"
+            )));
         }
         let stop = CancellationToken::new();
         let task_stop = stop.clone();
@@ -276,7 +285,8 @@ impl Observer {
             stop,
             monitor: Mutex::new(Some(monitor)),
             request: std::sync::atomic::AtomicU64::new(0),
-            snapshot_lock: tokio::sync::Mutex::new(()),
+            snapshot_lock: Arc::new(tokio::sync::Mutex::new(())),
+            snapshots: TaskTracker::new(),
         })
     }
 
@@ -313,79 +323,96 @@ impl Observer {
     }
 
     pub async fn snapshot(&self) -> Result<Option<TargetIdentity>> {
-        let _guard = self.snapshot_lock.lock().await;
-        self.ensure_healthy()?;
-        if let Err(error) = observer_loaded(&self.connection).await {
-            self.revoke_all();
-            return Err(error);
-        }
-        let request = self
-            .request
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            + 1;
-        let (send, receive) = oneshot::channel();
-        self.state.lock().unwrap().pending.insert(request, send);
-        let name = format!(
-            "org.dipper.Dipper.Snapshot.p{}.r{request}",
-            std::process::id()
-        );
-        let path = self.runtime.join(format!("snapshot-{request}.js"));
-        let script = format!(
-            "{INFO}\ncallDBus({}, {}, {}, 'Snapshot', '{request}', JSON.stringify(info(workspace.activeWindow)));",
-            serde_json::to_string(&self.service)?,
-            serde_json::to_string(OBJECT)?,
-            serde_json::to_string(INTERFACE)?
-        );
-        write_script(&path, &script)?;
-        let result = async {
-            load_run(&self.connection, &path, &name).await?;
-            let current = tokio::time::timeout(Duration::from_secs(2), receive).await??;
-            self.ensure_healthy()?;
-            Ok(current)
-        }
-        .await;
-        let scripting = Proxy::new(
-            &self.connection,
-            "org.kde.KWin",
-            "/Scripting",
-            "org.kde.kwin.Scripting",
-        )
-        .await?;
-        let _: Result<bool, _> = scripting.call("unloadScript", &(name.as_str(),)).await;
-        let _ = std::fs::remove_file(&path);
-        self.state.lock().unwrap().pending.remove(&request);
-        if result.is_err() {
-            self.revoke_all();
-        }
-        result
+        let operation = {
+            // Registration and stop's admission closure use the same lock.
+            let state = self.state.lock().unwrap();
+            ensure!(state.healthy, "KWin observer is unavailable");
+            let request = self
+                .request
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                + 1;
+            let snapshot = SnapshotOperation {
+                state: self.state.clone(),
+                connection: self.connection.clone(),
+                runtime: self.runtime.clone(),
+                service: self.service.clone(),
+                request,
+            };
+            spawn_serialized(&self.snapshots, self.snapshot_lock.clone(), async move {
+                snapshot.run().await
+            })
+        };
+        // Canceling this waiter does not cancel the owned native operation.
+        operation.await.context("Owned KWin snapshot task failed")?
     }
 
     pub async fn stop(&self) -> Result<()> {
-        self.revoke_all();
-        self.state.lock().unwrap().healthy = false;
-        self.stop.cancel();
-        let task = self.monitor.lock().unwrap().take();
-        if let Some(task) = task {
-            task.await?;
+        {
+            let mut state = self.state.lock().unwrap();
+            state.revoke();
+            state.healthy = false;
+            self.snapshots.close();
         }
-        let scripting = Proxy::new(
-            &self.connection,
-            "org.kde.KWin",
-            "/Scripting",
-            "org.kde.kwin.Scripting",
-        )
-        .await?;
-        let _: bool = tokio::time::timeout(
+        self.stop.cancel();
+        // Include queued operations, even if their spawned task was not polled yet.
+        self.snapshots.wait().await;
+        let _snapshot_guard = self.snapshot_lock.lock().await;
+        let task = self.monitor.lock().unwrap().take();
+        let mut failures = Vec::new();
+        if let Some(task) = task
+            && let Err(error) = task.await
+        {
+            failures.push(format!("observer monitor: {error}"));
+        }
+        let pending_scripts: Vec<String> = self
+            .state
+            .lock()
+            .unwrap()
+            .cleanup_scripts
+            .iter()
+            .cloned()
+            .collect();
+        for name in pending_scripts {
+            match unload_script(&self.connection, &name).await {
+                Ok(()) => {
+                    self.state.lock().unwrap().cleanup_scripts.remove(&name);
+                }
+                Err(error) => failures.push(format!("snapshot script {name}: {error}")),
+            }
+        }
+        if let Err(error) = unload_script(&self.connection, SCRIPT).await {
+            failures.push(error.to_string());
+        }
+        if let Err(error) = remove_script_file(&self.path) {
+            failures.push(error.to_string());
+        }
+        match tokio::time::timeout(
             Duration::from_secs(2),
-            scripting.call("unloadScript", &(SCRIPT,)),
+            self.connection
+                .object_server()
+                .remove::<Receiver, _>(OBJECT),
         )
-        .await??;
-        let _ = std::fs::remove_file(&self.path);
-        self.connection
-            .object_server()
-            .remove::<Receiver, _>(OBJECT)
-            .await?;
-        self.connection.release_name(self.service.as_str()).await?;
+        .await
+        {
+            Ok(Ok(_)) | Ok(Err(zbus::Error::InterfaceNotFound)) => {}
+            Ok(Err(error)) => failures.push(format!("observer receiver removal: {error}")),
+            Err(_) => failures.push("observer receiver removal timed out".into()),
+        }
+        match tokio::time::timeout(
+            Duration::from_secs(2),
+            self.connection.release_name(self.service.as_str()),
+        )
+        .await
+        {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => failures.push(format!("observer name release: {error}")),
+            Err(_) => failures.push("observer name release timed out".into()),
+        }
+        ensure!(
+            failures.is_empty(),
+            "Observer cleanup failed: {}",
+            failures.join("; ")
+        );
         Ok(())
     }
 }
@@ -393,7 +420,131 @@ impl Observer {
 impl Drop for Observer {
     fn drop(&mut self) {
         self.stop.cancel();
-        self.state.lock().unwrap().revoke();
+        self.snapshots.close();
+        let mut state = self.state.lock().unwrap();
+        state.healthy = false;
+        state.revoke();
+        if let Some(task) = self.monitor.get_mut().unwrap().take() {
+            task.abort();
+        }
+        // Native snapshot tasks retain their resources until their bounded cleanup ends.
+        // Explicit stop is required to await cleanup and unload the persistent observer.
+    }
+}
+
+fn spawn_serialized<F, T>(
+    tasks: &TaskTracker,
+    lock: Arc<tokio::sync::Mutex<()>>,
+    operation: F,
+) -> tokio::task::JoinHandle<T>
+where
+    F: std::future::Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    tasks.spawn(async move {
+        let _guard = lock.lock_owned().await;
+        operation.await
+    })
+}
+
+struct SnapshotOperation {
+    state: Arc<Mutex<State>>,
+    connection: Connection,
+    runtime: PathBuf,
+    service: String,
+    request: u64,
+}
+
+impl SnapshotOperation {
+    async fn run(self) -> Result<Option<TargetIdentity>> {
+        // A queued operation canceled by shutdown has not acquired any native resource.
+        ensure!(
+            self.state.lock().unwrap().healthy,
+            "KWin observer is stopping"
+        );
+        if let Err(error) = observer_loaded(&self.connection).await {
+            self.state.lock().unwrap().revoke();
+            return Err(error);
+        }
+        let request = self.request;
+        let name = format!(
+            "org.dipper.Dipper.Snapshot.p{}.r{request}",
+            std::process::id()
+        );
+        let path = self.runtime.join(format!("snapshot-{request}.js"));
+        let (send, receive) = oneshot::channel();
+        self.state.lock().unwrap().pending.insert(request, send);
+        let mut file_created = false;
+        let mut load_attempted = false;
+        let result = async {
+            let script = format!(
+                "{INFO}\ncallDBus({}, {}, {}, 'Snapshot', '{request}', JSON.stringify(info(workspace.activeWindow)));",
+                serde_json::to_string(&self.service)?,
+                serde_json::to_string(OBJECT)?,
+                serde_json::to_string(INTERFACE)?
+            );
+            let mut file = std::fs::OpenOptions::new().write(true).create_new(true)
+                .mode(0o600).open(&path)?;
+            file_created = true;
+            std::io::Write::write_all(&mut file, script.as_bytes())?;
+            load_attempted = true;
+            self.state.lock().unwrap().cleanup_scripts.insert(name.clone());
+            load_run(&self.connection, &path, &name).await?;
+            let current = tokio::time::timeout(Duration::from_secs(2), receive).await??;
+            ensure!(self.state.lock().unwrap().healthy, "KWin observer is unavailable");
+            Ok(current)
+        }.await;
+        // Finally always runs inside this owned task, including write/load/query failure.
+        let unload = if load_attempted {
+            unload_script(&self.connection, &name).await
+        } else {
+            Ok(())
+        };
+        if unload.is_ok() {
+            self.state.lock().unwrap().cleanup_scripts.remove(&name);
+        }
+        let remove = if file_created {
+            remove_script_file(&path)
+        } else {
+            Ok(())
+        };
+        self.state.lock().unwrap().pending.remove(&request);
+        match (result, unload, remove) {
+            (Ok(current), Ok(()), Ok(())) => Ok(current),
+            (result, unload, remove) => {
+                self.state.lock().unwrap().revoke();
+                let errors: Vec<String> = [result.err(), unload.err(), remove.err()]
+                    .into_iter()
+                    .flatten()
+                    .map(|error| error.to_string())
+                    .collect();
+                anyhow::bail!("KWin snapshot failed: {}", errors.join("; "))
+            }
+        }
+    }
+}
+
+async fn unload_script(connection: &Connection, name: &str) -> Result<()> {
+    tokio::time::timeout(Duration::from_secs(2), async {
+        let scripting = Proxy::new(
+            connection,
+            "org.kde.KWin",
+            "/Scripting",
+            "org.kde.kwin.Scripting",
+        )
+        .await?;
+        let _: bool = scripting.call("unloadScript", &(name,)).await?;
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .context("KWin script cleanup timed out")?
+}
+
+fn remove_script_file(path: &std::path::Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error).context("Remove owned KWin script file"),
     }
 }
 
@@ -404,7 +555,13 @@ fn write_script(path: &std::path::Path, script: &str) -> Result<()> {
         .create_new(true)
         .mode(0o600)
         .open(path)?;
-    file.write_all(script.as_bytes())?;
+    if let Err(error) = file.write_all(script.as_bytes()) {
+        drop(file);
+        let cleanup = remove_script_file(path);
+        return Err(
+            anyhow::Error::from(error).context(format!("script write cleanup: {cleanup:?}"))
+        );
+    }
     Ok(())
 }
 
@@ -479,6 +636,88 @@ mod tests {
         state.observe(Some(original));
         assert!(!permit.is_valid());
     }
+    #[tokio::test]
+    async fn canceled_snapshot_waiter_leaves_owned_cleanup_running() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("owned-snapshot.js");
+        let state = Arc::new(Mutex::new(State::default()));
+        let tasks = TaskTracker::new();
+        let lock = Arc::new(tokio::sync::Mutex::new(()));
+        let release = Arc::new(Notify::new());
+        let (started, running) = oneshot::channel();
+        let operation_path = path.clone();
+        let operation_state = state.clone();
+        let operation_tasks = tasks.clone();
+        let operation_lock = lock.clone();
+        let operation_release = release.clone();
+        let waiter = tokio::spawn(async move {
+            spawn_serialized(&operation_tasks, operation_lock, async move {
+                let (send, _receive) = oneshot::channel();
+                operation_state.lock().unwrap().pending.insert(1, send);
+                write_script(&operation_path, "synthetic snapshot").unwrap();
+                started.send(()).unwrap();
+                operation_release.notified().await;
+                remove_script_file(&operation_path).unwrap();
+                operation_state.lock().unwrap().pending.remove(&1);
+            })
+            .await
+            .unwrap();
+        });
+        running.await.unwrap();
+        waiter.abort();
+        assert!(waiter.await.unwrap_err().is_cancelled());
+        tasks.close();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), tasks.wait())
+                .await
+                .is_err()
+        );
+        assert!(path.exists());
+        assert!(state.lock().unwrap().pending.contains_key(&1));
+        release.notify_one();
+        tokio::time::timeout(Duration::from_secs(1), tasks.wait())
+            .await
+            .unwrap();
+        let _cleanup_guard = lock.lock().await;
+        assert!(!path.exists());
+        assert!(state.lock().unwrap().pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn cleanup_waits_for_queued_owned_snapshot_operations() {
+        let tasks = TaskTracker::new();
+        let lock = Arc::new(tokio::sync::Mutex::new(()));
+        let blocker = lock.clone().lock_owned().await;
+        let finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let completed = finished.clone();
+        let operation = spawn_serialized(&tasks, lock.clone(), async move {
+            completed.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+        drop(operation); // The caller may disappear before the inner task is polled.
+        tasks.close();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), tasks.wait())
+                .await
+                .is_err()
+        );
+        assert!(!finished.load(std::sync::atomic::Ordering::SeqCst));
+        drop(blocker);
+        tokio::time::timeout(Duration::from_secs(1), tasks.wait())
+            .await
+            .unwrap();
+        let _cleanup_guard = lock.lock().await;
+        assert!(finished.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn exclusive_script_failure_preserves_existing_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("existing.js");
+        std::fs::write(&path, "existing content").unwrap();
+        assert!(write_script(&path, "replacement").is_err());
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "existing content");
+    }
+
     #[test]
     fn disappearance_and_session_loss_revoke() {
         let permit = TargetPermit::new(target("original"));
