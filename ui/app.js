@@ -9,6 +9,7 @@ let binding = null;
 let savedSettings = null;
 let inputCatalog = null;
 let journalRequest = null;
+const lastTranscript = window.DipperTranscript.mount($("last-transcript"), call, feedback);
 let latestSnapshot = { recording: false, busy: false, error: false };
 
 function navigate() {
@@ -101,6 +102,7 @@ function updateInputSummary() {
   const name = savedSettings.input_name || inputCatalog.default_name;
   const device = inputCatalog.devices.find((input) => input.node_name === name);
   $("input-summary").textContent = savedSettings.input_name ? (device?.description || `${name} (unavailable)`) : `System default${device ? " · " + device.description : " (unavailable)"}`;
+  $("input-summary").title = $("input-summary").textContent;
 }
 async function refreshInputs(selected) {
   const catalog = await call("list_inputs");
@@ -116,6 +118,7 @@ async function refreshInputs(selected) {
   updateInputSummary();
 }
 function renderJournal(recordings) {
+  lastTranscript.update(recordings);
   const root = $("journal");
   root.replaceChildren();
   $("journal-count").textContent = `${recordings.length} recent recording${recordings.length === 1 ? "" : "s"}`;
@@ -159,6 +162,7 @@ async function refreshJournal() {
   journalRequest = (async () => {
     try { renderJournal(await call("recent_recordings")); }
     catch (error) {
+      lastTranscript.unavailable("Open Journal and retry loading.");
       $("journal-count").textContent = "Recordings unavailable";
       $("journal").replaceChildren();
       const message = document.createElement("p"); message.className = "empty"; message.textContent = `Could not load recordings: ${String(error)}`;
@@ -198,6 +202,7 @@ $("configure-hold").addEventListener("click", () => action("configure-hold", asy
 }, "Hold configured.", true));
 $("kde-shortcuts").addEventListener("click", () => action("kde-shortcuts", () => call("open_shortcut_settings")));
 async function initialize() {
+  await window.__TAURI__?.event.listen("navigate-view", (event) => { if (Object.hasOwn(titles, event.payload)) location.hash = event.payload; });
   await window.__TAURI__?.event.listen("dictation-state", (event) => applySnapshot(event.payload));
   savedSettings = await call("get_settings");
   $("model").value = savedSettings.model_path;

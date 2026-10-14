@@ -1,4 +1,5 @@
 mod paths;
+mod quick_panel;
 use anyhow::Result;
 use async_trait::async_trait;
 use dipper_core::{
@@ -12,12 +13,12 @@ use dipper_desktop::{DesktopAdapter, DesktopEvent};
 use serde::Serialize;
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use tauri::{
     Emitter, Manager, State,
     menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
 struct AppState {
@@ -27,6 +28,11 @@ struct AppState {
     desktop_error: Option<String>,
     shutting_down: AtomicBool,
     exit_ready: AtomicBool,
+    quick_generation: AtomicU64,
+    quick_request: std::sync::Mutex<Option<tokio_util::sync::CancellationToken>>,
+    quick_placement_gate: tokio::sync::Mutex<()>,
+    quick_cancel: tokio_util::sync::CancellationToken,
+    quick_tasks: tokio_util::task::TaskTracker,
 }
 struct UnavailableInsertion(String);
 #[async_trait]
@@ -288,17 +294,151 @@ fn tray_icon(
     }
     tauri::image::Image::new_owned(pixels, 32, 32)
 }
+fn hide_quick_window(app: &tauri::AppHandle) {
+    if let Some(request) = app.state::<AppState>().quick_request.lock().unwrap().take() {
+        request.cancel();
+    }
+    app.state::<AppState>()
+        .quick_generation
+        .fetch_add(1, Ordering::SeqCst);
+    if let Some(window) = app.get_webview_window("quick") {
+        let _ = window.set_focusable(false);
+        let _ = window.hide();
+    }
+}
+#[tauri::command]
+fn hide_quick(app: tauri::AppHandle) {
+    hide_quick_window(&app);
+}
+#[tauri::command]
+fn open_main(app: tauri::AppHandle, view: Option<String>) -> Result<(), String> {
+    show_main(&app, view.as_deref()).map_err(|error| error.to_string())
+}
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    request_quit(&app);
+}
+fn show_main(app: &tauri::AppHandle, view: Option<&str>) -> Result<()> {
+    let state = app.state::<AppState>();
+    state.dictation.with_idle(|| {
+        hide_quick_window(app);
+        if let Some(window) = app.get_webview_window("main") {
+            if let Some(view) = view {
+                let _ = window.emit("navigate-view", view);
+            }
+            window.show()?;
+            window.set_focus()?;
+        }
+        Ok(())
+    })
+}
 fn show_window(app: &tauri::AppHandle) {
-    if app
-        .try_state::<AppState>()
-        .is_some_and(|state| state.dictation.snapshot().busy)
-    {
+    let _ = show_main(app, None);
+}
+fn toggle_quick(app: &tauri::AppHandle, x: f64, y: f64) {
+    let state = app.state::<AppState>();
+    if state.dictation.snapshot().busy || state.shutting_down.load(Ordering::SeqCst) {
         return;
     }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
+    if app
+        .get_webview_window("quick")
+        .is_some_and(|w| w.is_visible().unwrap_or(false))
+    {
+        hide_quick_window(app);
+        return;
     }
+    let quick = match app.get_webview_window("quick") {
+        Some(window) => window,
+        None => {
+            let window = match tauri::WebviewWindowBuilder::new(
+                app,
+                "quick",
+                tauri::WebviewUrl::App("quick.html".into()),
+            )
+            .title("Dipper Quick Panel")
+            .inner_size(320.0, 360.0)
+            .decorations(false)
+            .resizable(false)
+            .skip_taskbar(true)
+            .visible(false)
+            .focused(false)
+            .build()
+            {
+                Ok(window) => window,
+                Err(error) => {
+                    eprintln!("Dipper quick panel: {error}");
+                    return;
+                }
+            };
+            let handle = app.clone();
+            let seen_focus = AtomicBool::new(false);
+            window.on_window_event(move |event| match event {
+                tauri::WindowEvent::Focused(true) => {
+                    seen_focus.store(true, Ordering::SeqCst);
+                }
+                tauri::WindowEvent::Focused(false) if seen_focus.swap(false, Ordering::SeqCst) => {
+                    hide_quick_window(&handle)
+                }
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    hide_quick_window(&handle);
+                }
+                _ => (),
+            });
+            window
+        }
+    };
+    let generation = state.quick_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let handle = app.clone();
+    let canceled = state.quick_cancel.child_token();
+    if let Some(previous) = state
+        .quick_request
+        .lock()
+        .unwrap()
+        .replace(canceled.clone())
+    {
+        previous.cancel();
+    }
+    state.quick_tasks.spawn_on(
+        async move {
+            let state = handle.state::<AppState>();
+            let gate = tokio::select! {
+                _ = canceled.cancelled() => return,
+                gate = state.quick_placement_gate.lock() => gate,
+            };
+            if canceled.is_cancelled()
+                || state.quick_generation.load(Ordering::SeqCst) != generation
+            {
+                return;
+            }
+            if state
+                .dictation
+                .with_idle(|| {
+                    quick.show()?;
+                    Ok(())
+                })
+                .is_err()
+            {
+                return;
+            }
+            if let Err(error) = quick_panel::place(x, y, canceled).await {
+                eprintln!("Dipper quick placement: {error:#}");
+            }
+            drop(gate);
+            let _ = state.dictation.with_idle(|| {
+                if !state.shutting_down.load(Ordering::SeqCst)
+                    && state.quick_generation.load(Ordering::SeqCst) == generation
+                    && quick.is_visible()?
+                {
+                    quick.set_focusable(true)?;
+                    quick.set_focus()?;
+                    let _ = quick.emit("quick-opened", ());
+                }
+                Ok(())
+            });
+        },
+        tauri::async_runtime::handle().inner(),
+    );
 }
 fn request_quit(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
@@ -308,7 +448,10 @@ fn request_quit(app: &tauri::AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
+        state.quick_cancel.cancel();
+        state.quick_tasks.close();
         state.dictation.shutdown().await;
+        state.quick_tasks.wait().await;
         if let Some(desktop) = &state.desktop
             && let Err(error) = desktop.stop().await
         {
@@ -331,7 +474,7 @@ fn main() -> Result<()> {
     let settings = Settings::load(&paths.settings, &paths.data)?;
     let journal = Arc::new(Journal::open(&paths.data, &paths.state)?);
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript])
+        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript, open_main, hide_quick, quit_app])
         .setup(move |app| {
             let brand = app.default_window_icon().ok_or_else(|| anyhow::anyhow!("Embedded Dipper logo missing"))?.clone();
             let tray_logo = small_logo(&brand);
@@ -351,13 +494,18 @@ fn main() -> Result<()> {
             if let Some(error) = &desktop_error { dictation.session_lost(error); }
             if recovery.unpersisted { dictation.session_lost("Journal recovery could not persist. Existing data was preserved; check available storage."); }
             app.manage(AppState {
-                _session_lock: session_lock, dictation: dictation.clone(), desktop: native.clone(), desktop_error, shutting_down: AtomicBool::new(false), exit_ready: AtomicBool::new(false) });
+                _session_lock: session_lock, dictation: dictation.clone(), desktop: native.clone(), desktop_error, shutting_down: AtomicBool::new(false), exit_ready: AtomicBool::new(false), quick_generation: AtomicU64::new(0), quick_request: std::sync::Mutex::new(None), quick_placement_gate: tokio::sync::Mutex::new(()), quick_cancel: tokio_util::sync::CancellationToken::new(), quick_tasks: tokio_util::task::TaskTracker::new() });
             let status = MenuItem::with_id(app, "status", "Dipper: Ready", false, None::<&str>)?;
-            let settings_item = MenuItem::with_id(app, "settings", "Settings and Journal", true, None::<&str>)?;
+            let settings_item = MenuItem::with_id(app, "settings", "Open Dipper", true, None::<&str>)?;
             let cancel = MenuItem::with_id(app, "cancel", "Cancel dictation", false, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Dipper", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&status, &settings_item, &cancel, &quit])?;
             TrayIconBuilder::with_id("dipper").icon(tray_icon(&tray_logo, false, false, false)).tooltip("Dipper: Ready").menu(&menu)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, position, .. } = event {
+                        toggle_quick(tray.app_handle(), position.x, position.y);
+                    }
+                })
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "settings" => show_window(app),
                     "cancel" => app.state::<AppState>().dictation.cancel(),

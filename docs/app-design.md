@@ -550,3 +550,49 @@ palette for content and app-owned window chrome. This supersedes the earlier
 three-mode polish requirement. Existing retained recordings/settings and window
 behavior remain unchanged. Acceptance now checks no switcher and fixed dark
 rendering regardless of old persisted choice or OS preference.
+
+## Compact desktop and tray panel contract, 2026-10-14
+
+The owner requires Auto recognition and a denser desktop/tray experience inspired
+by the supplied Sotto screenshots. The useful screen keeps Hold and its key on
+one row, a microphone link, and the actual last transcript with explicit Copy.
+Remove decorative microphone space and repeated configuration summaries. Keep
+Journal and Settings reachable, fixed dark appearance, and existing retention.
+`ui/styles.css` owns compact shared geometry; a shared transcript presenter owns
+preview and Copy for main and quick views. No unsupported feature controls.
+
+The desktop host owns a lazy, frameless quick window. Left tray activation toggles
+it; Escape, Close, and observed focus loss dismiss it. A small right-click menu
+keeps Open Dipper, Cancel and Quit available. Use tray-icon 0.25.1's existing KSNI
+backend to receive Linux activation through Tauri, preserving menu callbacks and
+status updates. Scope quick-window capabilities separately. Opening/focusing
+windows remains forbidden while Dictation is busy, and completion never opens one.
+The quick panel shows actual state, Hold binding, selected microphone and retained
+last transcript; Copy uses the existing explicit command. Open and Quit delegate
+to established host behavior.
+
+KDE tray activation supplies placement hints, but Wayland GTK cannot position a
+normal window globally. A small desktop-shell placement helper may position only
+Dipper's quick window, identified by owned PID and exact title, near the active
+tray output using KWin. It owns its temporary script lifecycle and never changes
+another window or the target-observer contract. If placement is unavailable, the
+compositor-selected quick window remains dismissible. This is a KDE integration,
+not cross-platform positioning evidence.
+
+Acceptance: real Auto English/German transcription; compact main/quick views and
+long/empty/error/busy states; native left/right tray paths, Copy, open/close,
+Escape/outside dismissal and reopen; focus preserved during busy Dictation;
+placement and multi-output limits; idle resource overhead measured. Preserve
+existing recordings/attempts and settings. Technical evidence and remaining
+owner judgment are recorded separately.
+
+The tray implementation uses [the pinned KSNI backend](https://docs.rs/tray-icon/0.25.1/tray_icon/).
+Short host show/focus actions use the same admission lock as Hold through
+`Dictation::with_idle`; no slow work or await occurs inside that callback.
+Placement tasks use an explicit Tauri runtime handle, request cancellation,
+a serial cleanup gate, and a post-await generation/idle check. The quick window
+starts non-focusable while positioning, then enables focus for interaction.
+One-time dismissal handlers are installed on creation; initialization also
+focuses the dismiss button so the first keyboard path does not depend on an
+event arriving after the WebView has loaded. Temporary scripts use unique names,
+bounded setup/operation/cleanup, authenticated replies, and reported file cleanup.

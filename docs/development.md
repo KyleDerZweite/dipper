@@ -217,3 +217,56 @@ query. `node --test tests/ui-window.cjs` covers that delayed-reply case and pass
 JavaScript syntax, native build, cargo fmt/clippy and focused independent review
 passed. The prior 72-test domain suite remains evidence for unchanged domain code;
 window interactions above establish this artifact's native evidence.
+
+## Auto language and compact tray verification, 2026-10-14
+
+New Recognition attempts use Auto, with translation disabled. A replay of a
+private copy of the owner's retained English recording completed with detected
+language `en` and English text; the retained German synthetic phrase completed
+with detected language `de` and German text. Both workers were reaped. The
+original Journal/audio was read-only and unchanged. Historical German attempts
+remain preserved. Mixed-language speech and quality/latency percentiles still
+need the representative pilot corpus.
+
+The compact main window defaults to 680x540 logical pixels, with a 164 px sidebar,
+smaller shared controls and a one-row Hold prompt. Main and tray share the last
+transcript presenter and explicit Copy. The app-owned quick panel is 320x360.
+Its Linux left-activation path uses the existing pinned tray-icon KSNI backend;
+the smaller native context menu remains available as fallback.
+
+Native KDE/Wayland evidence: real StatusNotifier Activate calls opened/toggled
+and reopened the panel. Placement from top-tray hint 500,60 produced 200,72; a bottom
+hint 4400,1400 placed it above the tray on the second output. Escape, outside focus
+loss, Open Dipper and explicit Copy passed. Copy was scoped to the quick window
+and restored all original clipboard MIME bytes after the check. Right-menu
+DBusMenu labels/state and the now nonempty real tray tooltip were inspected.
+A physical pointer click on the tray icon was not separately exercised.
+
+During a real F2 recording on the owned silent virtual input, a native tray
+activation preserved the active window and opened no panel. Cancel was enabled
+while Settings were disabled; 52224 available frames were retained, no Insertion
+occurred and clipboard bytes were unchanged. Configure Hold was used before this
+check. An earlier post-relaunch attempt produced no recording; restored-shortcut
+startup behavior still needs isolated investigation. The test source was removed;
+the OS default and normal application store were restored.
+
+The first native activation exposed a GTK-thread Tokio-context panic in the new
+code, fixed by using the explicit Tauri runtime handle. Subsequent native runs
+passed. Independent review also resolved file cleanup, setup deadlines and stale
+placement generations. Superseded tasks cancel and complete cleanup before a new
+placement, and popup focus is rechecked against admission. No owned placement
+script files remained after the tests.
+
+Workspace tests: 74 passed, plus 4 Node regression checks for stale window-state
+replies, immutable Copy identity, owned placement and ambiguous windows.
+JavaScript syntax, cargo fmt/clippy and native build passed on the current slice.
+Rendered main/Settings/quick views, long content, error/busy states and narrow
+420x420 layout were inspected. Native controls measured 38x34 in the titlebar,
+with 34 px form controls and a compact quick-panel variant. Physical touch is untested.
+
+Resource samples are not budgets or a controlled backend comparison: the old
+AppIndicator parent was 138796 KiB RSS/40 threads; the new KSNI parent after creating
+the second WebView was 236600 KiB/55 threads. This includes UI/runtime changes and
+cannot isolate KSNI overhead. The quick WebView is lazy and remains cached after
+first use; no Recognition worker remains warm after settlement. A matched idle
+PSS/CPU comparison remains needed before selecting budgets.

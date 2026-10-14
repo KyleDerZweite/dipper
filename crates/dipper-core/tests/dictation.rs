@@ -453,11 +453,23 @@ async fn cancel_capture_keeps_admission_busy_until_audio_finalization_and_worker
     *fixture.capture.stop.open.lock().unwrap() = false;
     fixture.dictation.begin().unwrap();
     fixture.recording().await;
+    assert!(
+        fixture
+            .dictation
+            .with_idle(|| -> anyhow::Result<()> { panic!("busy host action must not run") })
+            .is_err()
+    );
     fixture.marker_ready("pid").await;
     fixture.dictation.cancel();
     wait_until(|| fixture.capture.stop.entered.load(Ordering::SeqCst)).await;
     assert!(fixture.dictation.snapshot().busy);
     assert!(!fixture.dictation.snapshot().recording);
+    assert!(
+        fixture
+            .dictation
+            .with_idle(|| -> anyhow::Result<()> { panic!("cleanup host action must not run") })
+            .is_err()
+    );
     assert_eq!(fixture.record().state, "capturing");
     fixture.dictation.begin().unwrap();
     fixture.dictation.release();
@@ -465,6 +477,13 @@ async fn cancel_capture_keeps_admission_busy_until_audio_finalization_and_worker
     assert!(fixture.target.delivered().is_empty());
     fixture.capture.stop.release();
     fixture.idle().await;
+    assert_eq!(
+        fixture
+            .dictation
+            .with_idle(|| Ok("idle host action"))
+            .unwrap(),
+        "idle host action"
+    );
     assert_eq!(fixture.dictation.snapshot().phase, "Ready");
     assert!(!fixture.dictation.snapshot().error);
     let record = fixture.record();

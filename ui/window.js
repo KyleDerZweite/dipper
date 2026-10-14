@@ -28,7 +28,7 @@
           const label = maximized ? "Restore window" : "Maximize";
           button.setAttribute("aria-label", label);
           button.title = label;
-          button.querySelector("use").setAttribute("href", maximized ? "#icon-restore" : "#icon-maximize");
+          button.querySelector("use").setAttribute("href", maximized ? "icons.svg#icon-restore" : "icons.svg#icon-maximize");
         } catch (error) { if (!dirty) report(error); }
       } while (dirty);
     } finally { refreshing = false; }
