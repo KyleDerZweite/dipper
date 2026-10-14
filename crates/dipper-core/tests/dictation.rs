@@ -171,9 +171,16 @@ struct TargetControl {
     arm_entered: AtomicBool,
     delay_arm: AtomicBool,
     arm_gate: Semaphore,
+    arm_failure: Mutex<Option<ArmFailure>>,
     dispatch_entered: AtomicBool,
     delay_dispatch: AtomicBool,
     dispatch_gate: Semaphore,
+}
+
+#[derive(Clone, Copy)]
+enum ArmFailure {
+    Rejected,
+    Panicked,
 }
 impl TargetControl {
     fn new(journal: Arc<Journal>) -> Self {
@@ -184,6 +191,7 @@ impl TargetControl {
             arm_entered: AtomicBool::new(false),
             delay_arm: AtomicBool::new(false),
             arm_gate: Semaphore::new(0),
+            arm_failure: Mutex::new(None),
             dispatch_entered: AtomicBool::new(false),
             delay_dispatch: AtomicBool::new(false),
             dispatch_gate: Semaphore::new(0),
@@ -221,6 +229,11 @@ impl Insertion for TargetControl {
         self.arm_entered.store(true, Ordering::SeqCst);
         if self.delay_arm.load(Ordering::SeqCst) {
             self.arm_gate.acquire().await.unwrap().forget();
+        }
+        match *self.arm_failure.lock().unwrap() {
+            Some(ArmFailure::Rejected) => anyhow::bail!("fixture composer qualification rejected"),
+            Some(ArmFailure::Panicked) => panic!("fixture qualification task panicked"),
+            None => {}
         }
         Ok(permit)
     }
@@ -715,4 +728,86 @@ async fn empty_recognition_result_retains_complete_audio_without_mutating_clipbo
     assert_eq!(record.attempts[0].raw_text.as_deref(), Some(""));
     assert!(record.insertions.is_empty());
     assert!(fixture.target.delivered().is_empty());
+}
+
+async fn finish_recognition_before_delayed_qualification(fixture: &Fixture) {
+    fixture.target.delay_arm.store(true, Ordering::SeqCst);
+    fixture.dictation.begin().unwrap();
+    fixture.recording().await;
+    fixture.dictation.release();
+    wait_until(|| {
+        fixture
+            .journal
+            .recent(1)
+            .unwrap()
+            .first()
+            .is_some_and(|record| {
+                record
+                    .attempts
+                    .first()
+                    .is_some_and(|attempt| attempt.state == "complete")
+            })
+    })
+    .await;
+    assert!(fixture.dictation.snapshot().busy);
+    assert!(!fixture.target.dispatch_entered.load(Ordering::SeqCst));
+    fixture.reaped(&fixture.record());
+}
+
+fn assert_failed_qualification_suppressed_delivery(fixture: &Fixture) {
+    assert!(!fixture.dictation.snapshot().busy);
+    assert!(
+        !fixture.target.dispatch_entered.load(Ordering::SeqCst),
+        "unqualified target must not reach dispatch"
+    );
+    assert!(fixture.target.delivered().is_empty());
+    let reserved = fixture.target.reserved.lock().unwrap();
+    assert_eq!(reserved.len(), 1);
+    assert!(
+        !reserved[0].is_valid(),
+        "failed qualification must permanently revoke its reserved permit"
+    );
+    drop(reserved);
+    let record = fixture.record();
+    fixture.retained_prefix(&record);
+    fixture.reaped(&record);
+    assert_eq!(record.state, "complete");
+    assert_eq!(record.attempts[0].state, "complete");
+    assert_eq!(record.attempts[0].raw_text.as_deref(), Some(TEXT));
+    assert_eq!(record.insertions[0].state, "suppressed");
+    assert_eq!(record.insertions[0].stage, "unchanged");
+}
+
+#[tokio::test]
+async fn delayed_qualification_rejection_after_recognition_revokes_original_permit() {
+    let fixture = Fixture::new("normal");
+    *fixture.target.arm_failure.lock().unwrap() = Some(ArmFailure::Rejected);
+    finish_recognition_before_delayed_qualification(&fixture).await;
+    fixture.target.allow_arm();
+    fixture.idle().await;
+    assert_failed_qualification_suppressed_delivery(&fixture);
+}
+
+#[tokio::test]
+async fn delayed_qualification_panic_after_recognition_revokes_original_permit() {
+    let fixture = Fixture::new("normal");
+    *fixture.target.arm_failure.lock().unwrap() = Some(ArmFailure::Panicked);
+    finish_recognition_before_delayed_qualification(&fixture).await;
+    fixture.target.allow_arm();
+    fixture.idle().await;
+    assert_failed_qualification_suppressed_delivery(&fixture);
+}
+
+#[tokio::test]
+async fn delayed_qualification_timeout_after_recognition_revokes_original_permit() {
+    let fixture = Fixture::new("normal");
+    finish_recognition_before_delayed_qualification(&fixture).await;
+    tokio::time::timeout(Duration::from_secs(16), async {
+        while fixture.dictation.snapshot().busy {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("qualification deadline must settle the Dictation");
+    assert_failed_qualification_suppressed_delivery(&fixture);
 }
