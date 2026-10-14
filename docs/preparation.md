@@ -23,12 +23,12 @@ still leaves text in Journal; no blind fallback is accepted.
 
 Then review and deliver model library/download/Reload in issue #22, explicit
 Corrections and retention in #14, and installable desktop delivery with startup,
-versioned upgrades and recovery. These remain separate useful PR slices. Their
+versioned upgrades and recovery in issue #26. These remain separate useful PR slices. Their
 contracts must settle the actual worker/model compatibility and update ownership
 before implementation Ready. Installation and OTA are not silently included in
 the cross-app slice, and a development binary is not a production release.
 
-## Start development here
+## Initial app-start sequence, 2026-10-13
 
 The owner accepted the current recorder/transcription experiment as a sufficient
 provisional starting point on 2026-10-13 and ended further prototype work.

@@ -27,18 +27,21 @@ is not a project requirement.
 Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
-Status, 2026-10-14: the raw voice-to-T3 development app records on Hold, retains
-its Journal, runs one Whisper/Vulkan job, and attempts guarded Paste. New setups
-select Whisper large-v3-turbo; existing settings retain their large-v3 profile
-until the model profile and path are changed in Settings.
-A real T3 integration test passed with synthetic German audio. Use the
-[development guide](docs/development.md) for build/run commands and verification
-limits. HyperX spoken testing, cleanup, Corrections, reduced retention, and full
-pilot evaluation remain open.
+Status, 2026-10-15: the development app records on Hold, retains its Journal,
+runs one Whisper/Vulkan job, and attempts guarded Paste into a supported
+focused desktop text field. New setups select Whisper large-v3-turbo; historical
+settings keep their explicit saved model profile. T3 and native GTK fields have
+current qualification evidence; full synthetic GTK dictation/Paste passed.
+Discord/Vesktop acceptance remains open because the normal client currently
+exposes no renderer text fields through Accessibility.
+Use the [development guide](docs/development.md) for build/run commands and
+verification limits. Optional cleanup, Corrections, reduced retention,
+installable delivery and full-pilot evaluation remain open.
 
 ## Documentation
 
 - [App design and reviewed first-slice contract](docs/app-design.md): module responsibilities, interfaces, failure handling, and acceptance evidence.
+- [Cross-app insertion contract](docs/cross-app-insertion.md): focused-field qualification, preserved guards, and current compatibility limits.
 - [Development guide](docs/development.md): native dependencies, build/run commands, first use, and private storage.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.

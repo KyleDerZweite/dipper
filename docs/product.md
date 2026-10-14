@@ -41,6 +41,24 @@ research. Mobile UI is deferred, and both long-term update goals remain in scope
 [app design record](app-design.md). Cleanup remains part of the overall pilot,
 not a requirement to add before the first raw-chain slice.
 
+## Everyday desktop preparation
+
+On 2026-10-14, Kyle requested direct insertion into the already focused Discord
+composer and the next useful step beyond the T3-only pilot. Supported desktop
+fields now share generic metadata-based qualification instead of a T3 app/class
+allowlist. Preserve the original-window guard, the unchanged-field operating
+assumption, cancellation and raw Journal fallback. The reviewed
+[cross-app contract](cross-app-insertion.md) owns the exact supported-field and
+failure behavior. Missing Accessibility never silently authorizes blind Paste.
+Actual Discord/Vesktop acceptance remains open because its currently launched
+normal client exposes no renderer fields. Per-app accessibility activation or
+an optional weaker window-only mode is an unresolved owner decision, not an
+implemented fallback.
+
+UI polishing remains deferred. Model library/download/Reload, Corrections and
+retention, and installable desktop delivery are separately reviewed useful slices
+in issues #22, #14 and #26. A development build is not a production release.
+
 ## Intended workflow
 
 Press a shortcut, speak, and insert usable text into the intended application.

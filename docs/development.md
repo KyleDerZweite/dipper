@@ -1,4 +1,4 @@
-# Build and run the raw desktop slice
+# Build and run the desktop development app
 
 The first app targets Fedora 43 KDE on Wayland. It uses a Rust core, a Tauri 2
 shell, direct PipeWire capture, SQLite/RF64 storage, and one local Whisper
@@ -66,10 +66,10 @@ Hold again; KDE can reuse an existing grant without another dialog. F2 is only
 an initial preference. KDE Shortcuts owns
 changes on GlobalShortcuts v1; Dipper does not remap Caps Lock.
 
-Focus a T3 composer, then hold the configured key. Wait for Recording before
+Focus a supported editable desktop text field, then hold the configured key. Wait for Recording before
 speaking. Use only that key during pilot dictation. Release to finalize audio,
 recognize, and attempt Paste. Do not switch targets if you want automatic
-insertion. Observed departure from the original T3 window permanently suppresses
+insertion. Observed departure from the original target window permanently suppresses
 that dictation's insertion, even if you return. The raw text remains in Journal
 for explicit Copy. Dipper never sends Enter or pulls focus back.
 
@@ -396,3 +396,51 @@ The [cleanup research](recognition-cleanup-research.md) and
 [public synthetic trial artifact](evidence/cleanup-models-20261014.json) record
 separate small-model experiments. Cleanup and model management are not integrated
 into the app by this slice. No comparison model remains intentionally resident.
+
+
+## Cross-app verification, 2026-10-15
+
+The bounded cross-app implementation at `3a1ddb5` removes the T3 app/class
+allowlist and keeps KWin departure revocation and metadata-only field checks.
+The live T3 provider qualified. A disposable GTK application qualified single-line
+ENTRY and multiline TEXT fields, including two windows with one active target.
+Password and read-only fields failed qualification. No existing user draft was
+modified by these inspections.
+
+An isolated tray-hidden app with an owned PipeWire input completed five actual
+F2 Hold/capture/Turbo/Vulkan jobs. ENTRY and TEXT received the exact raw
+transcript through Paste, respectively 1.108 s and 1.004 s after release. Their
+owned fields were cleared after checking the exact test text. Password, read-only
+and departure-and-return cases retained complete recognition results but suppressed
+Paste and clipboard mutation. Every worker was reaped. These are short synthetic
+integration cases, not microphone quality, production latency or P95/P99.
+
+The native app build and workspace suite passed 84 tests. Three child fixture
+entry points are ignored in the direct parent invocation and exercised by parent
+scenarios. Both independent Standards and Spec reviews found no blockers. A
+subsequent readability-only patch names the unchanged AT-SPI state bits; the 28
+desktop tests were repeated successfully. Current-head formatting, Clippy and CI
+results are recorded separately with the PR. Temporary native examples are not
+part of the installed app.
+
+The test clipboard was restored across all formats in the five completed runs.
+An initial harness restoration attempt failed on KDE's `onlyReplaceEmpty` control
+MIME, which cannot be blindly replayed over a nonempty test clipboard. Original
+text bytes were restored after omitting that control hint; its control metadata
+was not reproduced. The rerun used a fresh stable clipboard baseline and passed.
+This is a verification-harness limitation, not a new product clipboard policy.
+Private evidence stays under `~/.local/state/dipper/verification/cross-app-20261014`.
+The folder date is the start of the work, which continued past midnight.
+
+The normal Vesktop client was opened for metadata-only inspection. KWin identifies
+its window correctly, but its Accessibility tree exposes only a FRAME, with no
+renderer text fields and no ACTIVE state. The normal launch therefore cannot
+qualify a Discord composer. Actual Discord Paste remains unexecuted while the
+owner chooses per-app accessibility activation or a separately reviewed optional
+window-only fallback. No message was sent and no blind fallback was added.
+Unsupported Collection providers and ambiguous/missing targets still fail closed.
+
+Original Journal data, normal settings, user applications and system defaults
+are preserved. The temporary private app and owned input were removed after verification;
+the owned test editor had already exited. The normal app is restarted with
+its existing settings after the current build is verified. Installable desktop delivery and upgrade recovery remain issue #26.

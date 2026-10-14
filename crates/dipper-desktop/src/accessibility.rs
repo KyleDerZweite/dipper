@@ -111,6 +111,17 @@ const TERMINAL: u32 = 60;
 const TEXT: u32 = 61;
 const APPLICATION: u32 = 75;
 const ENTRY: u32 = 79;
+// AT-SPI state bits from atspi-constants.h.
+const ACTIVE: usize = 1;
+const DEFUNCT: usize = 6;
+const EDITABLE: usize = 7;
+const ENABLED: usize = 8;
+const FOCUSED: usize = 12;
+const SENSITIVE: usize = 24;
+const SHOWING: usize = 25;
+const STALE: usize = 27;
+const VISIBLE: usize = 30;
+const READ_ONLY: usize = 43;
 const TREE_SENTINEL: i32 = 4097;
 const CANDIDATE_SENTINEL: i32 = 65;
 const MAX_PARENT_EDGES: usize = 64;
@@ -140,11 +151,11 @@ fn match_rule(query: Query) -> MatchRule {
     let (states, roles, role_match) = match query {
         Query::All => (vec![0, 0], vec![0; 4], 1),
         Query::Editors => (
-            vec![(1 << 7) | (1 << 12), 0],
+            vec![(1 << EDITABLE) | (1 << FOCUSED), 0],
             vec![0, 1 << (TEXT - 32), 1 << (ENTRY - 64), 0],
             2,
         ),
-        Query::ActiveFrames => (vec![1 << 1, 0], vec![1 << FRAME, 0, 0, 0], 1),
+        Query::ActiveFrames => (vec![1 << ACTIVE, 0], vec![1 << FRAME, 0, 0, 0], 1),
     };
     (
         states,
@@ -222,18 +233,18 @@ fn has_state(states: &[u32], bit: usize) -> bool {
         .is_some_and(|word| word & (1 << (bit % 32)) != 0)
 }
 fn live(states: &[u32]) -> bool {
-    !has_state(states, 6) && !has_state(states, 27)
+    !has_state(states, DEFUNCT) && !has_state(states, STALE)
 }
 fn qualifies_editor(node: &Metadata) -> bool {
     matches!(node.role, ENTRY | TEXT)
         && live(&node.states)
-        && !has_state(&node.states, 43)
-        && [7, 8, 12, 24, 25, 30]
+        && !has_state(&node.states, READ_ONLY)
+        && [EDITABLE, ENABLED, FOCUSED, SENSITIVE, SHOWING, VISIBLE]
             .into_iter()
             .all(|bit| has_state(&node.states, bit))
 }
 fn active_frame(node: &Metadata) -> bool {
-    node.role == FRAME && live(&node.states) && has_state(&node.states, 1)
+    node.role == FRAME && live(&node.states) && has_state(&node.states, ACTIVE)
 }
 fn ensure_unique_editor(editors: usize, frames: usize) -> Result<()> {
     ensure!(
@@ -510,7 +521,7 @@ mod tests {
                     }
                     1 => {
                         assert_eq!(count, CANDIDATE_SENTINEL);
-                        assert_eq!(rule.0, vec![(1 << 7) | (1 << 12), 0]);
+                        assert_eq!(rule.0, vec![(1 << EDITABLE) | (1 << FOCUSED), 0]);
                         assert_eq!(rule.4, vec![0, 1 << 29, 1 << 15, 0]);
                         assert_eq!(rule.5, 2);
                         Ok(vec![reference(1999)])
