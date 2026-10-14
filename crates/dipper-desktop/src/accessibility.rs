@@ -4,9 +4,24 @@ use std::time::Duration;
 use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
 pub async fn check_composer(pid: u32) -> Result<()> {
-    tokio::time::timeout(Duration::from_secs(4), inspect(pid))
+    tokio::time::timeout(Duration::from_secs(4), inspect_current(|| inspect(pid)))
         .await
         .map_err(|_| anyhow::anyhow!("T3 accessibility validation timed out"))?
+}
+
+// A disappearing unrelated chat node can invalidate a traversal. Retry the
+// complete proof once within the original deadline, never skip failed nodes.
+async fn inspect_current<F, Fut>(mut inspect: F) -> Result<()>
+where
+    F: FnMut() -> Fut + Send,
+    Fut: std::future::Future<Output = Result<()>> + Send,
+{
+    let result = inspect().await;
+    let disappeared = result.as_ref().err().is_some_and(|error| {
+        matches!(error.downcast_ref::<zbus::Error>(), Some(zbus::Error::MethodError(name, _, _))
+            if name.as_str() == "org.freedesktop.DBus.Error.UnknownObject")
+    });
+    if disappeared { inspect().await } else { result }
 }
 
 async fn inspect(pid: u32) -> Result<()> {
@@ -122,6 +137,65 @@ fn ensure_unique_composer(composers: usize, frames: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn disappeared_object() -> anyhow::Error {
+        zbus::Error::MethodError(
+            "org.freedesktop.DBus.Error.UnknownObject"
+                .try_into()
+                .unwrap(),
+            None,
+            zbus::Message::method_call("/", "GetRoleName")
+                .unwrap()
+                .build(&())
+                .unwrap(),
+        )
+        .into()
+    }
+    #[tokio::test]
+    async fn disappearing_tree_retries_the_full_proof_once_and_preserves_failures() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let calls = AtomicUsize::new(0);
+        inspect_current(|| async {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                Err(disappeared_object())
+            } else {
+                Ok(())
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        calls.store(0, Ordering::SeqCst);
+        let result = inspect_current(|| async {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                Err(disappeared_object())
+            } else {
+                ensure_unique_composer(0, 1)
+            }
+        })
+        .await;
+        assert!(result.unwrap_err().to_string().contains("composer"));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        calls.store(0, Ordering::SeqCst);
+        assert!(
+            inspect_current(|| async {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err(disappeared_object())
+            })
+            .await
+            .is_err()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        calls.store(0, Ordering::SeqCst);
+        assert!(
+            inspect_current(|| async {
+                calls.fetch_add(1, Ordering::SeqCst);
+                ensure_unique_composer(2, 1)
+            })
+            .await
+            .is_err()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
     fn valid_states() -> Vec<u32> {
         vec![
             [7, 8, 12, 17, 24, 25, 30]

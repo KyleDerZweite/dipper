@@ -335,12 +335,16 @@ fn rf64_reader_rejects_changed_header_or_frame_count() {
 #[test]
 fn actual_audio_write_error_preserves_the_written_prefix() {
     let directory = tempfile::tempdir().unwrap();
-    let status = Command::new(std::env::current_exe().unwrap())
+    let output = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "audio_write_failure_fixture", "--ignored"])
         .env("DIPPER_WRITE_FAILURE_FIXTURE", directory.path())
-        .status()
+        .output()
         .unwrap();
-    assert!(status.success());
+    assert!(
+        output.status.success(),
+        "owned write-failure fixture failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let journal = open(directory.path());
     let record = journal.recent(1).unwrap().remove(0);
     assert_eq!(record.state, "interrupted");
