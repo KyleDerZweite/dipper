@@ -171,14 +171,7 @@ fn outcome(
 #[async_trait]
 impl Insertion for DesktopAdapter {
     fn reserve(&self) -> Result<TargetPermit> {
-        let identity = self.observer.current()?;
-        ensure!(
-            identity.application == "com.t3tools.T3Code",
-            "The active window is not T3"
-        );
-        let permit = TargetPermit::new(identity);
-        self.observer.track(permit.clone())?;
-        Ok(permit)
+        self.observer.reserve()
     }
 
     async fn arm(&self, permit: TargetPermit) -> Result<TargetPermit> {

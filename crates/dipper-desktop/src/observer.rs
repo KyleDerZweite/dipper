@@ -24,12 +24,13 @@ pub(crate) struct State {
     current: Option<TargetIdentity>,
     permits: Vec<WeakTargetPermit>,
     sequence: u64,
+    failed: bool,
     pending: HashMap<u64, oneshot::Sender<Option<TargetIdentity>>>,
     cleanup_scripts: HashSet<String>,
 }
 
 impl State {
-    fn observe(&mut self, current: Option<TargetIdentity>) {
+    fn invalidate_departure(&mut self, current: &Option<TargetIdentity>) {
         self.permits.retain(|weak| {
             if let Some(permit) = weak.upgrade() {
                 if current.as_ref() != Some(&permit.identity) {
@@ -40,7 +41,50 @@ impl State {
                 false
             }
         });
+    }
+    fn observe(&mut self, current: Option<TargetIdentity>) {
+        self.invalidate_departure(&current);
         self.current = current;
+    }
+    fn fail(&mut self) {
+        self.healthy = false;
+        self.failed = true;
+        self.revoke();
+    }
+    fn reserve(&mut self) -> Result<TargetPermit> {
+        ensure!(self.healthy && !self.failed, "KWin observer is unavailable");
+        let identity = self.current.clone().context("No active target window")?;
+        ensure!(
+            identity.application == "com.t3tools.T3Code",
+            "The active window is not T3"
+        );
+        let permit = TargetPermit::new(identity);
+        self.permits
+            .retain(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
+        self.permits.push(permit.downgrade());
+        Ok(permit)
+    }
+    fn accept_report(&mut self, sequence: u64, current: Option<TargetIdentity>) -> Result<bool> {
+        ensure!(
+            !self.failed,
+            "KWin observer failure is latched; restart required"
+        );
+        let expected = self
+            .sequence
+            .checked_add(1)
+            .context("KWin observer sequence exhausted")?;
+        if sequence != expected {
+            self.fail();
+            anyhow::bail!(
+                "KWin observer sequence discontinuity: expected {expected}, observed {sequence}"
+            );
+        }
+        self.sequence = sequence;
+        self.observe(current);
+        if sequence == 1 {
+            self.healthy = true;
+        }
+        Ok(sequence == 1)
     }
     pub(crate) fn revoke(&mut self) {
         for weak in &self.permits {
@@ -57,8 +101,7 @@ pub(crate) fn lost(
     reason: &str,
 ) {
     let mut state = state.lock().unwrap();
-    state.healthy = false;
-    state.revoke();
+    state.fail();
     drop(state);
     let _ = events.send(DesktopEvent::SessionLost(reason.to_owned()));
 }
@@ -87,7 +130,7 @@ struct Receiver {
     initialized: Arc<Notify>,
 }
 
-#[zbus::interface(name = "org.dipper.Observer")]
+#[zbus::interface(name = "org.dipper.Observer", spawn = false)]
 impl Receiver {
     fn report(
         &self,
@@ -108,22 +151,15 @@ impl Receiver {
             lost(&self.state, &self.events, "Malformed KWin observer report");
             zbus::fdo::Error::Failed(e.to_string())
         })?;
-        let mut state = self.state.lock().unwrap();
-        if sequence != state.sequence + 1 {
-            state.healthy = false;
-            state.revoke();
-            let _ = self.events.send(DesktopEvent::SessionLost(
-                "KWin observer sequence discontinuity".into(),
-            ));
-            return Err(zbus::fdo::Error::Failed(
-                "Observer sequence discontinuity".into(),
-            ));
-        }
-        state.sequence = sequence;
-        state.observe(current);
-        if sequence == 1 {
-            state.healthy = true;
-            self.initialized.notify_one();
+        let initialized = self.state.lock().unwrap().accept_report(sequence, current);
+        match initialized {
+            Ok(true) => self.initialized.notify_one(),
+            Ok(false) => {}
+            Err(error) => {
+                let detail = error.to_string();
+                let _ = self.events.send(DesktopEvent::SessionLost(detail.clone()));
+                return Err(zbus::fdo::Error::Failed(detail));
+            }
         }
         Ok(())
     }
@@ -147,8 +183,9 @@ impl Receiver {
             zbus::fdo::Error::Failed(e.to_string())
         })?;
         let mut state = self.state.lock().unwrap();
-        state.observe(current.clone());
         if let Some(reply) = state.pending.remove(&request) {
+            // A getter can revoke eligibility but never rewind the ordered event state.
+            state.invalidate_departure(&current);
             let _ = reply.send(current);
         }
         Ok(())
@@ -169,6 +206,34 @@ pub(crate) struct Observer {
 }
 
 const INFO: &str = "function info(w){return w ? {id:String(w.internalId),pid:w.pid,app:String(w.desktopFileName),normal:w.normalWindow}:null;}";
+
+fn observer_script(service: &str) -> Result<String> {
+    Ok(format!(
+        r#"{INFO}
+var sequence=0;
+var reports=[];
+var inFlight=false;
+function deliver() {{
+    if (inFlight || reports.length===0) return;
+    inFlight=true;
+    var next=reports.shift();
+    callDBus({}, {}, {}, 'Report', next.sequence, next.payload, function() {{
+        inFlight=false;
+        deliver();
+    }});
+}}
+function report() {{
+    reports.push({{sequence:String(++sequence), payload:JSON.stringify(info(workspace.activeWindow))}});
+    deliver();
+}}
+workspace.windowActivated.connect(report);
+workspace.windowRemoved.connect(report);
+report();"#,
+        serde_json::to_string(service)?,
+        serde_json::to_string(OBJECT)?,
+        serde_json::to_string(INTERFACE)?
+    ))
+}
 
 impl Observer {
     pub async fn start(events: broadcast::Sender<DesktopEvent>) -> Result<Self> {
@@ -205,12 +270,7 @@ impl Observer {
         std::fs::create_dir_all(&runtime)?;
         std::fs::set_permissions(&runtime, std::fs::Permissions::from_mode(0o700))?;
         let path = runtime.join(format!("kwin-observer-{}.js", std::process::id()));
-        let script = format!(
-            "{INFO}\nvar sequence=0; function report(){{callDBus({}, {}, {}, 'Report', String(++sequence), JSON.stringify(info(workspace.activeWindow)));}}\nworkspace.windowActivated.connect(report); workspace.windowRemoved.connect(report); report();",
-            serde_json::to_string(&service)?,
-            serde_json::to_string(OBJECT)?,
-            serde_json::to_string(INTERFACE)?
-        );
+        let script = observer_script(&service)?;
         write_script(&path, &script)?;
         let initialized_result: Result<()> = async {
             let loaded = tokio::time::timeout(Duration::from_secs(2), async {
@@ -297,26 +357,9 @@ impl Observer {
         );
         Ok(())
     }
-    pub fn current(&self) -> Result<TargetIdentity> {
-        self.ensure_healthy()?;
-        self.state
-            .lock()
-            .unwrap()
-            .current
-            .clone()
-            .context("No active target window")
-    }
-    pub fn track(&self, permit: TargetPermit) -> Result<()> {
-        let mut state = self.state.lock().unwrap();
-        ensure!(
-            state.healthy && state.current.as_ref() == Some(&permit.identity),
-            "Target changed before admission"
-        );
-        state
-            .permits
-            .retain(|weak| weak.upgrade().is_some_and(|permit| permit.is_valid()));
-        state.permits.push(permit.downgrade());
-        Ok(())
+    pub fn reserve(&self) -> Result<TargetPermit> {
+        // Selection and registration must share the same observation-state lock.
+        self.state.lock().unwrap().reserve()
     }
     pub fn revoke_all(&self) {
         self.state.lock().unwrap().revoke();
@@ -636,6 +679,195 @@ mod tests {
         state.observe(Some(original));
         assert!(!permit.is_valid());
     }
+    #[test]
+    fn reservation_registers_before_observed_departure_and_never_rearms() {
+        let identity = target("original");
+        let mut state = State {
+            healthy: true,
+            current: Some(identity.clone()),
+            ..State::default()
+        };
+        let permit = state.reserve().unwrap();
+        assert_eq!(permit.identity, identity);
+        assert_eq!(state.permits.len(), 1);
+        state.observe(Some(target("other")));
+        state.observe(Some(identity));
+        assert!(!permit.is_valid());
+        let next = state.reserve().unwrap();
+        assert!(next.is_valid());
+        assert!(!permit.is_valid());
+    }
+
+    #[test]
+    fn reservation_rejects_unhealthy_or_non_t3_current_state() {
+        let mut state = State {
+            current: Some(target("original")),
+            ..State::default()
+        };
+        assert!(state.reserve().is_err());
+        state.healthy = true;
+        state.current.as_mut().unwrap().application = "game".into();
+        assert!(state.reserve().is_err());
+        assert!(state.permits.is_empty());
+    }
+
+    #[test]
+    fn sequence_gap_remains_latched_even_if_initial_report_arrives_late() {
+        let mut state = State::default();
+        let gap = state
+            .accept_report(2, Some(target("original")))
+            .unwrap_err();
+        assert!(gap.to_string().contains("expected 1, observed 2"));
+        assert!(state.accept_report(1, Some(target("original"))).is_err());
+        assert!(!state.healthy);
+        assert!(state.reserve().is_err());
+        let mut state = State::default();
+        state.accept_report(1, Some(target("original"))).unwrap();
+        let permit = state.reserve().unwrap();
+        let gap = state
+            .accept_report(3, Some(target("original")))
+            .unwrap_err();
+        assert!(gap.to_string().contains("expected 2, observed 3"));
+        assert!(state.accept_report(2, Some(target("original"))).is_err());
+        assert!(!state.healthy && !permit.is_valid());
+    }
+
+    #[test]
+    fn snapshot_departure_revokes_without_rewinding_persistent_observation() {
+        let (events, _) = broadcast::channel(1);
+        let state = Arc::new(Mutex::new(State::default()));
+        state
+            .lock()
+            .unwrap()
+            .accept_report(1, Some(target("current")))
+            .unwrap();
+        let permit = state.lock().unwrap().reserve().unwrap();
+        let receiver = Receiver {
+            state: state.clone(),
+            events,
+            sender: ":1.42".into(),
+            initialized: Arc::new(Notify::new()),
+        };
+        let message = zbus::Message::method_call(OBJECT, "Snapshot")
+            .unwrap()
+            .sender(":1.42")
+            .unwrap()
+            .build(&())
+            .unwrap();
+        let (send, receive) = oneshot::channel();
+        state.lock().unwrap().pending.insert(1, send);
+        let payload = r#"{"id":"other","pid":123,"app":"game","normal":true}"#;
+        receiver.snapshot("1", payload, message.header()).unwrap();
+        assert_eq!(receive.blocking_recv().unwrap().unwrap().window_id, "other");
+        assert_eq!(
+            state.lock().unwrap().current.as_ref().unwrap().window_id,
+            "current"
+        );
+        assert!(!permit.is_valid());
+        // A timed-out historical reply has no admission authority or state update.
+        let historical =
+            r#"{"id":"historical","pid":123,"app":"com.t3tools.T3Code","normal":true}"#;
+        receiver
+            .snapshot("1", historical, message.header())
+            .unwrap();
+        assert_eq!(
+            state.lock().unwrap().current.as_ref().unwrap().window_id,
+            "current"
+        );
+        assert!(!permit.is_valid());
+    }
+
+    #[test]
+    fn unauthenticated_reports_cannot_change_observation_or_sequence() {
+        let (events, _) = broadcast::channel(1);
+        let state = Arc::new(Mutex::new(State::default()));
+        state
+            .lock()
+            .unwrap()
+            .accept_report(1, Some(target("original")))
+            .unwrap();
+        let receiver = Receiver {
+            state: state.clone(),
+            events,
+            sender: ":1.42".into(),
+            initialized: Arc::new(Notify::new()),
+        };
+        let message = zbus::Message::method_call(OBJECT, "Report")
+            .unwrap()
+            .sender(":1.99")
+            .unwrap()
+            .build(&())
+            .unwrap();
+        assert!(matches!(
+            receiver.report("2", "null", message.header()),
+            Err(zbus::fdo::Error::AccessDenied(_))
+        ));
+        let state = state.lock().unwrap();
+        assert_eq!(state.sequence, 1);
+        assert_eq!(state.current.as_ref().unwrap().window_id, "original");
+    }
+
+    #[test]
+    fn queued_reports_capture_departure_and_return_in_fifo_order() {
+        let script = observer_script("org.dipper.Synthetic").unwrap();
+        let source = serde_json::to_string(&script).unwrap();
+        let fixture = format!(
+            r#"
+const assert = require('node:assert/strict');
+const calls = [];
+let activated;
+const original = {{internalId:'original',pid:123,desktopFileName:'com.t3tools.T3Code',normalWindow:true}};
+const departed = {{internalId:'other',pid:456,desktopFileName:'game',normalWindow:true}};
+global.workspace = {{activeWindow:original,
+    windowActivated:{{connect(fn){{activated=fn;}}}},
+    windowRemoved:{{connect(_){{}}}}
+}};
+global.callDBus = (...args) => calls.push(args);
+eval({source});
+workspace.activeWindow=departed; activated(departed);
+workspace.activeWindow=original; activated(original);
+assert.equal(calls.length, 1, 'Only one report may be in flight');
+const received = [];
+for (let expected=1; expected<=3; expected++) {{
+    assert.equal(calls.length, 1);
+    const call = calls.shift();
+    assert.equal(call[3], 'Report');
+    assert.equal(call[4], String(expected));
+    received.push(JSON.parse(call[5]).id);
+    assert.equal(typeof call[6], 'function');
+    call[6]();
+}}
+assert.deepEqual(received, ['original','other','original']);
+assert.equal(calls.length, 0);
+"#
+        );
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(fixture)
+            .output()
+            .expect("Node is required for the generated KWin JavaScript regression fixture");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn observer_receiver_handles_method_calls_in_order() {
+        let (events, _) = broadcast::channel(1);
+        let receiver = Receiver {
+            state: Arc::new(Mutex::new(State::default())),
+            events,
+            sender: ":1.42".into(),
+            initialized: Arc::new(Notify::new()),
+        };
+        assert!(
+            !zbus::object_server::Interface::spawn_tasks_for_methods(&receiver),
+            "Concurrent zbus method handlers can reorder authentic report sequences"
+        );
+    }
+
     #[tokio::test]
     async fn canceled_snapshot_waiter_leaves_owned_cleanup_running() {
         let directory = tempfile::tempdir().unwrap();
