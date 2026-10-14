@@ -1,0 +1,22 @@
+[package]
+name = "dipper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+dipper-core = { path = "../../crates/dipper-core" }
+dipper-desktop = { path = "../../crates/dipper-desktop" }
+anyhow.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+libc = "0.2"
+fs2 = "0.4"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+
+[build-dependencies]
+tauri-build = "2"

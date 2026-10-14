@@ -5,7 +5,8 @@ The [preparation plan](preparation.md) records the accepted permission to start
 app work from provisional evidence. Issue #4 owns foundation and module design;
 issue #5 owns implementation breakdown. The owner selected an independent app in [ADR-0001](adr/0001-own-dipper-app.md);
 Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
-The implementation contract below consolidates accepted scope and technical choices. Independent Worker, Capture/Journal, and Desktop reviews found no remaining contract blockers. Runtime acceptance remains implementation work.
+The implementation contract below consolidates accepted scope and technical choices. Independent Worker, Capture/Journal, and Desktop reviews found no remaining contract blockers. The useful raw implementation and dated integration evidence are recorded in the
+[development guide](development.md). Full-pilot acceptance remains separate.
 
 ## Evidence and limits
 
@@ -56,21 +57,21 @@ An unclear insertion outcome must not trigger an automatic duplicate retry.
 
 Use a Rust core and Tauri 2 desktop shell. Keep core behavior behind interfaces
 that do not depend on Tauri or desktop controls. Mobile UI and the frontend
-framework remain deferred choices. Insertion verification and detailed Journal
-contracts still need decisions. SQLite with separate
+framework remain deferred choices. The reviewed first-slice contract below defines insertion verification and Journal
+responsibilities. SQLite with separate
 lossless audio and interrupted-recording recovery are accepted in ADR-0003. Long-term update requirements include both
 desktop whole-app delivery without manual downloads and compatible mobile
 UI/JS updates without a new store release. Native-code changes and model-weight
 updates require separate versioning and delivery; update implementation is not
-added to the first raw-chain slice by this requirement. The scope is accepted; the implementation contract is not Ready.
+added to the first raw-chain slice by this requirement. The first-slice implementation contract is reviewed; runtime acceptance is tracked separately.
 
 ## Accepted persistence and initial insertion
 
 Use SQLite for journal metadata and separate lossless audio files, as recorded
 in [ADR-0003](adr/0003-journal-storage.md). Write audio during capture and preserve
 available data on interruption. Recovery marks unfinished recordings as
-interrupted and performs no automatic insertion after restart. Detailed schema,
-audio codec, commit checkpoints, and numerical crash-loss bounds remain open.
+interrupted and performs no automatic insertion after restart. The reviewed contract below defines the initial schema, RF64 audio, and commit
+checkpoints. Numerical crash-loss bounds remain unmeasured.
 
 On 2026-10-14, the owner accepted acknowledging completed capture only after
 successful audio synchronization and its corresponding metadata commit.
@@ -244,23 +245,20 @@ the running T3 build. It lacks EditableText, and its frame reported inactive
 while the field reported focused. [Interactive follow-up checks](native-desktop-research.md#interactive-paste-and-focus-observations-2026-10-14)
 confirmed actual synthetic Paste into T3 and sampled switching to the game.
 The composer retained focused state while the game was active, so the test
-guard also required KWin's active-window identity. Production target validity,
-focus-loss invalidation, and dispatch race behavior remain unverified.
+guard also required KWin's active-window identity. Those standalone probes did
+not establish the raw app's target behavior. Its native integration evidence is
+now recorded in the development guide; the residual OS dispatch race remains.
 The owner accepted the conservative OS guard above, including its residual
-race. Finalize its observer, invalidation, and dispatch interfaces before
-marking the automatic insertion contract Ready. A cooperative T3 endpoint is
+race. The reviewed contract below defines its observer, invalidation, and dispatch
+interfaces. A cooperative T3 endpoint is
 an optional later mechanism, not an assumed capability or pilot prerequisite.
 
-Remaining design work includes target identity and focus-loss invalidation,
-permission/session lifetime, lost-release handling, protocol limits and
-supervision deadlines, and audio synchronization cadence. Crash-loss policy is
-accepted; its observed loss still needs measurement rather than a guessed bound.
-Runtime acceptance belongs to the production slice. The native report now
-includes explicitly authorized live focus and Paste probes; no new
-microphone/model runs, production permission setup, or storage/worker fault
-tests through Dipper were executed. Separate disposable SQLite/audio fixtures
-now exercise storage ordering and limited-database failure; they are not the
-Journal implementation.
+The reviewed first-slice contract below settles target identity, focus-loss
+invalidation, permission/session lifetime, lost-release handling, protocol
+limits, supervision deadlines, and synchronization cadence. Observed hard-crash
+loss still needs measurement before choosing a numerical bound. The earlier
+native probes and disposable persistence experiments informed these contracts.
+Current app integration evidence belongs in the [development guide](development.md).
 
 ## First-slice implementation contract
 
