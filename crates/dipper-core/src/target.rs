@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TargetIdentity {
@@ -17,19 +20,35 @@ pub struct TargetPermit {
 
 impl TargetPermit {
     pub fn new(identity: TargetIdentity) -> Self {
-        Self { identity, valid: Arc::new(AtomicBool::new(true)) }
+        Self {
+            identity,
+            valid: Arc::new(AtomicBool::new(true)),
+        }
     }
-    pub fn revoke(&self) { self.valid.store(false, Ordering::SeqCst); }
-    pub fn is_valid(&self) -> bool { self.valid.load(Ordering::SeqCst) }
+    pub fn revoke(&self) {
+        self.valid.store(false, Ordering::SeqCst);
+    }
+    pub fn is_valid(&self) -> bool {
+        self.valid.load(Ordering::SeqCst)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum DispatchStage { Unchanged, ClipboardPublished, PasteDispatched }
+pub enum DispatchStage {
+    Unchanged,
+    ClipboardPublished,
+    PasteDispatched,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum DeliveryStatus { Suppressed, Unverified, Confirmed, Failed }
+pub enum DeliveryStatus {
+    Suppressed,
+    Unverified,
+    Confirmed,
+    Failed,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InsertionOutcome {

@@ -26,15 +26,15 @@ is not a project requirement.
 Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
-Status, 2026-10-13: app foundation and module design. The recorder/transcription
-experiment is accepted as a provisional baseline; recordings can accumulate
-alongside development. Dipper uses a Rust core and Tauri desktop shell. Mobile UI,
-license, worker cancellation, detailed persistence, and recovery contracts remain
-open. There are no application setup, build, or run commands yet.
+Status, 2026-10-14: the raw voice-to-T3 app slice is being implemented against
+reviewed contracts. Use the [development guide](docs/development.md) for native
+dependencies and build/run commands. Runtime acceptance remains in progress;
+cleanup, Corrections, reduced retention, and full pilot evaluation follow.
 
 ## Documentation
 
-- [App design proposal](docs/app-design.md): module responsibilities, possible slices, and foundation decisions.
+- [App design and reviewed first-slice contract](docs/app-design.md): module responsibilities, interfaces, failure handling, and acceptance evidence.
+- [Development guide](docs/development.md): native dependencies, build/run commands, first use, and private storage.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.

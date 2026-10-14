@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dipper</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<main>
+  <header><div class="wordmark"><span class="mark" aria-hidden="true">d</span><div><h1>Dipper</h1><p>Speak. Keep the details.</p></div></div><span id="binding" class="pill">Hold not configured</span></header>
+  <section class="status-card" aria-live="polite"><div class="status-top"><span id="status-light" class="light"></span><h2 id="phase">Starting</h2><button id="cancel" class="secondary" disabled>Cancel</button></div><p id="detail">Connecting to the desktop.</p><p class="hint">Use only your Hold key during dictation. Closing this window keeps Dipper in the tray.</p></section>
+  <div id="feedback" role="status" hidden></div>
+  <section><div class="section-title"><h2>Setup</h2><button id="refresh" class="text-button">Refresh devices</button></div>
+  <form id="settings">
+    <label for="input">Microphone</label><select id="input"><option value="">System default at each recording</option></select>
+    <label for="model">Whisper large-v3 model</label><input id="model" spellcheck="false" placeholder="/path/to/ggml-large-v3.bin"><p class="hint">Model weights stay local. The worker exits after each dictation.</p>
+    <label for="runtime">Native runtime libraries</label><input id="runtime" spellcheck="false" placeholder="/path/to/whisper.cpp/build/bin">
+    <label for="hold">Preferred Hold key</label><div class="row"><input id="hold" value="F2" spellcheck="false"><button id="configure-hold" type="button" class="secondary">Configure Hold</button></div><p class="hint">KDE controls the effective binding. Choose a single key; Dipper does not remap your keyboard.</p>
+    <div class="row actions"><button id="save" type="submit">Save settings</button><button id="kde-shortcuts" type="button" class="text-button">KDE Shortcuts</button></div>
+  </form></section>
+  <section><div class="section-title"><h2>Journal</h2><span class="pill">Comprehensive retention</span></div><p class="hint">Recordings and diagnostics are retained, including canceled and failed work. No automatic deletion.</p><div id="journal" class="journal"><p class="empty">No recordings yet. Focus the T3 composer, then press and hold your configured key.</p></div></section>
+  <footer>Raw transcription slice. Cleanup and Corrections follow later.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
