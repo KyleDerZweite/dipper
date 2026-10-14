@@ -15,3 +15,9 @@ and reconcile incomplete state rather than claim success from metadata alone.
 The pilot storage-full policy remains unchanged: reject new recordings when
 storage is insufficient, preserve old data, and never automatically purge it.
 No numerical crash-loss bound or permanent retention limit is selected here.
+
+On 2026-10-14, the owner accepted acknowledging capture completion only after
+successful audio synchronization and its corresponding metadata commit. A hard
+system crash may lose an unsynchronized tail; preserve available data and
+measure that loss before choosing a numerical maximum. This adds an
+acknowledgment policy without claiming atomic writes across the two stores.

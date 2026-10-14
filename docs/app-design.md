@@ -72,6 +72,13 @@ available data on interruption. Recovery marks unfinished recordings as
 interrupted and performs no automatic insertion after restart. Detailed schema,
 audio codec, commit checkpoints, and numerical crash-loss bounds remain open.
 
+On 2026-10-14, the owner accepted acknowledging completed capture only after
+successful audio synchronization and its corresponding metadata commit.
+A hard system crash may lose the unsynchronized tail. Preserve available data,
+record the last successful synchronization point, and measure observed loss
+before choosing a numerical maximum. A fixed crash-loss number is not an
+implementation-start prerequisite.
+
 For the first slice, insertion may use Clipboard plus Paste while the intended
 T3 target remains valid. Leave the transcript in the clipboard after insertion;
 do not automatically restore its former content. If focus changes away from T3,
@@ -80,6 +87,26 @@ transcript available. Keep it in the journal for explicit use instead.
 Clipboard transfer and input-event delivery do not confirm that the target field
 accepted the text. Preserve an unverified outcome until actual target evidence
 is available, and do not automatically retry an unclear insertion.
+
+On 2026-10-14, the owner accepted a conservative OS guard for the pilot:
+require the intended KWin window and a checked composer, and permanently
+suppress automatic insertion for that dictation after observed focus loss.
+Returning to T3 does not authorize the old result. Clipboard mutation and
+Paste remain separate OS operations; a focus change exactly between them
+cannot be excluded atomically. This residual race is accepted for the pilot,
+not a claim of exact target binding. A cooperative T3 integration is not a
+first-slice prerequisite. Ambiguous or unavailable target evidence still
+suppresses automatic insertion and clipboard overwrite.
+
+For this pilot, the owner assumes no composer/window switch while holding the
+record control. Insert into the checked focused T3 composer; do not add a
+thread/draft identity contract or require a permanently pinned editor object.
+Observed departure from the target application still revokes insertion
+eligibility. Revalidate the current window and composer before dispatch.
+
+The owner prefers one hold key reachable with the left hand. A multi-key chord
+is a fallback only if it can be held with one hand. Meta+F9 is not the selected
+test binding or product default; screen single left-side keys before testing.
 
 ## Accepted busy and cancellation behavior
 
@@ -207,18 +234,21 @@ confirmed actual synthetic Paste into T3 and sampled switching to the game.
 The composer retained focused state while the game was active, so the test
 guard also required KWin's active-window identity. Production target validity,
 focus-loss invalidation, and dispatch race behavior remain unverified.
-The accepted focus-change guard stays in force. Decide how to enforce it, or
-explicitly review any proposed change to its guarantee, before marking the
-automatic insertion contract Ready. A cooperative T3 endpoint is an unaccepted
-alternative mechanism, not an assumed existing capability.
+The owner accepted the conservative OS guard above, including its residual
+race. Finalize its observer, invalidation, and dispatch interfaces before
+marking the automatic insertion contract Ready. A cooperative T3 endpoint is
+an optional later mechanism, not an assumed capability or pilot prerequisite.
 
 Remaining design work includes target identity and focus-loss invalidation,
 permission/session lifetime, lost-release handling, protocol limits and
-supervision deadlines, audio synchronization cadence and crash-loss acceptance.
+supervision deadlines, and audio synchronization cadence. Crash-loss policy is
+accepted; its observed loss still needs measurement rather than a guessed bound.
 Runtime acceptance belongs to the production slice. The native report now
 includes explicitly authorized live focus and Paste probes; no new
 microphone/model runs, production permission setup, or storage/worker fault
-tests were executed.
+tests through Dipper were executed. Separate disposable SQLite/audio fixtures
+now exercise storage ordering and limited-database failure; they are not the
+Journal implementation.
 
 ## Consequential choices to resolve
 
@@ -227,7 +257,7 @@ tests were executed.
 - Finalize supervised-worker cancellation, busy behavior, and stale-result
   suppression for the accepted on-demand Whisper large-v3 worker. Qwen is not an
   active candidate. Other models can be evaluated later without blocking app progress.
-- Specify the first slice's durable completion checkpoints, crash-loss limit,
+- Specify the first slice's durable completion checkpoints, measured crash loss,
   recovery actions, and reduced-retention semantics. SQLite with separate lossless audio is accepted in ADR-0003. Never infer an
   atomic transaction across those artifacts.
 

@@ -72,6 +72,13 @@ available data is preserved, and restart performs no automatic insertion. Store 
 outside the Git checkout. Credentials remain in protected stores and must not
 be copied into diagnostic logs.
 
+On 2026-10-14, Kyle accepted confirming capture completion only after successful
+audio synchronization and the corresponding metadata commit. A hard system
+crash may lose the unsynchronized tail. Preserve available audio and expose the
+last successful synchronization point; measure observed loss before setting a
+numerical maximum. This does not claim atomic persistence across audio and
+SQLite or complete recovery of every byte accepted by Capture.
+
 Export preserves the retained audio, identities, attempts, settings, and
 corrections independently of the application UI. Measure the storage and
 runtime cost of each retention configuration alongside recognition and

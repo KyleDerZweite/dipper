@@ -160,6 +160,43 @@ Compare later reduced retention on the same scenarios. A disk spool deleted afte
 
 ## Checks required for the first slice
 
+### Synthetic storage probes, 2026-10-14
+
+The owner authorized continued integration testing. A temporary Python fixture
+used SQLite 3.50.2, WAL, `synchronous=FULL`, and small synthetic mono 48 kHz
+floating-point PCM files. No microphone, model, existing Journal, or private
+recording was accessed. The first run used `/tmp`, which is tmpfs; the relevant
+follow-up used private disposable files under the user state directory on
+Btrfs, matching the filesystem class of the existing Dipper data location.
+
+The fixture committed an unfinished identity, wrote and synchronized an audio
+checkpoint of 4800 frames, committed that checkpoint, appended another 2400
+frames, and exited its own child process without acknowledging completion.
+Reopening the WAL preserved the unfinished row. The WAV header declared the
+last 4800-frame checkpoint while file length exposed 7200 available frames.
+Two recovery updates left the row interrupted and did not alter the original
+audio file. This distinguishes available tail bytes from synchronized metadata;
+process exit with a live OS does not establish power-loss durability of that tail.
+
+The custom synthetic RIFF fixture checks write ordering and frame counts,
+not the production WAV library, playback compatibility, or actual Capture.
+
+The normal-completion case finalized and synchronized all 7200 frames before
+committing complete status. Reopened header length, file length, and committed
+frame count agreed. Both cases then limited only their disposable SQLite
+database with `max_page_count`, received a real `SQLITE_FULL`, rolled back,
+and verified that the prior recording rows remained intact. This was not a
+full filesystem or a production Journal test.
+
+Commands were `python3 /tmp/dipper-storage-order-test.py` and
+`findmnt -T <test/data location> -no FSTYPE`. Own disposable files were removed;
+no existing process was stopped or restarted. The two Btrfs audio sync samples
+were 0.853 and 0.830 ms; metadata commit samples were 0.943 and 0.944 ms.
+These tiny sequential fixtures establish neither a sync budget, concurrent
+capture behavior, hardware durability, nor a numerical crash-loss bound.
+The accepted acknowledgment policy still needs implementation and fault checks
+through the actual Journal interface.
+
 | Scenario | Acceptance evidence |
 | --- | --- |
 | Normal release and cancel | Complete capture preserves every accepted frame; cancel preserves available audio and distinct status; raw attempts remain separate; only the normal valid T3 chain inserts. |
@@ -173,7 +210,15 @@ Compare later reduced retention on the same scenarios. A disk spool deleted afte
 
 ## Decisions and unexecuted evidence
 
-Before making the raw slice Ready, agree on what a durable acknowledgment means for app crash versus OS crash/power loss, then select the audio synchronization cadence and numerical allowable loss.
+Owner acceptance on 2026-10-14 settled the durability policy: synchronize audio
+and commit associated metadata before acknowledging capture completion. A hard
+system crash may lose an unsynchronized tail; preserve available data and
+measure actual loss before selecting a numerical maximum. The earlier request
+below to settle that policy is resolved. Synchronization cadence remains an
+implementation and measurement choice; a guessed hard bound does not gate
+starting the slice. See [Journal requirements](journal.md).
+
+The acknowledgment and hard-crash loss policies are now accepted. Review the audio synchronization cadence and measurement procedure before implementation readiness; no numerical maximum-loss claim is selected.
 A nominal timer interval alone is not a bound: include callback backlog, writer backlog, scheduling delay, filesystem sync latency, and failure detection. Without a proven bound, report the last successfully synchronized frames and make no maximum-loss promise.
 Review the proposed completion/insertion ordering, queue-overflow outcome, audio format, and admission margin with the first-slice contract.
 Selecting a permanent retention default, a FLAC conversion policy, every future text artifact, or a resource budget is unnecessary for this slice.
