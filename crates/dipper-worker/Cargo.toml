@@ -12,6 +12,7 @@ serde.workspace = true
 serde_json.workspace = true
 rubato = "0.16"
 libc = "0.2"
+sha2 = "0.10"
 
 [build-dependencies]
 cc = "1"
