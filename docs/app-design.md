@@ -468,3 +468,46 @@ directory durability, original-preserving recovery, orphan handling, schema
 invariants, and observed discontinuity failure. No further owner decision
 blocks implementation. These reviews establish contract readiness, not runtime
 acceptance or deployment.
+
+## Desktop interface polish contract, 2026-10-14
+
+The owner requested a consistent app interface with a sidebar and the existing
+Dipper logo. `ui/index.html` owns one shell and three local views: Dictation,
+Journal, and Settings. `ui/styles.css` owns neutral dark/light tokens, spacing,
+control geometry, and responsive sidebar behavior. `ui/app.js` owns local view
+navigation; `ui/appearance.js` owns persisted light/dark/system appearance. Existing Tauri commands
+and Dictation/Journal responsibilities remain the behavior boundary.
+
+Dictation remains the primary screen. Status and Cancel stay available across
+views. Settings retain their entered values on navigation and errors, use native
+inputs, and expose runtime paths as advanced settings. Journal preserves separate
+Audio/Recognition/Insertion outcomes and explicit Copy/recovery. No new recording
+mode, retention policy, model, or insertion behavior is introduced.
+
+Use root `Logo.png` as the canonical brand asset. The frontend build and native
+window/tray icons derive from this asset rather than invent another mark. Keep
+one quiet sidebar with labeled links at normal widths and an accessible icon rail
+at narrow widths. Respect the requested sidebar instead of the skill's horizontal
+navbar default. Use an underline for active navigation, restrained green accents,
+system typography, and flat neutral surfaces. Default to dark appearance and
+cycle dark/light/system through one accessible icon button.
+
+Acceptance covers all three views, hash/back navigation, keyboard focus, unchanged
+form drafts, loading/error/retry/copy/busy states, all appearance modes and their
+persistence/system response, narrow/wide layouts and zoom, native window/tray
+branding, and actual native controls. Browser fixtures establish frontend behavior
+only; the real Tauri app owns native command evidence.
+
+Reference workflows: [Handy documentation](https://handy.computer/docs) and
+[history](https://handy.computer/docs/history) informed shortcut-first operation,
+explicit transcript Copy, and device/paste recovery. Handy was not installed;
+its full native journey was unavailable. The existing T3 interface provided an
+installed reference for a quiet sidebar. Dipper keeps its own retention contract.
+
+Native branding uses a cached 32 px logo with a recording/processing/error badge
+and textual tray status. GTK's Wayland window identifies itself as `dipper` on
+this host, so the development host creates a hidden `dipper.desktop` alias in
+addition to its portal identifier. Existing installed or edited entries are
+preserved. Recognized generated entries and brand assets use synchronized atomic
+replacement. The frontend uses a symlink to canonical `Logo.png`; the actual
+Tauri build was checked to embed and render it.

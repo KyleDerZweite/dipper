@@ -145,3 +145,46 @@ capture and spoken quality remain unexecuted. The short synthetic case establish
 integration, not the pilot's quality corpus, P95/P99 latency, resource budgets,
 or owner acceptance. Cleanup, explicit Corrections, reduced retention, and the
 complete comparison remain required follow-up scope.
+
+## Sidebar verification, 2026-10-14
+
+The sidebar slice is based on raw-app revision `915a057`. The frontend now has
+three local views and one shared appearance owner. Browser fixtures were served
+outside the repository and are not production Tauri integration evidence.
+
+Observed browser checks: Dictation/Journal/Settings navigation; preserved form
+drafts; keyboard Skip to content retaining the Settings route; dark/light/system
+cycling and persistence after navigation/reload; emulated OS preference changes;
+busy Settings disabled with Cancel available; Journal load failure and Retry,
+empty-state navigation, and long unbroken transcript wrapping. Inspected layouts
+at 1280x800, 840x760, 420x560 and 360x640, plus 420x380 reflow and CSS zoom 200%.
+No horizontal overflow was observed. True browser zoom and touch hardware were
+not exercised. Dark muted text contrast is 7.96:1 and essential borders 3.72:1;
+light muted text 5.89:1. Shared native inputs/buttons have 40 px controls and 44 px
+sidebar links. The apparent rendering remains an owner judgment.
+
+Real KDE/Wayland Tauri evidence: the embedded canonical logo renders in the
+sidebar and KDE titlebar; the native tray PNG was inspected. Actual Refresh,
+Save (persisted F2), Retry recovery, and Journal Copy commands succeeded. Copy
+used a retained synthetic transcript and restored every original clipboard MIME
+format byte-for-byte after the test. A virtual input with priority 0 was used for
+a physical F2 Hold test; Settings controls were disabled while recording, Cancel
+remained enabled, 44544 available frames were preserved, and no insertion or
+clipboard mutation occurred. The OS default microphone was not changed.
+
+An initial Hold attempt after relaunch produced no recording; explicitly
+Configure Hold and retry succeeded. A repeated full synthetic Recognition/Paste
+journey completed Recognition but safely suppressed Insertion because the current
+long T3 thread exceeds the existing 650-node qualification bound. Original
+clipboard formats were restored. This is not a successful repeated Paste check;
+see the dedicated tracker issue. The earlier raw-app short-thread Paste evidence
+remains historical evidence for that environment, not proof for long threads.
+HyperX is now visible to PipeWire, but real owner speech and latency percentiles
+were not evaluated during UI polish.
+
+Current slice checks: JavaScript syntax, cargo fmt, clippy with warnings denied,
+workspace tests (72 passed; 3 ignored child fixtures exercised by parent tests),
+and native build. Independent review findings were resolved: contrast, skip-link
+routing, failed input discovery preserving the selected microphone, and atomic
+migration of generated desktop entries. Installed/user-edited entries remain
+preserved; frontend logo is a symlink to root `Logo.png`.

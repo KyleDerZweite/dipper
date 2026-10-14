@@ -78,10 +78,6 @@ impl AppPaths {
             .join("applications");
         fs::create_dir_all(&applications)?;
         let path = applications.join("io.github.KyleDerZweite.dipper.desktop");
-        // Preserve an existing installed entry. The portal requires this exact app identity.
-        if path.exists() {
-            return Ok(());
-        }
         let executable = env::current_exe()?;
         let escaped = executable
             .to_string_lossy()
@@ -89,17 +85,47 @@ impl AppPaths {
             .replace('"', "\\\"")
             .replace('`', "\\`")
             .replace('$', "\\$");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&path)?;
-        writeln!(
-            file,
-            "[Desktop Entry]\nType=Application\nName=Dipper\nComment=Local voice dictation\nExec=\"{escaped}\"\nNoDisplay=true\nTerminal=false\nCategories=Utility;"
-        )?;
-        file.sync_all()?;
-        fs::File::open(applications)?.sync_all()?;
+        let legacy = format!(
+            "[Desktop Entry]\nType=Application\nName=Dipper\nComment=Local voice dictation\nExec=\"{escaped}\"\nNoDisplay=true\nTerminal=false\nCategories=Utility;\n"
+        );
+        let brand_dir = applications
+            .parent()
+            .context("application data directory")?
+            .join("dipper/branding");
+        let icon = brand_dir.join("logo.png");
+        let icon_name = icon
+            .to_string_lossy()
+            .replace('\\', "\\\\")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r");
+        let branded = format!("{legacy}Icon={icon_name}\n");
+        // Upgrade only our exact previous development entry. Installed or
+        // user-edited entries remain owned by their installer/user.
+        let previous = if path.exists() {
+            Some(fs::read_to_string(&path)?)
+        } else {
+            None
+        };
+        if previous
+            .as_deref()
+            .is_some_and(|content| content != legacy && content != branded)
+        {
+            return Ok(());
+        }
+        fs::create_dir_all(&brand_dir)?;
+        if fs::read(&icon).ok().as_deref() != Some(include_bytes!("../../../Logo.png").as_slice()) {
+            atomic_write(&icon, include_bytes!("../../../Logo.png"))?;
+        }
+        if previous.as_deref() != Some(&branded) {
+            atomic_write(&path, branded.as_bytes())?;
+        }
+        // GTK's Wayland window uses the executable name as its app ID. KDE
+        // resolves its titlebar/task icon through this hidden alias, while the
+        // portal continues to use the full identifier above.
+        let alias = applications.join("dipper.desktop");
+        if !alias.exists() {
+            atomic_write(&alias, branded.as_bytes())?;
+        }
         Ok(())
     }
 
@@ -110,4 +136,25 @@ impl AppPaths {
         }
         Ok(())
     }
+}
+
+fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<()> {
+    let parent = path.parent().context("branding destination directory")?;
+    let temporary = parent.join(format!(".dipper-branding-{}", uuid::Uuid::new_v4()));
+    let result = (|| -> Result<()> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        fs::rename(&temporary, path)?;
+        fs::File::open(parent)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }

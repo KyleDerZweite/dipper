@@ -226,23 +226,63 @@ async fn copy_transcript(state: State<'_, AppState>, recording_id: String) -> Re
         .await
         .map_err(|e| e.to_string())
 }
-fn tray_icon(recording: bool, error: bool) -> tauri::image::Image<'static> {
+// Downsample the canonical embedded logo once. Alpha-weighted box averaging
+// keeps thin strokes readable without adding an image runtime dependency.
+fn small_logo(source: &tauri::image::Image<'_>) -> tauri::image::Image<'static> {
     let mut pixels = vec![0u8; 32 * 32 * 4];
-    let color = if recording {
-        [226, 87, 87]
-    } else if error {
-        [222, 168, 65]
-    } else {
-        [95, 176, 132]
-    };
+    let width = source.width() as usize;
+    let height = source.height() as usize;
     for y in 0..32 {
         for x in 0..32 {
-            let dx = x as i32 - 16;
-            let dy = y as i32 - 16;
-            if dx * dx + dy * dy <= 144 {
-                let offset = (y * 32 + x) * 4;
-                pixels[offset..offset + 3].copy_from_slice(&color);
-                pixels[offset + 3] = 255;
+            let mut sums = [0u64; 4];
+            let mut count = 0;
+            for sy in y * height / 32..((y + 1) * height / 32).max(y * height / 32 + 1).min(height)
+            {
+                for sx in x * width / 32..((x + 1) * width / 32).max(x * width / 32 + 1).min(width)
+                {
+                    let rgba = &source.rgba()[(sy * width + sx) * 4..][..4];
+                    for channel in 0..3 {
+                        sums[channel] += u64::from(rgba[channel]) * u64::from(rgba[3]);
+                    }
+                    sums[3] += u64::from(rgba[3]);
+                    count += 1;
+                }
+            }
+            let offset = (y * 32 + x) * 4;
+            for channel in 0..3 {
+                pixels[offset + channel] = sums[channel].checked_div(sums[3]).unwrap_or(0) as u8;
+            }
+            pixels[offset + 3] = sums[3].checked_div(count).unwrap_or(0) as u8;
+        }
+    }
+    tauri::image::Image::new_owned(pixels, 32, 32)
+}
+fn tray_icon(
+    logo: &tauri::image::Image<'_>,
+    recording: bool,
+    busy: bool,
+    error: bool,
+) -> tauri::image::Image<'static> {
+    let mut pixels = logo.rgba().to_vec();
+    let color = if recording {
+        Some([226, 87, 87])
+    } else if error {
+        Some([222, 168, 65])
+    } else if busy {
+        Some([168, 206, 183])
+    } else {
+        None
+    };
+    if let Some(color) = color {
+        for y in 20..32 {
+            for x in 20..32 {
+                let dx = x as i32 - 26;
+                let dy = y as i32 - 26;
+                if dx * dx + dy * dy <= 25 {
+                    let offset = (y * 32 + x) * 4;
+                    pixels[offset..offset + 3].copy_from_slice(&color);
+                    pixels[offset + 3] = 255;
+                }
             }
         }
     }
@@ -293,6 +333,8 @@ fn main() -> Result<()> {
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript])
         .setup(move |app| {
+            let brand = app.default_window_icon().ok_or_else(|| anyhow::anyhow!("Embedded Dipper logo missing"))?.clone();
+            let tray_logo = small_logo(&brand);
             let recovery = journal.recovery_report();
             let native = tauri::async_runtime::block_on(DesktopAdapter::new(paths.clipboard_helper));
             let (native, desktop_error): (Option<Arc<DesktopAdapter>>, Option<String>) = match native {
@@ -315,7 +357,7 @@ fn main() -> Result<()> {
             let cancel = MenuItem::with_id(app, "cancel", "Cancel dictation", false, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Dipper", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&status, &settings_item, &cancel, &quit])?;
-            TrayIconBuilder::with_id("dipper").icon(tray_icon(false, false)).tooltip("Dipper: Ready").menu(&menu)
+            TrayIconBuilder::with_id("dipper").icon(tray_icon(&tray_logo, false, false, false)).tooltip("Dipper: Ready").menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "settings" => show_window(app),
                     "cancel" => app.state::<AppState>().dictation.cancel(),
@@ -323,6 +365,7 @@ fn main() -> Result<()> {
                     _ => (),
                 }).build(app)?;
             if let Some(window) = app.get_webview_window("main") {
+                window.set_icon(brand)?;
                 let handle = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = handle.hide(); }
@@ -339,7 +382,7 @@ fn main() -> Result<()> {
                     let _ = settings_item.set_enabled(!value.busy);
                     if let Some(tray) = handle.tray_by_id("dipper") {
                         let _ = tray.set_tooltip(Some(format!("Dipper: {}. {}", value.phase, value.detail)));
-                        let _ = tray.set_icon(Some(tray_icon(value.recording, value.error)));
+                        let _ = tray.set_icon(Some(tray_icon(&tray_logo, value.recording, value.busy, value.error)));
                     }
                     if snapshot.changed().await.is_err() { break; }
                 }
