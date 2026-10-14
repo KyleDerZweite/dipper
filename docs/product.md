@@ -110,3 +110,12 @@ field-context access and final-text collection are unverified on KDE Wayland.
 Mobile implementation is deferred to the long term. Server deployment, fine-tuning, unattended correction
 learning, and a general voice assistant are outside the proposed initial pilot.
 Sync, meeting notes, and team features need explicit scope decisions if selected. OpenWhispr was rejected for workflow and quality.
+
+On 2026-10-14, Kyle selected Whisper large-v3-turbo as the live recognition
+default. Large-v3 remains a baseline option. Cleanup comparison now includes
+small Qwen text models again, with a maximum of four billion total parameters.
+SmolLM3-3B, Qwen3-1.7B and Qwen3-0.6B were compared separately; no live cleanup
+model is selected. Kyle chose Turbo activation and model comparison before
+model-management UI. The accepted future UI includes public Hugging Face
+downloads and local GGUF folder, Reload and selection behavior, tracked in
+[issue #22](https://github.com/KyleDerZweite/dipper/issues/22).

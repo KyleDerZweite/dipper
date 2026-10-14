@@ -1,5 +1,11 @@
 # Whisper model lifetime
 
+Update, 2026-10-14: the owner selected large-v3-turbo as the live default, with
+large-v3 retained as an explicit baseline profile. Load-on-Hold and worker exit
+after each job remain unchanged. Current native evidence is recorded in the
+[development guide](development.md); the original dated study below describes
+large-v3 measurements and does not rank the new profile.
+
 Research and owner acceptance date: 2026-10-13. Use one recognition worker per
 dictation, begin loading Whisper large-v3 when hold begins, and exit after the job.
 This is the accepted initial resource policy. The app has not implemented or

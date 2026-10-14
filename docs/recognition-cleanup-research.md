@@ -3,14 +3,15 @@
 Research checked on 2026-10-14 against Dipper revision
 `bb9c34cdfa4f6d48ec7edf1ee99820e87b2c58a7` and primary sources. The owner asked to
 try Whisper large-v3-turbo and revisit light cleanup, including a spoken revision
-such as `3, ach nee, doch 4`. This investigation proposes comparisons. It does
-not select a new live default or a cleanup implementation.
+such as `3, ach nee, doch 4`. The owner subsequently selected Turbo as the live recognition default and
+requested a cleanup comparison capped at four billion total parameters. Cleanup
+implementation and model management remain separate slices.
 
-The recommended order is to compare Turbo with the existing large-v3 baseline
-on the same recordings, then evaluate text processing independently. Start the
-cleanup comparison with SmolLM3-3B and Gemma 4 E2B IT in non-thinking mode.
-Neither candidate has demonstrated Dipper's required quality or latency yet.
-Qwen remains excluded by the owner's decision.
+The owner selected Turbo activation and cleanup comparison first, with model
+download/reload/selection UI afterward. The initial cleanup shortlist is
+SmolLM3-3B, Qwen3-1.7B and Qwen3-0.6B, all with thinking disabled. Small Qwen
+text models are explicitly allowed again. The previous Gemma 4 E2B proposal is
+withdrawn because its 5.1B total parameters exceed the owner's cap.
 
 ## Whisper large-v3-turbo
 
@@ -49,11 +50,11 @@ The locally pinned whisper.cpp revision
 Its loader reads encoder and decoder layer counts from the model file. The
 same revision documents the
 [Vulkan backend](https://github.com/ggml-org/whisper.cpp/blob/0c7be696371069e0baa2515ed7aa08d5a5473aa6/README.md#vulkan-gpu-support).
-These establish a native runtime path for testing Turbo. Dipper's current
-C++ bridge additionally requires 32 decoder layers and full float16 large-v3.
-It correctly rejected Turbo in an isolated worker experiment. An explicit
-Turbo profile with four-layer validation is required before an app comparison;
-changing the model path alone does not enable it.
+These establish a native runtime path for testing Turbo. Before the explicit-profile repair, Dipper's C++ bridge required 32 decoder
+layers and full float16 large-v3 and rejected Turbo in an isolated experiment.
+The reviewed repair now distinguishes explicit large_v3 and large_v3_turbo
+profiles, validating 32 or four decoder layers while preserving F16 and GPU
+checks. Historical requests/settings without a profile retain large-v3 meaning.
 
 Compare the unquantized converted models first to avoid changing architecture
 and quantization simultaneously. Add Q5 or Q8 only if a second comparison is
@@ -79,13 +80,13 @@ for a small local processor, but its published general benchmarks do not measure
 conservative dictation cleanup.
 [SmolLM3 model card](https://huggingface.co/HuggingFaceTB/SmolLM3-3B)
 
-Gemma 4 E2B IT is the second candidate. Google's current model card describes
+Gemma 4 E2B IT was an initial proposal and is now excluded under the total cap. Google's current model card describes
 multilingual training, local-device use, configurable thinking, and Apache 2.0.
 Its 2.3 billion effective parameters include 5.1 billion parameters when
 embeddings are counted. Therefore, E2B should not be treated as a two-billion
 parameter download or a guaranteed smaller memory footprint than SmolLM3.
-Disable thinking for the cleanup comparison and use text input only. This
-investigation has not established its German cleanup quality.
+It is not included in the accepted comparison. No local German cleanup
+quality was established for it.
 [Google Gemma 4 model card](https://ai.google.dev/gemma/docs/core/model_card_4)
 
 The runtime maintainers publish a
@@ -100,8 +101,7 @@ conversion and chat template before measuring.
 Llama 3.2 3B Instruct is a fallback candidate with explicitly supported German
 and English. Its license is the custom Llama 3.2 Community License. Meta's
 published quantization performance uses ExecuTorch on an Android OnePlus 12,
-so those results do not rank it on Dipper's workstation. It adds little to the
-first two-candidate comparison until either candidate fails an acceptance case.
+so those results do not rank it on Dipper's workstation. It is not included in the current three-candidate comparison.
 [Meta model card](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)
 
 No cleanup model is selected. Model choice, runtime supervision, processed-text
@@ -208,11 +208,85 @@ cold-file-cache behavior, or matched peak memory. Workers/CLI processes exited
 after each job. No clipboard, composer, or live dictation was operated.
 
 The source-only research above did not run models; this separate parent-run
-experiment supplies the limited local evidence. Turbo is the recommended next
-experimental ASR profile, with large-v3 retained as the quality baseline.
+experiment supplies the limited local evidence. The owner accepted Turbo as the live default after these comparisons;
+large-v3 remains available as the explicit quality baseline.
 A separate private English replay through the same CLI detected English for
 both models: 3.551 s for large-v3 and 2.153 s for Turbo, one run each.
 No private transcript is published. This checks basic multilingual operation,
 not full semantic quality or distributional performance.
 
-Cleanup candidates have not been downloaded or tested.
+The following follow-up records the subsequently executed cleanup comparison.
+
+## Accepted cleanup shortlist and local trials, 2026-10-14
+
+The owner explicitly permitted small Qwen text models and capped cleanup at
+four billion total parameters, including embeddings and required components.
+Qwen3's smallest post-trained model is 0.6B; the 0.5B model belongs to Qwen2.5.
+Use post-trained checkpoints, not their Base variants.
+
+| Candidate | Converted artifact parameters | Q8 weight-file bytes |
+| --- | ---: | ---: |
+| Qwen3-0.6B | 596,049,920 | 639,446,688 |
+| Qwen3-1.7B | 1,720,574,976 | 1,834,426,016 |
+| SmolLM3-3B | 3,075,098,624 | 3,275,574,624 |
+
+The Qwen3 language list includes German; SmolLM3 explicitly supports German.
+All three use Apache 2.0. The names are rounded labels; actual artifact parameter
+counts are recorded separately. Source-owned conversions:
+[Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF),
+[Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B-GGUF),
+and [SmolLM3](https://huggingface.co/ggml-org/SmolLM3-3B-GGUF).
+Language source: [Qwen3 announcement](https://qwenlm.github.io/blog/qwen3/).
+
+The strict cap also excludes Qwen3-4B's 4,022,468,096 serialized parameters,
+despite its rounded name. Gemma 4 E2B totals 5.1B. Qwen2.5-0.5B-Instruct is an
+optional later resource-floor candidate, not part of these runs.
+
+The public GGUF downloads were pinned to their repository revisions and
+verified by byte count and LFS SHA-256. The experiment used the official
+llama.cpp Ubuntu Vulkan x64 release b11617, commit 14310190c, whose archive
+matched its GitHub SHA-256. No system installation or existing Ollama service
+change was needed. Each owned localhost server ran on Vulkan1/RX 7700S with
+2,048 context tokens, eight threads, one slot, GPU offload and --reasoning off.
+Requests also set enable_thinking=false; all observed reasoning outputs were
+empty. Models were unloaded by stopping/reaping the owned server after its batch.
+
+Ten public synthetic cases covered explicit numeric/date revision, unchanged
+negation, uncertain alternatives, English revision, technical identifiers,
+filler removal, dictated instructions, quotations and negated build numbers.
+The first round used a plain instruction prompt. The second used the same cases,
+wrapped as dictation data in JSON, with three disjoint examples: a different
+number revision, uncertainty, and a dictated instruction. Parameters remained
+temperature 0.7, top_p 0.8, seed 42 and 128 maximum output tokens. The references
+were checked ignoring harmless punctuation/case/whitespace differences, then
+outputs were inspected. A synonymous rewrite was rejected under light cleanup.
+
+| Model | Plain prompt matches | Data + examples matches | Warm response median, second round | Server readiness, second round | Peak host RSS, second round |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-0.6B Q8 | 3/10 | 6/10 | 0.136 s | 1.640 s | 0.772 GB |
+| Qwen3-1.7B Q8 | 3/10 | 9/10 | 0.212 s | 2.834 s | 1.967 GB |
+| SmolLM3 Q8 | 8/10 | 9/10 | 0.268 s | 3.202 s | 3.422 GB |
+
+These are tiny prompt-dependent test counts, not quality percentages for real
+dictation. Response times use a loaded batch server and prefix caches, not a
+new worker per dictation. Readiness includes model initialization. Host RSS is
+a process high-water observation, not PSS, dedicated VRAM or total system memory.
+No matched peak VRAM or representative long-input latency was measured.
+
+In the second round Qwen3-0.6B incorrectly chose three instead of four and 300
+instead of 400. It is unsuitable for automatic spoken correction under this
+configuration. Qwen3-1.7B correctly resolved both values but kept a filler and
+reordered its sentence. SmolLM3 resolved the numeric revision but partially
+translated the English case into German. Those failures remain recorded.
+
+Qwen3-1.7B and SmolLM3 remain finalists for a broader frozen-prompt holdout,
+with Qwen3-1.7B the smaller runtime footprint in this experiment. Neither is
+selected for live automatic cleanup. A reviewed Text processing contract must
+define provenance, deadlines, cancellation, raw fallback and language/meaning
+checks before integration. Download, local GGUF folder, Reload and selection
+UX are tracked separately in issue #22; the owner deferred that implementation.
+
+The [public synthetic trial artifact](evidence/cleanup-models-20261014.json)
+retains exact prompts, disjoint examples, allowed references, outputs, timings
+and verified artifact identities for both rounds. It contains no owner recordings
+or private transcripts.
