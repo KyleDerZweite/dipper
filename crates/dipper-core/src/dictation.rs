@@ -552,6 +552,17 @@ impl Dictation {
                 .await;
             self.record_attempt(attempt_id, &outcome)?;
             target_task.abort();
+            if matches!(capture_result.state.as_str(), "failed" | "interrupted")
+                || !capture_result.persisted
+            {
+                anyhow::bail!(
+                    "Capture {}: {}. Available audio was retained; no insertion.",
+                    capture_result.state,
+                    capture_result
+                        .error
+                        .unwrap_or_else(|| "durable completion could not be acknowledged".into())
+                );
+            }
             return Ok(format!(
                 "Recording {}. Available audio was retained; no insertion.",
                 capture_result.state

@@ -300,29 +300,6 @@ impl Drop for CaptureSession {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn spsc_wrap_preserves_order_and_overflow_accepts_no_partial_buffer() {
-        let ring = SampleRing::new(8).unwrap();
-        assert!(ring.push_synthetic(&[0.0, 1.0, 2.0, 3.0]));
-        let mut first = [0.0; 2];
-        assert_eq!(ring.read(&mut first), 2);
-        assert_eq!(first, [0.0, 1.0]);
-        assert!(ring.push_synthetic(&[4.0, 5.0, 6.0, 7.0, 8.0]));
-        let mut rest = [0.0; 8];
-        assert_eq!(ring.read(&mut rest), 7);
-        assert_eq!(&rest[..7], &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
-        assert!(ring.push_synthetic(&[9.0; 4]));
-        assert!(!ring.push_synthetic(&[10.0; 5]));
-        assert_eq!(ring.accepted(), 13);
-        assert_eq!(ring.read(&mut rest), 4);
-        assert_eq!(&rest[..4], &[9.0; 4]);
-        assert_eq!(ring.fault().as_deref(), Some("capture queue overflow"));
-    }
-}
-
 /// Capture's platform seam. The native adapter and deterministic lifecycle fixtures
 /// use the same durable ticket and completion contract.
 pub trait CaptureProvider: Send + Sync {
@@ -348,5 +325,28 @@ impl CaptureRun for CaptureSession {
     }
     fn stop(self: Box<Self>, reason: CaptureStop) -> Result<CaptureOutcome> {
         CaptureSession::stop(*self, reason)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn spsc_wrap_preserves_order_and_overflow_accepts_no_partial_buffer() {
+        let ring = SampleRing::new(8).unwrap();
+        assert!(ring.push_synthetic(&[0.0, 1.0, 2.0, 3.0]));
+        let mut first = [0.0; 2];
+        assert_eq!(ring.read(&mut first), 2);
+        assert_eq!(first, [0.0, 1.0]);
+        assert!(ring.push_synthetic(&[4.0, 5.0, 6.0, 7.0, 8.0]));
+        let mut rest = [0.0; 8];
+        assert_eq!(ring.read(&mut rest), 7);
+        assert_eq!(&rest[..7], &[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        assert!(ring.push_synthetic(&[9.0; 4]));
+        assert!(!ring.push_synthetic(&[10.0; 5]));
+        assert_eq!(ring.accepted(), 13);
+        assert_eq!(ring.read(&mut rest), 4);
+        assert_eq!(&rest[..4], &[9.0; 4]);
+        assert_eq!(ring.fault().as_deref(), Some("capture queue overflow"));
     }
 }

@@ -93,8 +93,10 @@ fn run(launch: LaunchRequest, observed_runtime: &mut Option<RuntimeProvenance>) 
             }
         })?;
     let preparation = Instant::now();
+    eprintln!("Preparing recognition artifact fingerprints");
     let (runtime, artifact_guards) = artifacts::fingerprint_runtime(&launch.settings.model_path)?;
     *observed_runtime = Some(runtime.clone());
+    eprintln!("Artifact fingerprints complete; initializing Whisper/Vulkan");
     let (mut recognition, gpu) = NativeRecognition::prepare(&launch.settings)?;
     for guard in &artifact_guards {
         guard.validate()?;

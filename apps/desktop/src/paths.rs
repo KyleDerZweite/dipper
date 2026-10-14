@@ -16,6 +16,24 @@ pub struct AppPaths {
 }
 
 impl AppPaths {
+    pub fn lock_session(&self) -> Result<fs::File> {
+        use fs2::FileExt;
+        let runtime = PathBuf::from(
+            env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR is unavailable")?,
+        );
+        ensure!(runtime.is_absolute(), "runtime directory must be absolute");
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .open(runtime.join("dipper-app.lock"))?;
+        lock.try_lock_exclusive()
+            .context("Dipper is already running in this desktop session")?;
+        Ok(lock)
+    }
+
     pub fn resolve() -> Result<Self> {
         let home = env::var_os("HOME").context("HOME is unavailable")?;
         let home = PathBuf::from(home);

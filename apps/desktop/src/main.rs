@@ -21,6 +21,7 @@ use tauri::{
 };
 
 struct AppState {
+    _session_lock: std::fs::File,
     dictation: Arc<Dictation>,
     desktop: Option<Arc<DesktopAdapter>>,
     desktop_error: Option<String>,
@@ -268,10 +269,10 @@ fn request_quit(app: &tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
         state.dictation.shutdown().await;
-        if let Some(desktop) = &state.desktop {
-            if let Err(error) = desktop.stop().await {
-                eprintln!("Dipper desktop cleanup: {error:#}");
-            }
+        if let Some(desktop) = &state.desktop
+            && let Err(error) = desktop.stop().await
+        {
+            eprintln!("Dipper desktop cleanup: {error:#}");
         }
         state.exit_ready.store(true, Ordering::SeqCst);
         app.exit(0);
@@ -285,6 +286,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript])
         .setup(|app| {
             let paths = paths::AppPaths::resolve()?;
+            let session_lock = paths.lock_session()?;
             paths.private_directories()?;
             paths.ensure_desktop_identity()?;
             let settings = Settings::load(&paths.settings, &paths.data)?;
@@ -299,13 +301,13 @@ fn main() {
                 Some(native) => native.clone(),
                 None => Arc::new(UnavailableInsertion(desktop_error.clone().unwrap_or_default())),
             };
-            if let Some(native) = &native {
-                if let Err(error) = tauri::async_runtime::block_on(native.restore_hold()) { eprintln!("Dipper shortcut restore: {error:#}"); }
-            }
+            if let Some(native) = &native
+                && let Err(error) = tauri::async_runtime::block_on(native.restore_hold()) { eprintln!("Dipper shortcut restore: {error:#}"); }
             let dictation = Dictation::new(journal, insertion, paths.worker, paths.settings, settings);
             if let Some(error) = &desktop_error { dictation.session_lost(error); }
             if recovery.unpersisted { dictation.session_lost("Journal recovery could not persist. Existing data was preserved; check available storage."); }
-            app.manage(AppState { dictation: dictation.clone(), desktop: native.clone(), desktop_error, shutting_down: AtomicBool::new(false), exit_ready: AtomicBool::new(false) });
+            app.manage(AppState {
+                _session_lock: session_lock, dictation: dictation.clone(), desktop: native.clone(), desktop_error, shutting_down: AtomicBool::new(false), exit_ready: AtomicBool::new(false) });
             let status = MenuItem::with_id(app, "status", "Dipper: Ready", false, None::<&str>)?;
             let settings_item = MenuItem::with_id(app, "settings", "Settings and Journal", true, None::<&str>)?;
             let cancel = MenuItem::with_id(app, "cancel", "Cancel dictation", false, None::<&str>)?;
@@ -361,11 +363,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Dipper startup failed");
     app.run(|app, event| {
-        if let tauri::RunEvent::ExitRequested { api, .. } = event {
-            if !app.state::<AppState>().exit_ready.load(Ordering::SeqCst) {
-                api.prevent_exit();
-                request_quit(app);
-            }
+        if let tauri::RunEvent::ExitRequested { api, .. } = event
+            && !app.state::<AppState>().exit_ready.load(Ordering::SeqCst)
+        {
+            api.prevent_exit();
+            request_quit(app);
         }
     });
 }

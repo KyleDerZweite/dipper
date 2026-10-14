@@ -638,6 +638,7 @@ dependencies = [
  "async-trait",
  "dipper-core",
  "dipper-desktop",
+ "fs2",
  "libc",
  "serde",
  "serde_json",
