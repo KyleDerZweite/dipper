@@ -596,3 +596,56 @@ One-time dismissal handlers are installed on creation; initialization also
 focuses the dismiss button so the first keyboard path does not depend on an
 event arriving after the WebView has loaded. Temporary scripts use unique names,
 bounded setup/operation/cleanup, authenticated replies, and reported file cleanup.
+
+## Bounded composer qualification repair, 2026-10-14
+
+Issue #16 retains DesktopAdapter's existing interface and insertion policy.
+The reviewed repair replaces the per-node 650-object AT-SPI traversal with two
+Collection.GetMatches calls on the application root resolved by the intended
+T3 PID and unique bus owner. The root must have application role.
+
+First query all descendants with a 4,097-reference sentinel and reject saturated,
+foreign, null, or duplicate references. Then query FRAME and ENTRY roles with a
+65-candidate sentinel. Reject saturation, duplicates, and candidates absent from
+the first result. Read each candidate's role, classes, and states freshly. Require
+the existing unique non-defunct frame and unique focused, editable, visible,
+non-stale Tiptap/ProseMirror composer. Preserve KWin identity checks, the permanent
+focus-loss latch, the shared four-second deadline, and one complete retry on
+UnknownObject. No clipboard write or Paste is allowed on failed evidence.
+
+The unfiltered sentinel is below the installed AT-SPI 2.58.9 provider's
+65,536-child clamp; a filtered query alone cannot prove completeness. Queries
+are observations rather than an atomic snapshot. A local timeout does not cancel
+provider-side traversal. The existing accepted OS dispatch race remains.
+
+Acceptance requires bounded-query regressions for saturation, foreign/duplicate
+references and changed trees, existing invalid/ambiguous composer and retry tests,
+actual installed T3 qualification, and native tray-hidden Hold through Paste
+with synthetic content, Undo, and complete clipboard restoration. The independent
+contract review confirmed wire types, sentinels, provider limits and ownership
+on 2026-10-14 before implementation.
+
+Primary references: [Collection protocol](https://github.com/GNOME/at-spi2-core/blob/2.58.9/xml/Collection.xml),
+[provider traversal](https://github.com/GNOME/at-spi2-core/blob/2.58.9/atk-adaptor/adaptors/collection-adaptor.c),
+and [provider limit](https://github.com/GNOME/at-spi2-core/blob/2.58.9/atspi/atspi-constants.h).
+
+## Saved Hold restoration repair, 2026-10-14
+
+Issue #18 belongs to the KDE DesktopAdapter shortcut owner. CreateSession and
+ListShortcuts alone restore saved descriptions, not active KGlobalAccel actions.
+Startup now lists the session, requires one nonempty existing hold action, binds
+that same ID without a preferred trigger, and relists before exposing the binding.
+Missing, empty, ambiguous or failed assignments remain unconfigured. Ordered
+press/release subscriptions exist before binding; teardown and focus guards remain
+unchanged. Core, Journal, and UI interfaces do not change.
+
+This supersedes the earlier literal prohibition on startup BindShortcuts. The
+installed KDE 6.7.5 backend returns immediately without a configuration dialog
+when all requested IDs already exist. The portable portal API does not guarantee
+that behavior; removal between listing and binding remains a backend race. New
+assignments still require explicit configuration. Independent primary-source
+review established this repair contract before implementation. Acceptance requires
+a fresh process with no Configure Hold click, no dialog, actual press/release,
+saved-key preservation, and safe missing/empty/ambiguous selection.
+
+Source: [installed KDE registration path](https://github.com/KDE/xdg-desktop-portal-kde/blob/v6.7.5/src/globalshortcuts.cpp).

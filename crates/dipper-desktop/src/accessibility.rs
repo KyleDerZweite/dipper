@@ -1,5 +1,5 @@
 use anyhow::{Result, bail, ensure};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
@@ -46,30 +46,52 @@ async fn inspect(pid: u32) -> Result<()> {
     )
     .await?;
     let roots: Vec<(String, OwnedObjectPath)> = registry.call("GetChildren", &()).await?;
-    let mut queue = VecDeque::new();
+    let mut owned_roots = Vec::new();
     for (destination, path) in roots {
         let owner_pid: u32 = dbus
             .call("GetConnectionUnixProcessID", &(destination.as_str(),))
             .await?;
         if owner_pid == pid {
-            queue.push_back((destination, path));
+            owned_roots.push((destination, path));
         }
     }
     ensure!(
-        queue.len() == 1,
+        owned_roots.len() == 1,
         "T3 accessibility process is missing or ambiguous"
     );
-    let mut seen = HashSet::new();
+    let (destination, path) = owned_roots.pop().unwrap();
+    let owner: String = dbus.call("GetNameOwner", &(destination.as_str(),)).await?;
+    let root = Proxy::new(
+        &connection,
+        owner.as_str(),
+        path.as_str(),
+        "org.a11y.atspi.Accessible",
+    )
+    .await?;
+    let role: String = root.call("GetRoleName", &()).await?;
+    ensure!(
+        role == "application",
+        "T3 accessibility root is not an application"
+    );
+    let collection = Proxy::new(
+        &connection,
+        owner.as_str(),
+        path.as_str(),
+        "org.a11y.atspi.Collection",
+    )
+    .await?;
+    let candidates = bounded_candidates(&owner, |rule, count| {
+        let collection = &collection;
+        async move {
+            Ok(collection
+                .call("GetMatches", &(rule, 1_u32, count, true))
+                .await?)
+        }
+    })
+    .await?;
     let mut composers = 0;
     let mut frames = 0;
-    while let Some((destination, path)) = queue.pop_front() {
-        if !seen.insert((destination.clone(), path.clone())) {
-            continue;
-        }
-        ensure!(
-            seen.len() <= 650,
-            "T3 accessibility tree exceeds the validation bound"
-        );
+    for (destination, path) in candidates {
         let object = Proxy::new(
             &connection,
             destination.as_str(),
@@ -83,28 +105,92 @@ async fn inspect(pid: u32) -> Result<()> {
             if !has_state(&states, 6) {
                 frames += 1;
             }
-        }
-        if role == "entry" {
+        } else if role == "entry" {
             let attributes: HashMap<String, String> = object.call("GetAttributes", &()).await?;
             let classes = attributes
                 .get("class")
-                .map(|s| s.to_ascii_lowercase())
+                .map(String::as_str)
                 .unwrap_or_default();
-            if classes.contains("tiptap") || classes.contains("prosemirror") {
-                let states: Vec<u32> = object.call("GetState", &()).await?;
-                if qualifies_composer(&role, &classes, &states) {
-                    composers += 1;
-                }
+            let states: Vec<u32> = object.call("GetState", &()).await?;
+            if qualifies_composer(&role, classes, &states) {
+                composers += 1;
             }
-        }
-        let children: Vec<(String, OwnedObjectPath)> = object.call("GetChildren", &()).await?;
-        for child in children {
-            if child.1.as_str() != "/org/a11y/atspi/null" {
-                queue.push_back(child);
-            }
+        } else {
+            bail!("T3 accessibility candidate changed role");
         }
     }
     ensure_unique_composer(composers, frames)
+}
+
+// AT-SPI Collection MatchRule signature: (aiia{ss}iaiiasib). Role masks
+// use FRAME=23 and ENTRY=79; empty criteria with MATCH_ALL=1 match all.
+type MatchRule = (
+    Vec<i32>,
+    i32,
+    HashMap<String, String>,
+    i32,
+    Vec<i32>,
+    i32,
+    Vec<String>,
+    i32,
+    bool,
+);
+type Reference = (String, OwnedObjectPath);
+const TREE_SENTINEL: i32 = 4097;
+const CANDIDATE_SENTINEL: i32 = 65;
+
+fn match_rule(candidates: bool) -> MatchRule {
+    (
+        vec![0, 0],
+        1,
+        HashMap::new(),
+        1,
+        if candidates {
+            vec![1 << 23, 0, 1 << 15, 0]
+        } else {
+            vec![0; 4]
+        },
+        if candidates { 2 } else { 1 },
+        Vec::new(),
+        1,
+        false,
+    )
+}
+
+async fn bounded_candidates<F, Fut>(owner: &str, mut query: F) -> Result<Vec<Reference>>
+where
+    F: FnMut(MatchRule, i32) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<Reference>>>,
+{
+    // An unfiltered sentinel proves the tree is below the ATK provider's
+    // 65536-child clamp. A filtered query alone cannot prove completeness.
+    let all = query(match_rule(false), TREE_SENTINEL).await?;
+    ensure!(
+        all.len() < TREE_SENTINEL as usize,
+        "T3 accessibility tree exceeds the validation bound"
+    );
+    let mut seen = HashSet::new();
+    for reference in all {
+        ensure!(
+            reference.0 == owner
+                && reference.1.as_str() != "/org/a11y/atspi/null"
+                && seen.insert(reference),
+            "T3 accessibility tree contains invalid or duplicate references"
+        );
+    }
+    let candidates = query(match_rule(true), CANDIDATE_SENTINEL).await?;
+    ensure!(
+        candidates.len() < CANDIDATE_SENTINEL as usize,
+        "T3 accessibility candidate limit exceeded"
+    );
+    let mut unique = HashSet::new();
+    for reference in &candidates {
+        ensure!(
+            seen.contains(reference) && unique.insert(reference.clone()),
+            "T3 accessibility tree changed or candidates are ambiguous"
+        );
+    }
+    Ok(candidates)
 }
 
 fn has_state(states: &[u32], bit: usize) -> bool {
@@ -137,6 +223,70 @@ fn ensure_unique_composer(composers: usize, frames: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn reference(index: usize) -> Reference {
+        (":1.42".into(), format!("/node/{index}").try_into().unwrap())
+    }
+
+    #[tokio::test]
+    async fn long_chat_uses_two_bounded_queries_instead_of_per_message_calls() {
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let result = bounded_candidates(":1.42", |rule, count| {
+            let call = calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            async move {
+                assert_eq!(rule.0, vec![0, 0]);
+                assert!(!rule.8);
+                if call == 0 {
+                    assert_eq!(count, TREE_SENTINEL);
+                    assert_eq!(rule.4, vec![0; 4]);
+                    Ok((0..2000).map(reference).collect())
+                } else {
+                    assert_eq!(count, CANDIDATE_SENTINEL);
+                    assert_eq!(rule.4, vec![1 << 23, 0, 1 << 15, 0]);
+                    assert_eq!(rule.5, 2);
+                    Ok(vec![reference(1), reference(1999)])
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(result, vec![reference(1), reference(1999)]);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn incomplete_foreign_duplicate_and_changed_results_are_rejected() {
+        let scenarios = [
+            ((0..TREE_SENTINEL as usize).map(reference).collect(), vec![]),
+            (
+                vec![(":1.99".into(), "/node/1".try_into().unwrap())],
+                vec![],
+            ),
+            (vec![reference(1), reference(1)], vec![]),
+            (
+                (0..100).map(reference).collect(),
+                (0..CANDIDATE_SENTINEL as usize).map(reference).collect(),
+            ),
+            (vec![reference(1)], vec![reference(2)]),
+            (vec![reference(1)], vec![reference(1), reference(1)]),
+        ];
+        for (all, candidates) in scenarios {
+            let mut replies = std::collections::VecDeque::from([all, candidates]);
+            assert!(
+                bounded_candidates(":1.42", |_, _| {
+                    let reply = replies.pop_front().unwrap();
+                    async move { Ok(reply) }
+                })
+                .await
+                .is_err()
+            );
+        }
+        assert!(
+            bounded_candidates(":1.42", |_, _| async { bail!("Provider unavailable") })
+                .await
+                .is_err()
+        );
+    }
+
     fn disappeared_object() -> anyhow::Error {
         zbus::Error::MethodError(
             "org.freedesktop.DBus.Error.UnknownObject"

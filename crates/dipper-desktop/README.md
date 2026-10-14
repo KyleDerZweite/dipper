@@ -7,8 +7,11 @@ must install its own `io.github.KyleDerZweite.dipper.desktop` identity before
 calling `restore_hold` or the explicit `setup_hold` settings action.
 
 `restore_hold` registers a fresh own portal connection, creates and subscribes
-to its session, and lists available actions without binding or showing a
-permission dialog. It returns `None` when no effective Hold exists. Portal
+to its session, and lists available actions. It registers only an already
+assigned Hold action with BindShortcuts, without a preferred key, then relists
+before exposing the effective binding. The supported KDE backend restores
+existing IDs without a configuration dialog. It returns `None` when no
+assigned Hold exists. Portal
 backends that expose no persisted actions in a fresh session need explicit
 setup. `setup_hold` may display KDE's permission dialog. Its preferred key does
 not override KDE's persisted assignment. GlobalShortcuts v1 uses the KDE
