@@ -5,7 +5,8 @@ The [preparation plan](preparation.md) records the accepted permission to start
 app work from provisional evidence. Issue #4 owns foundation and module design;
 issue #5 owns implementation breakdown. The owner selected an independent app in [ADR-0001](adr/0001-own-dipper-app.md);
 Rust core and Tauri desktop are accepted in [ADR-0002](adr/0002-rust-core-tauri-desktop.md).
-The implementation contract below consolidates accepted scope and technical choices. Independent Worker, Capture/Journal, and Desktop reviews found no remaining contract blockers. Runtime acceptance remains implementation work.
+The implementation contract below consolidates accepted scope and technical choices. Independent Worker, Capture/Journal, and Desktop reviews found no remaining contract blockers. The useful raw implementation and dated integration evidence are recorded in the
+[development guide](development.md). Full-pilot acceptance remains separate.
 
 ## Evidence and limits
 
@@ -244,8 +245,9 @@ the running T3 build. It lacks EditableText, and its frame reported inactive
 while the field reported focused. [Interactive follow-up checks](native-desktop-research.md#interactive-paste-and-focus-observations-2026-10-14)
 confirmed actual synthetic Paste into T3 and sampled switching to the game.
 The composer retained focused state while the game was active, so the test
-guard also required KWin's active-window identity. Production target validity,
-focus-loss invalidation, and dispatch race behavior remain unverified.
+guard also required KWin's active-window identity. Those standalone probes did
+not establish the raw app's target behavior. Its native integration evidence is
+now recorded in the development guide; the residual OS dispatch race remains.
 The owner accepted the conservative OS guard above, including its residual
 race. The reviewed contract below defines its observer, invalidation, and dispatch
 interfaces. A cooperative T3 endpoint is
