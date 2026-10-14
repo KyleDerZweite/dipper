@@ -376,29 +376,44 @@ impl Journal {
         let mut sync_time = Instant::now();
         let mut synced = 0;
         let mut storage_error = None;
+        let mut audio_failed = false;
+        let mut checkpoint_failed = false;
         loop {
             let count = ring.read(&mut samples);
-            if count > 0 && storage_error.is_none() {
+            // Metadata failure invalidates completion, but the audio file can
+            // still preserve buffers accepted before Capture observes the fault.
+            if count > 0 && !audio_failed {
                 if let Err(e) = audio.write_samples(&samples[..count]) {
-                    storage_error = Some(format!("audio write failed: {e:#}"));
+                    audio_failed = true;
+                    storage_error.get_or_insert_with(|| format!("audio write failed: {e:#}"));
                     ring.fail_storage();
                 }
                 ring.written.store(audio.frames(), Ordering::Release);
             }
-            if storage_error.is_none()
+            if !audio_failed
+                && !checkpoint_failed
                 && audio.frames() > synced
                 && sync_time.elapsed() >= Duration::from_secs(1)
             {
                 match audio
                     .checkpoint()
-                    .and_then(|_| self.checkpoint(id, audio.frames()))
-                {
+                    .map_err(|e| {
+                        // A failed audio checkpoint can leave the file cursor
+                        // in its header. Only metadata failure permits appending.
+                        audio_failed = true;
+                        format!("audio checkpoint failed: {e:#}")
+                    })
+                    .and_then(|_| {
+                        self.checkpoint(id, audio.frames())
+                            .map_err(|e| format!("Journal checkpoint failed: {e:#}"))
+                    }) {
                     Ok(()) => {
                         synced = audio.frames();
                         sync_time = Instant::now();
                     }
                     Err(e) => {
-                        storage_error = Some(format!("audio checkpoint failed: {e:#}"));
+                        checkpoint_failed = true;
+                        storage_error.get_or_insert(e);
                         ring.fail_storage();
                     }
                 }
@@ -828,6 +843,68 @@ mod fault_tests {
         assert_eq!(recovered.state, "interrupted");
         assert_eq!(recovered.available_frames, 128);
         assert_eq!(recovered.synced_frames, 0);
+    }
+    #[test]
+    fn checkpoint_sqlite_full_preserves_all_already_accepted_audio() {
+        use std::io::Read;
+        let directory = tempfile::tempdir().unwrap();
+        let journal = Journal::open_with_admission_floor(
+            directory.path().join("data"),
+            directory.path().join("state"),
+            0,
+        )
+        .unwrap();
+        let mut ticket = journal.begin_capture(&input()).unwrap();
+        let id = ticket.recording_id;
+        let path = journal.data_dir().join(format!("audio/{id}.wav"));
+        let connection = journal.connection().unwrap();
+        connection.execute_batch("CREATE TABLE checkpoint_pressure(payload BLOB); CREATE TRIGGER fill_checkpoint AFTER UPDATE OF synced_frames ON recordings WHEN NEW.state='capturing' BEGIN INSERT INTO checkpoint_pressure VALUES(zeroblob(1048576)); END;").unwrap();
+        let pages: u32 = connection
+            .query_row("PRAGMA page_count", [], |r| r.get(0))
+            .unwrap();
+        connection
+            .pragma_update(None, "max_page_count", pages)
+            .unwrap();
+        let initial = vec![0.5; 4096];
+        let queued = vec![0.25; 8192];
+        assert!(ticket.push_synthetic(&initial));
+        // The initial audio checkpoint patches its header before it waits for
+        // this SQLite lock. The queued tail is accepted before metadata fails.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let mut header = [0; DATA_OFFSET as usize];
+            File::open(&path).unwrap().read_exact(&mut header).unwrap();
+            if u64::from_le_bytes(header[36..44].try_into().unwrap()) == initial.len() as u64 {
+                break;
+            }
+            assert!(Instant::now() < deadline, "audio checkpoint did not run");
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert!(ticket.push_synthetic(&queued));
+        drop(connection);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while ticket.ring.fault().is_none() {
+            assert!(
+                Instant::now() < deadline,
+                "checkpoint SQLite failure was not observed"
+            );
+            thread::sleep(Duration::from_millis(2));
+        }
+        let outcome = ticket.finish(CaptureStop::Released).unwrap();
+        assert_eq!(outcome.state, "failed");
+        assert!(outcome.error.as_deref().unwrap().contains("full"));
+        assert_eq!(
+            outcome.accepted_frames,
+            (initial.len() + queued.len()) as u64
+        );
+        assert_eq!(outcome.available_frames, outcome.accepted_frames);
+        let samples = audio::read_f32(&outcome.audio.unwrap()).unwrap();
+        let mut expected = initial;
+        expected.extend(queued);
+        assert_eq!(samples, expected);
+        let record = journal.recording(id).unwrap().unwrap();
+        assert_eq!(record.state, "failed");
+        assert_eq!(record.available_frames, expected.len() as u64);
     }
     #[test]
     fn unwritable_recovery_exposes_derived_state_then_reconciles() {
