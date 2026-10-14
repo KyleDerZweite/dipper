@@ -1,6 +1,11 @@
 # App foundation and module design
 
 Status: first-slice implementation contract technically reviewed, 2026-10-14.
+The subsequent [cross-app insertion contract](cross-app-insertion.md) supersedes
+T3-only target admission and composer-class checks for the next useful slice.
+Its conservative focus, clipboard, cancellation and Journal contracts remain
+compatible with this foundation. Historical T3-specific contracts below record
+the first slice and must not be treated as a current app allowlist requirement.
 The [preparation plan](preparation.md) records the accepted permission to start
 app work from provisional evidence. Issue #4 owns foundation and module design;
 issue #5 owns implementation breakdown. The owner selected an independent app in [ADR-0001](adr/0001-own-dipper-app.md);
