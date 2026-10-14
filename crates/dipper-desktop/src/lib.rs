@@ -145,12 +145,12 @@ impl DesktopAdapter {
         let current = self.observer.snapshot().await?;
         ensure!(
             current.as_ref() == Some(&permit.identity),
-            "Original T3 window is no longer active"
+            "Original target window is no longer active"
         );
-        accessibility::check_composer(permit.identity.pid).await?;
+        accessibility::check_editor(permit.identity.pid).await?;
         ensure!(
             permit.is_valid(),
-            "Target changed during composer validation"
+            "Target changed during text field validation"
         );
         Ok(())
     }
@@ -236,7 +236,7 @@ impl Insertion for DesktopAdapter {
             Ok(()) => outcome(
                 DispatchStage::PasteDispatched,
                 DeliveryStatus::Unverified,
-                "Paste dispatched; T3 acceptance was not verified",
+                "Paste dispatched; target acceptance was not verified",
             ),
             Err(failure) => {
                 permit.revoke();
