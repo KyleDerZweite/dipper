@@ -33,8 +33,10 @@ selection. Resolve the input at recording start and keep it fixed; device loss f
 recording while preserving available audio. A focus change away from T3 prevents
 automatic insertion and leaves the transcript available for explicit use.
 
-Whisper large-v3 is the first live baseline. Qwen is excluded from active
-candidates; historical experiment evidence remains preserved. The accepted Rust/Tauri desktop direction follows the sourced toolchain
+Whisper large-v3 was the first live baseline; large-v3-turbo is now the
+selected live default. The earlier slow Qwen speech experiment remains
+excluded from the live path. The owner permits current small Qwen text models
+for optional cleanup under the four-billion-total-parameter cap. The accepted Rust/Tauri desktop direction follows the sourced toolchain
 research. Mobile UI is deferred, and both long-term update goals remain in scope. Detailed behavior and unresolved choices belong to the
 [app design record](app-design.md). Cleanup remains part of the overall pilot,
 not a requirement to add before the first raw-chain slice.
@@ -119,3 +121,9 @@ model is selected. Kyle chose Turbo activation and model comparison before
 model-management UI. The accepted future UI includes public Hugging Face
 downloads and local GGUF folder, Reload and selection behavior, tracked in
 [issue #22](https://github.com/KyleDerZweite/dipper/issues/22).
+
+On 2026-10-14, the owner replaced the old Qwen3-0.6B micro cleanup candidate
+with Qwen3.5-0.8B and requested current model comparisons. Raw dictation
+currently meets the owner's everyday needs without cleanup. Preserve that
+path and make cleanup optional. This does not remove explicit Corrections or
+the retention comparison from the accepted pilot scope.

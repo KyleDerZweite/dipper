@@ -8,8 +8,10 @@ requested a cleanup comparison capped at four billion total parameters. Cleanup
 implementation and model management remain separate slices.
 
 The owner selected Turbo activation and cleanup comparison first, with model
-download/reload/selection UI afterward. The initial cleanup shortlist is
-SmolLM3-3B, Qwen3-1.7B and Qwen3-0.6B, all with thinking disabled. Small Qwen
+download/reload/selection UI afterward. The current cleanup shortlist is Qwen3.5-0.8B as the micro candidate,
+Qwen3.5-2B as a larger current Qwen candidate, and SmolLM3-3B, all with
+thinking disabled. The owner replaced Qwen3-0.6B on 2026-10-14 and asked
+for current models. Earlier Qwen3 results below remain historical controls. Small Qwen
 text models are explicitly allowed again. The previous Gemma 4 E2B proposal is
 withdrawn because its 5.1B total parameters exceed the owner's cap.
 
@@ -217,7 +219,7 @@ not full semantic quality or distributional performance.
 
 The following follow-up records the subsequently executed cleanup comparison.
 
-## Accepted cleanup shortlist and local trials, 2026-10-14
+## Historical Qwen3 cleanup trials, 2026-10-14
 
 The owner explicitly permitted small Qwen text models and capped cleanup at
 four billion total parameters, including embeddings and required components.
@@ -239,8 +241,8 @@ and [SmolLM3](https://huggingface.co/ggml-org/SmolLM3-3B-GGUF).
 Language source: [Qwen3 announcement](https://qwenlm.github.io/blog/qwen3/).
 
 The strict cap also excludes Qwen3-4B's 4,022,468,096 serialized parameters,
-despite its rounded name. Gemma 4 E2B totals 5.1B. Qwen2.5-0.5B-Instruct is an
-optional later resource-floor candidate, not part of these runs.
+despite its rounded name. Gemma 4 E2B totals 5.1B. Qwen2.5-0.5B-Instruct is also outside the current shortlist. The owner
+selected Qwen3.5-0.8B for the micro comparison instead of older generations.
 
 The public GGUF downloads were pinned to their repository revisions and
 verified by byte count and LFS SHA-256. The experiment used the official
@@ -279,9 +281,10 @@ configuration. Qwen3-1.7B correctly resolved both values but kept a filler and
 reordered its sentence. SmolLM3 resolved the numeric revision but partially
 translated the English case into German. Those failures remain recorded.
 
-Qwen3-1.7B and SmolLM3 remain finalists for a broader frozen-prompt holdout,
-with Qwen3-1.7B the smaller runtime footprint in this experiment. Neither is
-selected for live automatic cleanup. A reviewed Text processing contract must
+Qwen3-1.7B and SmolLM3 were the finalists of this historical round.
+Qwen3-1.7B had the smaller observed host footprint. The updated comparison
+uses current Qwen3.5 candidates; these old results do not rank the new models.
+No model is selected for live automatic cleanup. A reviewed Text processing contract must
 define provenance, deadlines, cancellation, raw fallback and language/meaning
 checks before integration. Download, local GGUF folder, Reload and selection
 UX are tracked separately in issue #22; the owner deferred that implementation.
@@ -290,3 +293,67 @@ The [public synthetic trial artifact](evidence/cleanup-models-20261014.json)
 retains exact prompts, disjoint examples, allowed references, outputs, timings
 and verified artifact identities for both rounds. It contains no owner recordings
 or private transcripts.
+
+## Current Qwen3.5 comparison
+
+Qwen3.5-0.8B replaces the old micro candidate. Qwen3.5-2B is the next
+current Qwen candidate to compare with SmolLM3-3B. Both official Qwen3.5
+cards describe non-thinking mode as the default for these sizes. They are
+vision-language models with text generation; Dipper's cleanup comparison
+needs only text inference and no vision projector. Their general benchmark
+scores do not establish conservative dictation cleanup quality.
+[Qwen3.5-0.8B model card](https://huggingface.co/Qwen/Qwen3.5-0.8B),
+[Qwen3.5-2B model card](https://huggingface.co/Qwen/Qwen3.5-2B).
+
+The runtime maintainers publish a
+[Qwen3.5-0.8B GGUF conversion](https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF).
+An Ollama tag is a distribution choice rather than Dipper's runtime requirement.
+Its bundle may include additional projector or draft artifacts. Evaluate the
+actual selected GGUF and required components, rather than comparing tag labels
+or download sizes as if they were measured RAM.
+[Ollama distribution](https://ollama.com/library/qwen3.5:0.8b).
+
+The owner reports that raw dictation already works well without cleanup.
+Keep raw dictation available and cleanup optional. No cleanup model should
+be introduced into the live insertion path merely because a newer model exists.
+The accepted explicit Correction and retention work remains separate.
+
+The current Qwen collection also contains newer Qwen3.8 models. Its published
+smallest listed general checkpoint is 27B, so that family is outside this
+cleanup cap. Qwen3.5-0.8B and 2B are current eligible small candidates, rather
+than an assumption that every newest family has a sub-four-billion model.
+[Qwen model collection](https://huggingface.co/Qwen/models).
+
+The Qwen3.5-0.8B Q8_0 file was downloaded from ggml-org revision
+`8fea620810c4afa23dd6443f999a48574c1611a3`, verified as 833,592,096 bytes with
+SHA-256 `37ae482d336108d23516fa35e8e0c4126688d81018b87178a18d752a1357814f`.
+GGUF tensor dimensions total 772,845,888 serialized parameters, including
+20,452,864 MTP parameters that the runtime reports as unused. No vision
+projector was loaded. This artifact is below the total parameter cap.
+
+The isolated server completed the same ten public data/examples cases using
+b11617, 2,048 context tokens, eight threads, one slot and thinking disabled.
+It was requested to offload to Vulkan1/RX 7700S; the default log does not
+independently identify device/offload details. Its batch was reaped after use.
+No live app settings or user services changed.
+
+Six of ten cases matched after manual review. The automatic checker initially
+reported five because it did not strip the German opening quote U+201E; this
+punctuation-only variation is accepted under the existing quality rule. The
+model preserved negation, uncertain alternatives, identifiers, dictated
+instructions, quoted wording and the negated build number. It did not resolve
+the German numeric revision, date revision or English numeric revision, and
+kept the filler in the filler case. This configuration does not meet the
+accepted self-correction behavior.
+
+Warm reply median was 0.235 s, server readiness 3.062 s and peak host RSS
+1.005 GB. These remain batch/prefix-cache observations, not live cleanup
+latency, VRAM or full worker-per-dictation measurements. Sampling intentionally
+matches the previous comparison; Qwen's current text-task recommendation differs.
+No tuning or independent holdout was executed. Qwen3.5-2B remains untested.
+The [public trial artifact](evidence/cleanup-qwen35-20261014.json) retains exact
+inputs, prompt, outputs, provenance, timings and the punctuation review.
+
+For speech alternatives and actual native runtime options, use the separate
+[current ASR research](asr-alternatives-research.md). Keep Turbo as the live
+baseline while comparing alternatives outside the daily dictation path.
