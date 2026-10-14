@@ -1,0 +1,7 @@
+/target/
+/.local-build/
+*.rpm
+*.wav
+*.rf64
+*.sqlite*
+*.log

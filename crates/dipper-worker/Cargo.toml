@@ -1,0 +1,20 @@
+[package]
+name = "dipper-worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+dipper-core = { path = "../dipper-core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rubato = "0.16"
+libc = "0.2"
+
+[build-dependencies]
+cc = "1"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,18 @@
+[workspace]
+members = ["crates/dipper-core", "crates/dipper-desktop", "crates/dipper-worker", "apps/desktop"]
+resolver = "2"
+default-members = ["crates/dipper-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "sync", "time", "fs", "signal"] }
+tokio-util = { version = "0.7", features = ["rt", "codec"] }
+uuid = { version = "1", features = ["v4", "serde"] }
