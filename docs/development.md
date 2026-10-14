@@ -33,12 +33,18 @@ cmake -S /absolute/path/to/whisper.cpp -B /absolute/path/to/whisper.cpp/build -D
 cmake --build /absolute/path/to/whisper.cpp/build --parallel 2
 ```
 
-Model weights remain external files. Set `DIPPER_MODEL_PATH` to the existing
-`ggml-large-v3.bin`, or select it in Dipper Settings.
+Model weights remain external files. New settings select the float16
+`large_v3_turbo` profile and `models/ggml-large-v3-turbo.bin` inside the data
+directory. `DIPPER_MODEL_PATH` overrides that path for new settings only.
+Existing settings without a profile retain `large_v3` and their saved path.
+To switch an existing app, select Whisper large-v3-turbo in Recognition setup,
+set its matching float16 model path, and save while idle. The next dictation
+uses both saved values. Filenames never choose a profile; a mismatched model
+fails preparation explicitly and cannot produce an insertion.
 
 ```sh
 export DIPPER_WHISPER_DIR=/absolute/path/to/whisper.cpp
-export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3.bin
+export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3-turbo.bin
 ./scripts/build.sh
 ./scripts/run.sh --show
 ```
@@ -321,3 +327,21 @@ serial command was used. An exploratory parallel desktop run failed an existing
 helper-output assertion; its required serial run passed. Clippy with warnings
 denied, formatting, the native build and four existing UI regressions passed.
 Independent review found no blockers in the query or restoration repair.
+
+## Explicit model-profile replay
+
+The native check below adds an attempt to a disposable Journal containing an
+existing recording. Use a private fixture copy, not the normal app store.
+The example defaults to `large_v3` for compatibility. Turbo is explicit:
+
+```sh
+source scripts/dev-env.sh
+export DIPPER_MODEL_PATH=/absolute/path/to/ggml-large-v3-turbo.bin
+export DIPPER_MODEL_PROFILE=large_v3_turbo
+cargo build -p dipper-worker --example native_job --bin dipper-worker --locked
+cargo run -p dipper-worker --example native_job --locked -- /absolute/path/to/private-fixture
+```
+
+Use `large_v3` with its matching full float16 file for a baseline replay.
+`DIPPER_MODEL_PROFILE` applies to this example only. The desktop app reads its
+saved Settings profile. Existing attempts and their configuration remain intact.

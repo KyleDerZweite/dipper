@@ -28,7 +28,9 @@ Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
 Status, 2026-10-14: the raw voice-to-T3 development app records on Hold, retains
-its Journal, runs one Whisper large-v3/Vulkan job, and attempts guarded Paste.
+its Journal, runs one Whisper/Vulkan job, and attempts guarded Paste. New setups
+select Whisper large-v3-turbo; existing settings retain their large-v3 profile
+until the model profile and path are changed in Settings.
 A real T3 integration test passed with synthetic German audio. Use the
 [development guide](docs/development.md) for build/run commands and verification
 limits. HyperX spoken testing, cleanup, Corrections, reduced retention, and full

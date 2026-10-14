@@ -380,9 +380,10 @@ impl Dictation {
             let permit = reserved.context("Target unavailable at admission")?;
             insertion.arm(permit).await
         }));
-        let config = WorkerConfig::large_v3(
+        let config = WorkerConfig::for_model(
             self.worker.clone(),
             settings.native_lib_dir.clone(),
+            settings.model_profile,
             settings.model_path.clone(),
         );
         let provider = self.capture.clone();

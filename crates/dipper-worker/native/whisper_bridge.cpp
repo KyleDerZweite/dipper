@@ -42,8 +42,12 @@ static void log_to_stderr(enum ggml_log_level, const char * text, void * opaque)
 #endif
 
 extern "C" void * dipper_whisper_prepare(const char * model, const char * required_gpu,
-                                          DipperGpu * gpu, char * error, size_t error_size) {
+                                          int expected_decoder_layers, DipperGpu * gpu, char * error, size_t error_size) {
 #ifdef DIPPER_HAS_WHISPER
+    if (expected_decoder_layers != 4 && expected_decoder_layers != 32) {
+        copy_text(error, error_size, "unsupported Whisper model profile");
+        return nullptr;
+    }
     auto * context = new DipperContext();
     try {
         whisper_log_set(log_to_stderr, context);
@@ -79,11 +83,13 @@ extern "C" void * dipper_whisper_prepare(const char * model, const char * requir
         if (!context->gpu_selected || context->gpu_failed) throw std::runtime_error("Vulkan initialization failed; CPU fallback rejected");
         if (whisper_model_n_mels(context->native) != 128 ||
             whisper_model_n_audio_layer(context->native) != 32 ||
-            whisper_model_n_text_layer(context->native) != 32 ||
+            whisper_model_n_text_layer(context->native) != expected_decoder_layers ||
             whisper_model_n_audio_state(context->native) != 1280 ||
             whisper_model_n_text_state(context->native) != 1280 ||
             whisper_model_ftype(context->native) != GGML_FTYPE_MOSTLY_F16)
-            throw std::runtime_error("configured model is not the full float16 Whisper large-v3 baseline");
+            throw std::runtime_error(expected_decoder_layers == 4
+                ? "configured model does not match the float16 Whisper large-v3-turbo profile"
+                : "configured model does not match the float16 Whisper large-v3 profile");
         return context;
     } catch (const std::exception & exception) {
         copy_text(error, error_size, exception.what());
@@ -93,7 +99,7 @@ extern "C" void * dipper_whisper_prepare(const char * model, const char * requir
     ggml_log_set(nullptr, nullptr);
     delete context;
 #else
-    (void)model; (void)required_gpu; (void)gpu;
+    (void)model; (void)required_gpu; (void)expected_decoder_layers; (void)gpu;
     copy_text(error, error_size, "native runtime unavailable; build with DIPPER_WHISPER_DIR at the pinned Vulkan checkout");
 #endif
     return nullptr;

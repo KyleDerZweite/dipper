@@ -21,10 +21,24 @@ pub struct WorkerConfig {
 
 impl WorkerConfig {
     pub fn large_v3(executable: PathBuf, native_lib_dir: PathBuf, model_path: PathBuf) -> Self {
+        Self::for_model(
+            executable,
+            native_lib_dir,
+            RecognitionModel::LargeV3,
+            model_path,
+        )
+    }
+
+    pub fn for_model(
+        executable: PathBuf,
+        native_lib_dir: PathBuf,
+        model_profile: RecognitionModel,
+        model_path: PathBuf,
+    ) -> Self {
         Self {
             executable,
             native_lib_dir,
-            settings: RecognitionSettings::large_v3(model_path),
+            settings: RecognitionSettings::for_model(model_profile, model_path),
         }
     }
 }

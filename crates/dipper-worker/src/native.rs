@@ -15,6 +15,7 @@ unsafe extern "C" {
     fn dipper_whisper_prepare(
         model: *const c_char,
         required_gpu: *const c_char,
+        expected_decoder_layers: i32,
         gpu: *mut NativeGpu,
         error: *mut c_char,
         error_size: usize,
@@ -66,6 +67,7 @@ impl NativeRecognition {
             dipper_whisper_prepare(
                 model.as_ptr(),
                 gpu_required.as_ptr(),
+                settings.model_profile.decoder_layers(),
                 &mut gpu,
                 error.as_mut_ptr(),
                 error.len(),

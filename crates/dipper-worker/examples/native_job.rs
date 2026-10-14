@@ -2,7 +2,7 @@
 use anyhow::{Context, Result, ensure};
 use dipper_core::{
     journal::Journal,
-    protocol::{AudioSource, JobIdentity},
+    protocol::{AudioSource, JobIdentity, RecognitionModel},
     recognition::{RecognitionStatus, RecognitionSupervisor, SupervisorPolicy, WorkerConfig},
 };
 #[tokio::main]
@@ -28,7 +28,13 @@ async fn main() -> Result<()> {
         .and_then(|path| path.parent())
         .context("example executable directory")?
         .join("dipper-worker");
-    let config = WorkerConfig::large_v3(worker, native, model.into());
+    let profile = match std::env::var("DIPPER_MODEL_PROFILE") {
+        Ok(value) => serde_json::from_value::<RecognitionModel>(serde_json::Value::String(value))
+            .context("DIPPER_MODEL_PROFILE must be large_v3 or large_v3_turbo")?,
+        Err(std::env::VarError::NotPresent) => RecognitionModel::LargeV3,
+        Err(error) => return Err(error.into()),
+    };
+    let config = WorkerConfig::for_model(worker, native, profile, model.into());
     let attempt = journal.begin_attempt(
         recording.recording_id,
         serde_json::to_value(&config.settings)?,

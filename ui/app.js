@@ -97,6 +97,10 @@ function applySnapshot(snapshot) {
   updatePrompt();
   if (wasBusy && !busy && initialized) refreshJournal().catch((error) => feedback(String(error), true));
 }
+function updateRecognitionSummary() {
+  const name = savedSettings.model_profile === "large_v3_turbo" ? "Whisper large-v3-turbo" : "Whisper large-v3";
+  $("recognition-summary").textContent = `${name} · Auto language`;
+}
 function updateInputSummary() {
   if (!savedSettings || !inputCatalog) return;
   const name = savedSettings.input_name || inputCatalog.default_name;
@@ -190,11 +194,12 @@ $("settings").addEventListener("submit", (event) => {
   }
   const settings = {
     input_name: $("input").value || null,
+    model_profile: $("model-profile").value,
     model_path: $("model").value.trim(),
     native_lib_dir: $("runtime").value.trim(),
     preferred_hold: $("hold").value.trim(),
   };
-  action("save", async () => { await call("save_settings", { settings }); savedSettings = settings; updateInputSummary(); }, "Settings saved. Changes apply to the next dictation.", true);
+  action("save", async () => { await call("save_settings", { settings }); savedSettings = settings; updateInputSummary(); updateRecognitionSummary(); }, "Settings saved. Changes apply to the next dictation.", true);
 });
 $("configure-hold").addEventListener("click", () => action("configure-hold", async () => {
   binding = await call("configure_hold", { preferred: $("hold").value.trim() });
@@ -205,6 +210,8 @@ async function initialize() {
   await window.__TAURI__?.event.listen("navigate-view", (event) => { if (Object.hasOwn(titles, event.payload)) location.hash = event.payload; });
   await window.__TAURI__?.event.listen("dictation-state", (event) => applySnapshot(event.payload));
   savedSettings = await call("get_settings");
+  $("model-profile").value = savedSettings.model_profile ?? "large_v3";
+  updateRecognitionSummary();
   $("model").value = savedSettings.model_path;
   $("runtime").value = savedSettings.native_lib_dir;
   $("hold").value = savedSettings.preferred_hold;
