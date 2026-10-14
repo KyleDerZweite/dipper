@@ -322,3 +322,31 @@ mod tests {
         assert_eq!(ring.fault().as_deref(), Some("capture queue overflow"));
     }
 }
+
+/// Capture's platform seam. The native adapter and deterministic lifecycle fixtures
+/// use the same durable ticket and completion contract.
+pub trait CaptureProvider: Send + Sync {
+    fn inputs(&self) -> Result<InputCatalog>;
+    fn start(&self, ticket: CaptureTicket, input: &InputDevice) -> Result<Box<dyn CaptureRun>>;
+}
+pub trait CaptureRun: Send {
+    fn progress(&self) -> CaptureProgress;
+    fn stop(self: Box<Self>, reason: CaptureStop) -> Result<CaptureOutcome>;
+}
+pub struct NativeCaptureProvider;
+impl CaptureProvider for NativeCaptureProvider {
+    fn inputs(&self) -> Result<InputCatalog> {
+        Capture::inputs()
+    }
+    fn start(&self, ticket: CaptureTicket, input: &InputDevice) -> Result<Box<dyn CaptureRun>> {
+        Ok(Box::new(CaptureSession::start(ticket, input)?))
+    }
+}
+impl CaptureRun for CaptureSession {
+    fn progress(&self) -> CaptureProgress {
+        CaptureSession::progress(self)
+    }
+    fn stop(self: Box<Self>, reason: CaptureStop) -> Result<CaptureOutcome> {
+        CaptureSession::stop(*self, reason)
+    }
+}

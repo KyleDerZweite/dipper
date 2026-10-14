@@ -30,7 +30,10 @@ struct AppState {
 struct UnavailableInsertion(String);
 #[async_trait]
 impl Insertion for UnavailableInsertion {
-    async fn arm(&self) -> Result<TargetPermit> {
+    fn reserve(&self) -> Result<TargetPermit> {
+        anyhow::bail!(self.0.clone())
+    }
+    async fn arm(&self, _permit: TargetPermit) -> Result<TargetPermit> {
         anyhow::bail!(self.0.clone())
     }
     async fn dispatch(&self, _permit: &TargetPermit, _text: &str) -> InsertionOutcome {
@@ -131,15 +134,44 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
                 .iter()
                 .rev()
                 .find_map(|attempt| attempt.raw_text.clone());
+            let last_attempt = recording.attempts.last();
+            let last_insertion = recording.insertions.last();
+            let mut outcomes = vec![format!("Audio {}", recording.state)];
+            if let Some(attempt) = last_attempt {
+                outcomes.push(format!("Recognition {}", attempt.state.replace('_', " ")));
+            }
+            if let Some(insertion) = last_insertion {
+                outcomes.push(format!("Insertion {}", insertion.state));
+            }
             let detail = recording
                 .error
                 .clone()
                 .or_else(|| {
-                    recording.insertions.last().and_then(|insertion| {
+                    last_attempt.and_then(|attempt| {
+                        attempt
+                            .details
+                            .get("error")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                })
+                .or_else(|| {
+                    last_attempt.and_then(|attempt| {
+                        attempt.diagnostic_error.clone().or_else(|| {
+                            attempt
+                                .details
+                                .get("diagnostic_error")
+                                .and_then(serde_json::Value::as_str)
+                                .map(str::to_owned)
+                        })
+                    })
+                })
+                .or_else(|| {
+                    last_insertion.and_then(|insertion| {
                         insertion
                             .details
                             .get("detail")
-                            .and_then(|value| value.as_str())
+                            .and_then(serde_json::Value::as_str)
                             .map(str::to_owned)
                     })
                 })
@@ -152,12 +184,26 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
             JournalRow {
                 id: recording.recording_id,
                 started_at: recording.started_at,
-                state: recording.state,
+                state: outcomes.join(" · "),
                 raw_text: text,
                 detail,
             }
         })
         .collect())
+}
+#[tauri::command]
+async fn retry_recovery(state: State<'_, AppState>) -> Result<(), String> {
+    let engine = state.dictation.clone();
+    let report = tauri::async_runtime::spawn_blocking(move || engine.reconcile_journal())
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    if report.unpersisted {
+        return Err(report
+            .error
+            .unwrap_or_else(|| "Recovery remains unpersisted".into()));
+    }
+    Ok(())
 }
 #[tauri::command]
 async fn copy_transcript(state: State<'_, AppState>, recording_id: String) -> Result<(), String> {
@@ -202,6 +248,12 @@ fn tray_icon(recording: bool, error: bool) -> tauri::image::Image<'static> {
     tauri::image::Image::new_owned(pixels, 32, 32)
 }
 fn show_window(app: &tauri::AppHandle) {
+    if app
+        .try_state::<AppState>()
+        .is_some_and(|state| state.dictation.snapshot().busy)
+    {
+        return;
+    }
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
@@ -230,7 +282,7 @@ fn main() {
         libc::umask(0o077);
     }
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, copy_transcript])
+        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript])
         .setup(|app| {
             let paths = paths::AppPaths::resolve()?;
             paths.private_directories()?;
@@ -280,6 +332,7 @@ fn main() {
                     let _ = handle.emit("dictation-state", &value);
                     let _ = status.set_text(format!("Dipper: {}", value.phase));
                     let _ = cancel.set_enabled(value.busy);
+                    let _ = settings_item.set_enabled(!value.busy);
                     if let Some(tray) = handle.tray_by_id("dipper") {
                         let _ = tray.set_tooltip(Some(format!("Dipper: {}. {}", value.phase, value.detail)));
                         let _ = tray.set_icon(Some(tray_icon(value.recording, value.error)));

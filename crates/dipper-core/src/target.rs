@@ -79,7 +79,8 @@ pub struct InsertionOutcome {
 
 #[async_trait]
 pub trait Insertion: Send + Sync {
-    async fn arm(&self) -> anyhow::Result<TargetPermit>;
+    fn reserve(&self) -> anyhow::Result<TargetPermit>;
+    async fn arm(&self, permit: TargetPermit) -> anyhow::Result<TargetPermit>;
     async fn dispatch(&self, permit: &TargetPermit, text: &str) -> InsertionOutcome;
     async fn copy_explicit(&self, text: &str) -> anyhow::Result<()>;
 }

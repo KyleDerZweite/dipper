@@ -20,7 +20,7 @@ function applySnapshot(snapshot) {
   $("phase").textContent = snapshot.phase;
   $("detail").textContent = snapshot.detail;
   $("cancel").disabled = !busy;
-  for (const id of ["save", "configure-hold", "kde-shortcuts", "refresh"]) $(id).disabled = busy;
+  for (const id of ["save", "configure-hold", "kde-shortcuts", "refresh", "retry-recovery"]) $(id).disabled = busy;
   $("status-light").className = "light " + (snapshot.recording ? "recording" : busy ? "processing" : snapshot.error ? "error" : "");
   if (!busy && initialized) refreshJournal().catch((error) => feedback(String(error), true));
 }
@@ -63,6 +63,7 @@ async function refreshJournal() {
     root.append(entry);
   }
 }
+$("retry-recovery").addEventListener("click", () => action(async () => { await call("retry_recovery"); await refreshJournal(); }, "Journal recovery reconciled. No text was inserted."));
 $("cancel").addEventListener("click", () => action(() => call("cancel_dictation")));
 $("refresh").addEventListener("click", () => action(() => refreshInputs()));
 $("settings").addEventListener("submit", (event) => {

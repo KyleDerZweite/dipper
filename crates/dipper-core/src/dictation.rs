@@ -1,6 +1,6 @@
 //! Coordinates the accepted raw chain. Native and UI implementations stay outside it.
 use crate::{
-    capture::{Capture, CaptureSession, CaptureStop},
+    capture::{CaptureProvider, CaptureStop, NativeCaptureProvider},
     journal::Journal,
     protocol::{AudioSource, JobIdentity},
     recognition::{
@@ -69,6 +69,7 @@ struct Active {
 
 pub struct Dictation {
     journal: Arc<Journal>,
+    capture: Arc<dyn CaptureProvider>,
     insertion: Arc<dyn Insertion>,
     worker: PathBuf,
     settings_path: PathBuf,
@@ -77,6 +78,7 @@ pub struct Dictation {
     state: watch::Sender<DictationSnapshot>,
     next_generation: AtomicU64,
     accepting: AtomicBool,
+    maintaining: AtomicBool,
 }
 
 impl Dictation {
@@ -87,9 +89,27 @@ impl Dictation {
         settings_path: PathBuf,
         settings: Settings,
     ) -> Arc<Self> {
+        Self::with_capture(
+            journal,
+            insertion,
+            worker,
+            settings_path,
+            settings,
+            Arc::new(NativeCaptureProvider),
+        )
+    }
+    pub fn with_capture(
+        journal: Arc<Journal>,
+        insertion: Arc<dyn Insertion>,
+        worker: PathBuf,
+        settings_path: PathBuf,
+        settings: Settings,
+        capture: Arc<dyn CaptureProvider>,
+    ) -> Arc<Self> {
         let (state, _) = watch::channel(DictationSnapshot::default());
         Arc::new(Self {
             journal,
+            capture,
             insertion,
             worker,
             settings_path,
@@ -98,6 +118,7 @@ impl Dictation {
             state,
             next_generation: AtomicU64::new(1),
             accepting: AtomicBool::new(true),
+            maintaining: AtomicBool::new(false),
         })
     }
     pub fn snapshot(&self) -> DictationSnapshot {
@@ -115,12 +136,59 @@ impl Dictation {
     pub fn save_settings(&self, settings: Settings) -> Result<()> {
         let active = self.active.lock().unwrap();
         ensure!(
-            active.is_none(),
+            active.is_none() && !self.maintaining.load(Ordering::SeqCst),
             "Settings cannot change during dictation or cleanup."
         );
         settings.save(&self.settings_path)?;
         *self.settings.lock().unwrap() = settings;
         Ok(())
+    }
+    pub fn reconcile_journal(&self) -> Result<crate::journal::RecoveryReport> {
+        {
+            let active = self.active.lock().unwrap();
+            ensure!(
+                active.is_none() && !self.maintaining.load(Ordering::SeqCst),
+                "Wait until dictation and cleanup finish before recovery."
+            );
+            ensure!(
+                self.accepting.load(Ordering::SeqCst),
+                "Dipper is shutting down."
+            );
+            self.maintaining.store(true, Ordering::SeqCst);
+            self.publish(
+                0,
+                "Recovering",
+                "Reconciling retained data. No automatic recognition or insertion.",
+                true,
+                false,
+                false,
+            );
+        }
+        let result = self.journal.recover();
+        let _gate = self.active.lock().unwrap();
+        self.maintaining.store(false, Ordering::SeqCst);
+        match &result {
+            Ok(report) if !report.unpersisted => self.publish(
+                0,
+                "Ready",
+                "Journal recovery reconciled. No text was inserted.",
+                false,
+                false,
+                false,
+            ),
+            Ok(_) => self.publish(
+                0,
+                "Needs attention",
+                "Recovery is still unpersisted. Check storage, then retry.",
+                false,
+                false,
+                true,
+            ),
+            Err(error) => {
+                self.publish(0, "Needs attention", &error.to_string(), false, false, true)
+            }
+        }
+        result
     }
     pub fn begin(self: &Arc<Self>) -> Result<()> {
         ensure!(
@@ -133,12 +201,16 @@ impl Dictation {
             "Dipper is shutting down."
         );
         // Repeated activation of the admitted Hold cannot create another recording.
-        if active.is_some() {
+        if active.is_some() || self.maintaining.load(Ordering::SeqCst) {
             let mut state = self.snapshot();
             state.detail = "Dipper is busy. The new Hold was ignored.".into();
             self.state.send_replace(state);
             return Ok(());
         }
+        ensure!(
+            !self.journal.recovery_report().unpersisted,
+            "Journal recovery is unpersisted. Retry recovery before recording."
+        );
         let settings = self.settings();
         if let Err(error) = settings.ready_for_recognition() {
             self.publish(0, "Setup needed", &error.to_string(), false, false, true);
@@ -151,7 +223,7 @@ impl Dictation {
         let generation = self.next_generation.fetch_add(1, Ordering::SeqCst);
         let (stop, receiver) = watch::channel(None);
         let canceled = CancellationToken::new();
-        let permit = Arc::new(Mutex::new(None));
+        let permit = Arc::new(Mutex::new(self.insertion.reserve().ok()));
         *active = Some(Active {
             generation,
             stop,
@@ -289,14 +361,19 @@ impl Dictation {
         worker_slot: Arc<Mutex<Option<RecognitionJob>>>,
     ) -> Result<String> {
         let insertion = self.insertion.clone();
-        let mut target_task = TargetTask(tokio::spawn(async move { insertion.arm().await }));
+        let reserved = permit_slot.lock().unwrap().clone();
+        let mut target_task = TargetTask(tokio::spawn(async move {
+            let permit = reserved.context("Target unavailable at admission")?;
+            insertion.arm(permit).await
+        }));
         let config = WorkerConfig::large_v3(
             self.worker.clone(),
             settings.native_lib_dir.clone(),
             settings.model_path.clone(),
         );
+        let provider = self.capture.clone();
         let input = tokio::task::spawn_blocking(move || {
-            Capture::inputs()?.resolve(settings.input_name.as_deref())
+            provider.inputs()?.resolve(settings.input_name.as_deref())
         })
         .await??;
         let journal = self.journal.clone();
@@ -344,10 +421,10 @@ impl Dictation {
             Err(error) => (None, Some(format!("{error:#}"))),
         };
         *worker_slot.lock().unwrap() = worker.clone();
-        if canceled.is_cancelled() {
-            if let Some(worker) = &worker {
-                worker.cancel();
-            }
+        if canceled.is_cancelled()
+            && let Some(worker) = &worker
+        {
+            worker.cancel();
         }
         let early_stop = stop.borrow().clone();
         if let Some(reason) = early_stop {
@@ -365,8 +442,8 @@ impl Dictation {
                 "Hold ended before capture readiness. Audio was preserved; no insertion.".into(),
             );
         }
-        let capture =
-            tokio::task::spawn_blocking(move || CaptureSession::start(ticket, &input)).await;
+        let provider = self.capture.clone();
+        let capture = tokio::task::spawn_blocking(move || provider.start(ticket, &input)).await;
         let capture = match capture {
             Ok(Ok(capture)) => capture,
             other => {
@@ -374,7 +451,7 @@ impl Dictation {
                 if let Some(worker) = &worker {
                     worker.cancel();
                     let outcome = self
-                        .await_worker(generation, &worker, &CancellationToken::new())
+                        .await_worker(generation, worker, &CancellationToken::new())
                         .await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
@@ -396,9 +473,12 @@ impl Dictation {
                 _ = canceled.cancelled() => { break stop.borrow().clone().unwrap_or(CaptureStop::Canceled); }
                 result = &mut target_task.0, if !target_done => {
                     target_done = true;
-                    if let Ok(Ok(permit)) = result {
-                        if canceled.is_cancelled() { permit.revoke(); }
-                        *permit_slot.lock().unwrap() = Some(permit);
+                    match result {
+                        Ok(Ok(permit)) => {
+                            if canceled.is_cancelled() { permit.revoke(); }
+                            *permit_slot.lock().unwrap() = Some(permit);
+                        }
+                        _ => { if let Some(permit) = permit_slot.lock().unwrap().take() { permit.revoke(); } }
                     }
                 }
                 _ = timer.tick() => {
@@ -441,7 +521,7 @@ impl Dictation {
                 if let Some(worker) = &worker {
                     worker.cancel();
                     let outcome = self
-                        .await_worker(generation, &worker, &CancellationToken::new())
+                        .await_worker(generation, worker, &CancellationToken::new())
                         .await;
                     self.record_attempt(attempt_id, &outcome)?;
                 }
