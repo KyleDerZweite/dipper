@@ -22,4 +22,6 @@ jobs:
       - run: cargo test --workspace --locked -- --test-threads=1
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: node --check ui/app.js
+      - run: node --check ui/window.js
+      - run: node --test tests/ui-window.cjs
       - run: bash -n scripts/*.sh

@@ -20,21 +20,6 @@
   --page-inset: 32px;
   --control-height: 40px;
 }
-:root[data-theme="light"] {
-  --background: #fafafa;
-  --sidebar: #f1f2f3;
-  --surface: #fff;
-  --foreground: #22252a;
-  --muted: #5c626b;
-  --border: #828993;
-  --separator: #dfe2e6;
-  --hover: #e7eaed;
-  --accent: #326b49;
-  --danger: #a12b2b;
-  --processing: #825d16;
-  --button-bg: #25282d;
-  --button-fg: #fff;
-}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--background); color: var(--foreground); }
@@ -48,7 +33,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .icon { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .skip-link { position: fixed; top: -100px; left: 12px; z-index: 10; padding: 12px; background: var(--surface); }
 .skip-link:focus { top: 12px; }
-.app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); height: 100dvh; min-height: 320px; }
+.app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); height: 100%; min-height: 0; }
 .sidebar { padding: 28px 18px 18px; display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid var(--separator); min-height: 0; }
 .brand { display: flex; gap: 10px; align-items: center; text-decoration: none; margin: 0 4px 38px; font-size: 19px; font-weight: 650; letter-spacing: -.5px; }
 .brand img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
@@ -152,3 +137,26 @@ details[open] summary { margin-bottom: 14px; }
   h1 { font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+/* The same app theme owns the window frame and every local view. */
+.app-frame { height: 100dvh; min-height: 320px; display: grid; grid-template-rows: 42px minmax(0, 1fr); border: 1px solid var(--separator); }
+.window-titlebar { display: flex; align-items: center; background: var(--background); border-bottom: 1px solid var(--separator); min-width: 0; user-select: none; }
+.window-drag { flex: 1; align-self: stretch; display: flex; align-items: center; padding-left: 20px; font-size: 12px; color: var(--muted); }
+.window-actions { display: flex; align-self: stretch; }
+.window-button { width: 44px; min-height: 40px; display: grid; place-items: center; background: transparent; border: 0; padding: 0; color: var(--muted); }
+.window-button .icon { width: 16px; height: 16px; }
+.window-button:hover:not(:disabled) { background: var(--hover); color: var(--foreground); }
+.window-close:hover:not(:disabled) { color: var(--danger); }
+.window-button:focus-visible { outline-offset: -4px; }
+.resize-edge { position: fixed; z-index: 20; }
+.north, .south { left: 10px; right: 10px; height: 4px; cursor: ns-resize; }
+.north { top: 0; } .south { bottom: 0; }
+.east, .west { top: 10px; bottom: 10px; width: 4px; cursor: ew-resize; }
+.east { right: 0; } .west { left: 0; }
+.north-west, .north-east, .south-west, .south-east { width: 10px; height: 10px; }
+.north-west { top: 0; left: 0; cursor: nwse-resize; }
+.north-east { top: 0; right: 0; cursor: nesw-resize; }
+.south-west { bottom: 0; left: 0; cursor: nesw-resize; }
+.south-east { bottom: 0; right: 0; cursor: nwse-resize; }
+.window-maximized .resize-edge { display: none; }
+.window-maximized .app-frame { border: 0; }

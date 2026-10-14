@@ -11,7 +11,6 @@ let inputCatalog = null;
 let journalRequest = null;
 let latestSnapshot = { recording: false, busy: false, error: false };
 
-window.DipperAppearance.mount();
 function navigate() {
   let view = location.hash.slice(1);
   if (!Object.hasOwn(titles, view)) {
@@ -222,3 +221,5 @@ initialize().catch((error) => {
   $("detail").textContent = String(error);
   feedback(String(error), true);
 });
+
+window.addEventListener("dipper-window-error", (event) => feedback(event.detail, true));

@@ -475,7 +475,7 @@ The owner requested a consistent app interface with a sidebar and the existing
 Dipper logo. `ui/index.html` owns one shell and three local views: Dictation,
 Journal, and Settings. `ui/styles.css` owns neutral dark/light tokens, spacing,
 control geometry, and responsive sidebar behavior. `ui/app.js` owns local view
-navigation; `ui/appearance.js` owns persisted light/dark/system appearance. Existing Tauri commands
+navigation; `ui/window.js` owns app window controls and host window state. Existing Tauri commands
 and Dictation/Journal responsibilities remain the behavior boundary.
 
 Dictation remains the primary screen. Status and Cancel stay available across
@@ -489,12 +489,10 @@ window/tray icons derive from this asset rather than invent another mark. Keep
 one quiet sidebar with labeled links at normal widths and an accessible icon rail
 at narrow widths. Respect the requested sidebar instead of the skill's horizontal
 navbar default. Use an underline for active navigation, restrained green accents,
-system typography, and flat neutral surfaces. Default to dark appearance and
-cycle dark/light/system through one accessible icon button.
+system typography, and flat neutral surfaces. Use fixed dark appearance for content and app-owned window chrome.
 
 Acceptance covers all three views, hash/back navigation, keyboard focus, unchanged
-form drafts, loading/error/retry/copy/busy states, all appearance modes and their
-persistence/system response, narrow/wide layouts and zoom, native window/tray
+form drafts, loading/error/retry/copy/busy states, fixed dark rendering regardless of OS or old stored appearance, narrow/wide layouts and zoom, native window/tray
 branding, and actual native controls. Browser fixtures establish frontend behavior
 only; the real Tauri app owns native command evidence.
 
@@ -511,3 +509,27 @@ addition to its portal identifier. Existing installed or edited entries are
 preserved. Recognized generated entries and brand assets use synchronized atomic
 replacement. The frontend uses a symlink to canonical `Logo.png`; the actual
 Tauri build was checked to embed and render it.
+
+The owner extended this polish slice to app-owned window controls after providing
+Sotto screenshots. Replace server decorations with one shared themed titlebar,
+standard Minimize/Maximize/Restore and Close-to-tray buttons, a Tauri drag region,
+and bounded resize edges. `ui/window.js` owns window presentation and delegates
+to Tauri window APIs with narrowly scoped permissions for the main window.
+Existing CloseRequested behavior still hides the window and preserves ongoing
+Dictation. Controls use native button semantics, keyboard focus and explicit
+names; the app owns their appearance. Recording, retention and target validation
+remain unchanged. Reference images informed integrated chrome and compact
+geometry, not new Dictionary/model-management features. Screenshots establish
+visual reference only; the Sotto native workflow was unavailable.
+
+Acceptance adds real native minimize/restore, maximize/restore, double-click,
+move, edge resize, close/reopen from tray, keyboard operation, themes and narrow
+geometry. Browser fixtures exercise presentation and errors only. Moving/resizing
+is a host interaction; it does not mutate Dictation or steal focus elsewhere.
+
+Owner revision: Dipper uses dark appearance only. Remove the appearance switcher,
+Light/System tokens and persistence owner. `ui/styles.css` is the single fixed
+palette for content and app-owned window chrome. This supersedes the earlier
+three-mode polish requirement. Existing retained recordings/settings and window
+behavior remain unchanged. Acceptance now checks no switcher and fixed dark
+rendering regardless of old persisted choice or OS preference.

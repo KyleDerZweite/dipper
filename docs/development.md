@@ -188,3 +188,26 @@ and native build. Independent review findings were resolved: contrast, skip-link
 routing, failed input discovery preserving the selected microphone, and atomic
 migration of generated desktop entries. Installed/user-edited entries remain
 preserved; frontend logo is a symlink to root `Logo.png`.
+
+## App-owned window controls, 2026-10-14
+
+The owner replaced system decorations with app controls and selected dark-only
+appearance. The switcher, light palette and appearance persistence code are
+removed. `ui/window.js` delegates Minimize, Maximize/Restore, Close and edge
+Resize to the existing Tauri host. Close still hides to the tray.
+
+Native KDE/Wayland checks on the updated artifact passed: Maximize/Restore,
+Minimize and restore from tray, titlebar move, edge resize from 840 to 900 px,
+titlebar double-click to maximize, keyboard Enter to restore, and Close/reopen.
+An unsaved Settings draft survived Close/reopen and was restored without Save.
+Rendered frameless views were inspected at 840x760 and 420x480. Controls measured
+44x41 CSS px. Browser fixtures checked keyboard focus, failed action recovery,
+narrow geometry, and fixed dark rendering under an emulated light OS preference.
+Earlier stored appearance choices have no effect. Physical touch was not tested.
+
+The state-refresh race found by independent review is fixed: a resize received
+while a host state query is pending invalidates its reply and triggers a trailing
+query. `node --test tests/ui-window.cjs` covers that delayed-reply case and passes.
+JavaScript syntax, native build, cargo fmt/clippy and focused independent review
+passed. The prior 72-test domain suite remains evidence for unchanged domain code;
+window interactions above establish this artifact's native evidence.
