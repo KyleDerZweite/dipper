@@ -49,8 +49,11 @@ The locally pinned whisper.cpp revision
 Its loader reads encoder and decoder layer counts from the model file. The
 same revision documents the
 [Vulkan backend](https://github.com/ggml-org/whisper.cpp/blob/0c7be696371069e0baa2515ed7aa08d5a5473aa6/README.md#vulkan-gpu-support).
-These establish an existing runtime path for testing Turbo, without changing
-the speech runtime. Successful target-device inference remains separate evidence.
+These establish a native runtime path for testing Turbo. Dipper's current
+C++ bridge additionally requires 32 decoder layers and full float16 large-v3.
+It correctly rejected Turbo in an isolated worker experiment. An explicit
+Turbo profile with four-layer validation is required before an app comparison;
+changing the model path alone does not enable it.
 
 Compare the unquantized converted models first to avoid changing architecture
 and quantization simultaneously. Add Q5 or Q8 only if a second comparison is
@@ -167,3 +170,49 @@ This research pass inspected documentation and the pinned runtime source. It
 did not download models, execute inference, operate the UI, change live settings,
 or test a cleanup model. Actual measurements and any accepted default change
 must be recorded separately from these source-based expectations.
+
+## Executed local comparison, 2026-10-14
+
+The unquantized Turbo conversion was downloaded separately from the runtime
+maintainer's Hugging Face repository, pinned to revision
+`5359861c739e955e79d9a303bcbc70fb988958b1`. Its 1,624,555,275-byte file matched
+LFS SHA-256 `1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69`.
+The baseline file is 3,095,033,483 bytes. Model weight file size is not measured
+peak RAM or VRAM. The running app's settings were not changed.
+
+A private cloned synthetic Journal was used for the Dipper worker probe. Large-v3
+completed and reaped; Turbo was rejected by the bridge's full-baseline
+architecture check. No production validation was weakened. Both models were
+then compared through the same pinned native whisper-cli, using Auto, eight
+threads, beam size five, Vulkan device 1, and the same short German WAV.
+The native log confirmed Vulkan1. No translation flag was used.
+
+Three runs per model were interleaved in the order baseline, Turbo, Turbo,
+baseline, baseline, Turbo, each in a fresh process. No global cache was dropped;
+these are warm-file-cache observations on a desktop with other applications.
+
+| Metric | large-v3 | large-v3-turbo |
+| --- | --- | --- |
+| Full CLI elapsed, median | 3.327 s | 2.004 s |
+| Full CLI elapsed, observed range | 3.308 to 3.334 s | 1.999 to 2.024 s |
+| Native model load, median | 1.967 s | 1.082 s |
+| Language detection | German in all three runs | German in all three runs |
+| Synthetic Friday meaning | Preserved in all three runs | Preserved in all three runs |
+
+Turbo reduced full CLI elapsed by approximately 40% in this tiny sample. These
+measurements are not the app's release-to-insertion latency: the CLI starts
+loading after launch, whereas Dipper overlaps worker preparation with Capture
+and also fingerprints runtime/model artifacts. They do not establish P95/P99,
+general German/English quality, names/numbers/negations, longer recordings,
+cold-file-cache behavior, or matched peak memory. Workers/CLI processes exited
+after each job. No clipboard, composer, or live dictation was operated.
+
+The source-only research above did not run models; this separate parent-run
+experiment supplies the limited local evidence. Turbo is the recommended next
+experimental ASR profile, with large-v3 retained as the quality baseline.
+A separate private English replay through the same CLI detected English for
+both models: 3.551 s for large-v3 and 2.153 s for Turbo, one run each.
+No private transcript is published. This checks basic multilingual operation,
+not full semantic quality or distributional performance.
+
+Cleanup candidates have not been downloaded or tested.
