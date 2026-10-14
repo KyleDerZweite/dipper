@@ -9,6 +9,9 @@ launch = json.loads(sys.argv[1])
 mode = 'MODE'
 identity = launch['identity']
 version = launch['version']
+if mode == 'language':
+    with open(os.path.join(os.path.dirname(launch['settings']['model_path']), 'language.json'), 'w') as marker:
+        json.dump(launch['settings']['language'], marker)
 print('worker-pid=' + str(os.getpid()), file=sys.stderr, flush=True)
 if mode == 'parent_loss':
     with open(os.path.join(os.path.dirname(launch['settings']['model_path']), 'worker.pid'), 'w') as marker:
@@ -169,6 +172,48 @@ async fn complete_result_requires_successful_exit_and_supports_release_during_lo
     assert_eq!(outcome.status, RecognitionStatus::Succeeded);
     assert_eq!(outcome.raw_transcript.as_deref(), Some("Grüße aus T3."));
     assert_eq!(outcome.provenance.unwrap().model_frames, 1600);
+}
+
+#[tokio::test]
+async fn new_attempts_use_auto_and_stored_german_settings_remain_replayable() {
+    for stored_language in [None, Some("de")] {
+        let mut fixture = Fixture::new("language");
+        if let Some(language) = stored_language {
+            let mut stored = serde_json::to_value(&fixture.supervisor.config.settings).unwrap();
+            stored["language"] = language.into();
+            fixture.supervisor.config.settings = serde_json::from_value(stored).unwrap();
+        }
+        let job = fixture.start().await;
+        job.transcribe(fixture.audio()).await.unwrap();
+        assert_eq!(
+            fixture.finish(&job).await.status,
+            RecognitionStatus::Succeeded
+        );
+        let received: String = serde_json::from_slice(
+            &fs::read(fixture.directory.path().join("language.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(received, stored_language.unwrap_or("auto"));
+    }
+}
+
+#[tokio::test]
+async fn unsupported_language_is_rejected_before_worker_launch() {
+    for language in ["", "en", "AUTO", "de\0auto"] {
+        let mut fixture = Fixture::new("language");
+        fixture.supervisor.config.settings.language = language.into();
+        let error = fixture
+            .supervisor
+            .prepare(
+                fixture.identity.clone(),
+                fixture.directory.path().join("diagnostic.log"),
+            )
+            .await
+            .err()
+            .expect("unsupported language must fail validation");
+        assert!(error.to_string().contains("language"));
+        assert!(!fixture.directory.path().join("language.json").exists());
+    }
 }
 
 #[tokio::test]

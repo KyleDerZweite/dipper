@@ -67,6 +67,12 @@ insertion. Observed departure from the original T3 window permanently suppresses
 that dictation's insertion, even if you return. The raw text remains in Journal
 for explicit Copy. Dipper never sends Enter or pulls focus back.
 
+Recognition automatically detects the spoken language and transcribes without
+translation. Each new attempt records `language: "auto"` in its configuration.
+Older attempts keep their original configuration and transcript; saved German
+settings remain valid for Replay. Auto detects one language per attempt, so
+this does not establish quality for speech that switches languages mid-recording.
+
 Closing Settings hides the window and keeps the tray app running. Cancel
 preserves available audio and blocks late insertion. Quit waits for capture
 finalization and worker cleanup. If a physical release is missed, use Cancel;

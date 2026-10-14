@@ -17,8 +17,9 @@ Dipper aims to turn speech into accurate text with low resource use and fast
 responses. You choose what to keep: recordings, transcripts, corrections, and
 diagnostic logs, with comprehensive retention for those who want the full history.
 
-The first pilot targets Fedora KDE on Wayland, with German speech and English
-technical terms. It covers the core dictation workflow, configurable data retention, and explicit
+The first pilot targets Fedora KDE on Wayland. Recognition detects the spoken
+language automatically and transcribes without translation. German speech with
+English technical terms remains a pilot evaluation focus. It covers the core dictation workflow, configurable data retention, and explicit
 correction, including comprehensive retention for Kyle's pilot.
 Wispr Flow and Superwhisper provide ideas for optional features; feature parity
 is not a project requirement.

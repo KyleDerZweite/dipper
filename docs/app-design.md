@@ -367,8 +367,25 @@ Reserve stdout for protocol and stderr for logs. Reject unknown versions, wrong
 identities, malformed frames, second requests, duplicate terminal events, and
 invalid event order.
 
-Use German transcription, beam size five, eight CPU threads, no vocabulary
-prompt, gain, VAD, or intentional trimming. Resolve and require the RX 7700S
+On 2026-10-14, the owner selected automatic language detection after English
+speech produced German text with the fixed German configuration. New attempts
+use `language: "auto"` and transcribe the spoken language without translation.
+Recognition owns this default and validates the configuration before launching
+its worker. The native bridge passes Auto to the pinned whisper.cpp API with
+`translate = false` and `detect_language = false`. In this API, the latter flag
+requests detection only when true; Auto itself detects the language and then
+continues transcription. The [pinned runtime implementation](https://github.com/ggml-org/whisper.cpp/blob/0c7be696371069e0baa2515ed7aa08d5a5473aa6/src/whisper.cpp#L6992-L7015)
+owns these API semantics. Previously recorded `language: "de"` configurations
+remain valid for Replay. Existing attempts and transcripts are unchanged.
+No language selector or new persisted setting is part of this fix.
+
+Acceptance covers the default configuration crossing the worker transport,
+legacy German configuration compatibility, rejection of unsupported language
+values, and native English and German fixtures producing text in their spoken
+language. A transport fixture does not establish native language quality.
+
+Use beam size five, eight CPU threads, no vocabulary prompt, gain, VAD, or
+intentional trimming. Resolve and require the RX 7700S
 Vulkan backend each job, recording its actual identity. Do not silently select
 CPU fallback. Resample finalized 48 kHz audio to mono 16 kHz in the worker;
 use rubato with explicit configuration/version provenance. Flush the final
