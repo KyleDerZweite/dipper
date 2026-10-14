@@ -43,6 +43,7 @@ pilot evaluation remain open.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Recognition and cleanup comparison](docs/recognition-cleanup-research.md): Turbo measurements and local cleanup candidates.
+- [Current ASR alternatives](docs/asr-alternatives-research.md): multilingual speech candidates and native runtime options.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
 - [Native desktop research](docs/native-desktop-research.md): KDE interaction, target validation, and insertion limits. Related reports cover [worker supervision](docs/worker-lifecycle-research.md) and [Journal recovery](docs/journal-recovery-research.md).
 - [Pilot procedure](docs/pilot-procedure.md): recording slots, measurement steps, and quality examples.
