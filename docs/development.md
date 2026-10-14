@@ -270,3 +270,31 @@ the second WebView was 236600 KiB/55 threads. This includes UI/runtime changes a
 cannot isolate KSNI overhead. The quick WebView is lazy and remains cached after
 first use; no Recognition worker remains warm after settlement. A matched idle
 PSS/CPU comparison remains needed before selecting budgets.
+
+## Composer qualification repair evidence, 2026-10-14
+
+The bounded Collection query repair for #16 was independently reviewed against
+main at de2a8b3. The native T3 process supported both queries; qualification
+took approximately 26 ms, compared with approximately 390 ms for the earlier
+per-node scan in a smaller rendered tree. These are local observations, not
+latency percentiles or a resource budget. The old diagnostic still saturated
+its 650-node bound in the actual conversation used for the repaired journey.
+
+With Dipper's window hidden in the tray, a configured F2 Hold captured synthetic
+German audio through an owned PipeWire input, completed Whisper large-v3 on
+RX 7700S/Vulkan, and dispatched Paste. The actual T3 composer matched the raw
+transcript exactly and retained Freitag. Release to terminal outcome was
+approximately 2.408 seconds. Undo restored the empty composer; all clipboard
+formats were restored and the worker was reaped. The Journal continues to label
+OS dispatch unverified; external test observation does not change that policy.
+
+The first assertion sampled the composer before asynchronous Paste handling
+completed. A fresh observation confirmed the exact text and Undo succeeded.
+The corrected harness waits for bounded target acknowledgement.
+
+A separate restart issue remains: ListShortcuts can report F2 while no Hold
+events arrive until Configure Hold binds it again. The native test explicitly
+configured the binding before admission. Do not treat this evidence as automatic
+shortcut restoration acceptance. The test used disposable Journal/audio and
+owned virtual input resources; normal user data and the system default input
+were preserved. Actual spoken corpus quality remains separate.
