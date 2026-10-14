@@ -290,6 +290,66 @@ window, and the next attempt passed. No application was stopped or restarted
 by the probe. Test setup may discover a new window before admission; an active
 dictation must not silently replace its pinned target after disappearance.
 
+## Live Caps-to-Menu portal test, 2026-10-14
+
+The owner authorized any suitable test key and wants the eventual keybind
+configurable. A dedicated temporary desktop identity registered its own
+GlobalShortcuts v1 session and one `hold` action with `preferred_trigger=Menu`.
+The KDE dialog displayed only that named test action and Menu binding; its OK
+action was confirmed through AT-SPI. Effective assignment was checked through
+ListShortcuts before changing the keyboard map or sending keys.
+
+The test exclusively created the previously absent user `kxkbrc`, preserving
+pc105, de,de and nodeadkeys, while adding caps:menu and ResetOldOptions=true.
+A final KConfig notification applied the live map without restarting KWin.
+Reported layouts remained unchanged. The existing ydotool daemon then sent
+Caps evdev key 58 into the normal KWin input pipeline while T3 was active.
+The portal delivered real Activated/Deactivated events. No Capture,
+Recognition, clipboard mutation, or Enter/send action was attached to them.
+
+The 150 ms Hold produced one Activated followed by one Deactivated. The
+800 ms Hold did the same, with no duplicate activation observed in that run.
+A third test pressed and released Shift while Caps remained down. Deactivated
+arrived before Caps release, confirming the source-level last-shortcut release
+limitation. The owner explicitly accepted the pilot rule of holding only the
+Hold key, with clear feedback when recording ends. Exact physical-key Hold
+while other keys are used is not required for this pilot.
+
+The first binding attempt timed out in the dialog and removed only its own
+action/session without applying a remap. A subsequent attempt confirmed the
+specific test dialog and completed all three event checks. In cleanup the
+test released its keys, removed only its own configuration keys with KConfig
+notifications, restored the original layout index and layout list, and removed
+the newly empty config file. It closed its own portal session, unregistered
+only its dedicated hold action, and removed its hidden desktop entry. Menu was
+globally available afterward and no own desktop entries remained. Existing
+apps/services were not stopped or restarted.
+
+The command was `python3 /tmp/dipper-live-hold-test.py`. This tests a live
+Wayland map and actual KDE portal events driven by synthetic keyboard input.
+Physical hardware behavior, game shortcut inhibition, missing-release and
+session-failure handling, production adapter integration, and voice-to-insertion
+remain unexecuted. Caps-to-Menu is a proven temporary route, not a product
+default or an instruction to remap every user's keyboard.
+
+### Own-session closure follow-up
+
+`python3 /tmp/dipper-session-loss-probe.py` created a separate dedicated
+identity and empty GlobalShortcuts session. It subscribed to that session's
+`Closed` signal before calling its own `Session.Close`, then processed events
+for 750 ms. No `Closed` signal arrived after explicit closure. A subsequent
+ListShortcuts call rejected the closed handle with
+`org.freedesktop.DBus.Error.AccessDenied`. The probe removed its desktop entry
+and closed its private bus connection. It bound no shortcut and sent no keys.
+
+The adapter must handle its own close path directly rather than depend on a
+`Closed` signal acknowledging explicit closure. Unexpected session closure
+and portal connection loss must interrupt an active dictation and revoke
+insertion eligibility. This check establishes session invalidation only. It
+does not test backend failure, recording interruption, audio preservation,
+or suppression by a production Dictation implementation. Existing portal,
+KWin, and application processes were left running.
+
 ## Acceptance evidence still required
 
 ### Native HOLD setup facts, 2026-10-14
@@ -315,7 +375,8 @@ libxkbcommon 1.11.0/xkeyboard-config 2.46 state test mapped Caps to Menu with
 no locked modifier or Caps LED. The ordinary unmodified map toggled Caps Lock.
 Menu was globally free. This does not establish live reload or physical keys.
 The same binding would also consume a physical Menu key. Selection of this
-concrete variant remains pending; no live remap was applied by these probes.
+concrete variant was pending at read-only screening. The subsequently
+authorized live test above exercises it and restores its changes.
 
 The current user keyboard configuration file is absent. A reversible test must
 preserve the current pc105 model, de,de layouts, nodeadkeys, variants, and

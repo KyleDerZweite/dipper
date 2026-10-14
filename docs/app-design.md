@@ -108,6 +108,18 @@ The owner prefers one hold key reachable with the left hand. A multi-key chord
 is a fallback only if it can be held with one hand. Meta+F9 is not the selected
 test binding or product default; screen single left-side keys before testing.
 
+The owner subsequently authorized any suitable temporary test binding and
+requires the eventual keybind to be configurable. A live Caps-to-Menu remap
+and native portal binding have now been exercised and fully removed. Short
+and longer synthetic Holds produced activation/deactivation. Releasing Shift
+while Caps was still held also produced deactivation. The owner accepted
+using only the Hold key during pilot dictation. Portal `Deactivated` ends
+capture, with visible feedback that recording has ended. Strict tracking of
+the physical Hold key's release is outside this pilot contract. Session loss
+must interrupt an open capture, preserve available audio, and revoke insertion
+eligibility. Synthetic portal tests do not establish physical hardware behavior
+or an implemented recording indicator.
+
 ## Accepted busy and cancellation behavior
 
 On 2026-10-13, the owner endorsed rejecting a new hold while the current
