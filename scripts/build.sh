@@ -13,4 +13,5 @@ if [[ "$revision" != 0c7be696371069e0baa2515ed7aa08d5a5473aa6 ]]; then
   exit 1
 fi
 cd "$root_dir"
+export DIPPER_BUILD_REVISION="$(git rev-parse HEAD)"
 cargo build --locked --workspace "$@"

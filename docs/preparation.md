@@ -22,9 +22,14 @@ original-window guard on 2026-10-15. Accessibility field admission is no longer
 required; focus loss, cancellation and session failure still suppress Paste.
 Preserve the Insertion interface, raw Journal fallback and the working T3 chain.
 
+The first user-local release installation and explicit upgrade/rollback path are
+implemented and verified under the [delivery contract](desktop-delivery.md).
+Public GitHub release channels and signed automatic updates remain proposals.
+The [development guide](development.md) records exact installed-target evidence.
+
 Then review and deliver model library/download/Reload in issue #22, explicit
-Corrections and retention in #14, and installable desktop delivery with startup,
-versioned upgrades and recovery in issue #26. These remain separate useful PR slices. Their
+Corrections and retention in #14, and subsequent public desktop distribution. Issue #26 owns the first local
+installation; optional startup and signed updates remain separate decisions. These remain separate useful PR slices. Their
 contracts must settle the actual worker/model compatibility and update ownership
 before implementation Ready. Installation and OTA are not silently included in
 the cross-app slice, and a development binary is not a production release.

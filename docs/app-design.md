@@ -693,3 +693,13 @@ header with the draggable view title and status. At widths of 520 CSS pixels
 or less, status and Cancel use a second row to keep window controls accessible.
 The separate 35-pixel titlebar is removed. Existing host window actions, close
 to tray, resize edges and recording ownership remain unchanged.
+
+## Local installation boundary, 2026-10-15
+
+The [desktop delivery contract](desktop-delivery.md) owns packaging, installed
+paths, runtime provenance and upgrade recovery. Scripts install versioned app
+files and preserve private data. The desktop host checks incomplete installation
+state while holding its session lock before settings or Journal access. Core
+Settings, Capture, Recognition and Journal interfaces and dependency directions
+remain unchanged. The worker uses a release-relative native-library search path;
+models remain external to app versions.
