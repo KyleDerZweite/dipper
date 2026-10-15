@@ -36,7 +36,9 @@ def main():
     subprocess.run(['cmake', '--build', str(whisper / 'build'), '--target', 'whisper', '--parallel', '2'], check=True)
     environment = {**os.environ, 'DIPPER_WHISPER_DIR': str(whisper)}
     subprocess.run([str(ROOT / 'scripts/build.sh'), '--release'], env=environment, check=True)
-    release = ROOT / 'target/release' 
+    if subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() != revision or subprocess.check_output(['git', 'status', '--porcelain']).strip():
+        raise SystemExit('Source changed during the build; commit and package again.')
+    release = ROOT / 'target/release'
     version = tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['package']['version']
     identity = f'{version}-local.{revision[:12]}-fedora43-{platform.machine()}'
     dest = ROOT / 'target/dist' / ('dipper-' + identity)
