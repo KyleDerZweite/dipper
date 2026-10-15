@@ -458,3 +458,44 @@ Original Journal data, normal settings, user applications and system defaults
 are preserved. The temporary private app and owned input were removed after verification;
 the owned test editor had already exited. The normal app is restarted with
 its existing settings after the current build is verified. Installable desktop delivery and upgrade recovery remain issue #26.
+
+## Window-guarded insertion verification, 2026-10-15
+
+Kyle selected the reduced [insertion contract](cross-app-insertion.md): keep
+original-window validation and remove Accessibility field admission. Implementation
+and independent Standards/Spec reviews at `03ac88da` found no blockers relative
+to base `a9a9eb1`. Core Insertion and desktop dependency directions are unchanged.
+The unused Accessibility implementation was removed, including its superseded
+qualification tests; no dormant strict mode remains.
+
+Native verification used the real Vesktop 1.6.7 composer, a private Dipper store,
+an owned PipeWire source, synthetic speech and the normal restored F2 Hold binding.
+A complete Hold/capture/Whisper large-v3-turbo/Vulkan/Paste journey inserted exactly
+that attempt's raw transcript. Accessibility was used only by the verification
+harness to compare the selected field's text; product admission makes no such
+queries. The test text was removed, the empty composer visually confirmed and
+both original clipboard MIME payloads restored byte-for-byte. No Enter was sent.
+
+A second complete job deliberately left the original window and returned before
+release. Recognition completed and its worker was reaped, but insertion was
+suppressed at the unchanged stage. Clipboard payloads and empty composer stayed
+unchanged. Both workers exited after their jobs. The owned private app and virtual
+input were removed after settlement; Vesktop, T3 and system services remained
+running. The normal app was then started with its original settings unchanged.
+Private evidence and screenshots remain under
+`~/.local/state/dipper/verification/window-guard-20261015`.
+
+Passed: `cargo test --locked --workspace` (76 tests; three child entrypoints
+ignored in parent suites and exercised by their owning tests), workspace Clippy
+with `--all-targets -- -D warnings`, `cargo fmt --all --check`, native workspace
+build and four Node UI regressions. The first test run hit an existing temporary
+helper executable `Text file busy` failure; a fresh full workspace run passed.
+The initial format check failed and was corrected before final checks.
+
+This qualifies the actual Discord path under the accepted operating assumption.
+The current T3 composer was not modified in this round. Previous T3 evidence and
+existing lifecycle regressions remain available; this is not a claim that every
+app or control accepts Ctrl+V. Password/read-only controls are no longer screened.
+The Journal continues to record dispatched Paste as unverified, even when this
+verification harness observed the receiving field. Full-pilot acceptance and
+installable delivery remain separate work.
