@@ -44,7 +44,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .nav-link:hover span, .nav-link[aria-current="page"] span { text-decoration-line: underline; text-decoration-color: var(--accent); }
 .nav-link[aria-current="page"] .icon { color: var(--accent); }
 .sidebar-bottom { margin-top: auto; padding-top: 24px; display: flex; align-items: center; gap: 10px; }
-.sidebar-note { color: var(--muted); font-size: 11px; }
+.sidebar-note, .sidebar-version { color: var(--muted); font-size: 11px; }
+.sidebar-version { overflow-wrap: anywhere; min-width: 0; }
 .icon-button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--foreground); flex-shrink: 0; }
 .icon-button:hover { background: var(--hover); }
 .workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 18px var(--page-inset) 0; }

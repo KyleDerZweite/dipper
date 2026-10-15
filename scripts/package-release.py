@@ -40,7 +40,9 @@ def main():
         raise SystemExit('Source changed during the build; commit and package again.')
     release = ROOT / 'target/release'
     version = tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['package']['version']
-    identity = f'{version}-local.{revision[:12]}-fedora43-{platform.machine()}'
+    if json.loads((ROOT / 'apps/desktop/tauri.conf.json').read_text())['version'] != version:
+        raise SystemExit('Cargo and desktop version metadata must agree.')
+    identity = f'{version}-{revision[:12]}-fedora43-{platform.machine()}'
     dest = ROOT / 'target/dist' / ('dipper-' + identity)
     if dest.exists():
         raise SystemExit(f'Release already staged: {dest}')
