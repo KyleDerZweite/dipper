@@ -463,6 +463,14 @@ fn request_quit(app: &tauri::AppHandle) {
     });
 }
 fn main() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--version") {
+        println!(
+            "Dipper {} ({})",
+            env!("CARGO_PKG_VERSION"),
+            env!("DIPPER_BUILD_REVISION")
+        );
+        return Ok(());
+    }
     unsafe {
         libc::umask(0o077);
     }
