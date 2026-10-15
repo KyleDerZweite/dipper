@@ -2,7 +2,9 @@
 
 Status: first-slice implementation contract technically reviewed, 2026-10-14.
 The subsequent [cross-app insertion contract](cross-app-insertion.md) supersedes
-T3-only target admission and composer-class checks for the next useful slice.
+T3-only target admission, composer-class checks and Accessibility field
+admission. Kyle selected original-window validation on 2026-10-15; historical
+password/read-only rejection rules below no longer describe current insertion.
 Its conservative focus, clipboard, cancellation and Journal contracts remain
 compatible with this foundation. Historical T3-specific contracts below record
 the first slice and must not be treated as a current app allowlist requirement.

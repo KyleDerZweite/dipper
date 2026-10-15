@@ -43,19 +43,15 @@ not a requirement to add before the first raw-chain slice.
 
 ## Everyday desktop preparation
 
-On 2026-10-14, Kyle requested direct insertion into the already focused Discord
-composer and the next useful step beyond the T3-only pilot. Supported desktop
-fields now share generic metadata-based qualification instead of a T3 app/class
-allowlist. Preserve the original-window guard, the unchanged-field operating
-assumption, cancellation and raw Journal fallback. The reviewed
-[cross-app contract](cross-app-insertion.md) owns the exact supported-field and
-failure behavior. Missing Accessibility never silently authorizes blind Paste.
-Actual Discord/Vesktop acceptance remains open. A native Accessibility query
-exposed its focused editable composer without restarting the client, but its
-frame still lacks the ACTIVE state required by the accepted contract. The
-[Vesktop investigation](vesktop-insertion-research.md) records a possible
-compatibility path that retains field checks. It remains a proposal; no weaker
-window-only fallback is implemented.
+On 2026-10-15, Kyle requested freer insertion into the field he has already
+focused. Dipper uses the original external KWin window for admission and Paste,
+without Accessibility field qualification or an app allowlist. The target app
+handles Ctrl+V. Dipper does not distinguish password or read-only fields and does
+not follow focus to another window. Preserve permanent focus-departure
+revocation, cancellation, worker lifetime and Journal fallback. The
+[cross-app contract](cross-app-insertion.md) owns current behavior and supersedes
+the stricter field contract and single-frame proposal. Dispatch stays unverified
+until actual target acceptance is observed; Dipper never sends Enter or retries.
 
 UI polishing remains deferred. Model library/download/Reload, Corrections and
 retention, and installable desktop delivery are separately reviewed useful slices

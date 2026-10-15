@@ -17,9 +17,10 @@ historical prototype candidates below.
 
 Kyle requested the next step toward everyday desktop use with UI polishing
 later. Deliver [cross-app guarded insertion](cross-app-insertion.md) first,
-including real Discord/Vesktop qualification and Paste evidence. Preserve the
-existing Insertion interface and the working T3 chain. Unsupported accessibility
-still leaves text in Journal; no blind fallback is accepted.
+including real Discord/Vesktop Hold-to-Paste evidence. Kyle selected the reduced
+original-window guard on 2026-10-15. Accessibility field admission is no longer
+required; focus loss, cancellation and session failure still suppress Paste.
+Preserve the Insertion interface, raw Journal fallback and the working T3 chain.
 
 Then review and deliver model library/download/Reload in issue #22, explicit
 Corrections and retention in #14, and installable desktop delivery with startup,

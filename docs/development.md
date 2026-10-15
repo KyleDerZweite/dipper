@@ -432,6 +432,10 @@ This is a verification-harness limitation, not a new product clipboard policy.
 Private evidence stays under `~/.local/state/dipper/verification/cross-app-20261014`.
 The folder date is the start of the work, which continued past midnight.
 
+The following observations describe the superseded Accessibility guard. Kyle
+subsequently selected [window-guarded Paste](cross-app-insertion.md); field
+metadata no longer gates insertion.
+
 On 2026-10-15, a manual OS Paste test inserted a synthetic marker into the
 owner-designated empty Vesktop composer and removed it without sending. The
 empty composer was visually confirmed and both original clipboard payloads
@@ -443,9 +447,9 @@ Further native inspection exposed the renderer tree after root/frame
 GetAttributes and frame GetRelationSet queries, without a client restart or
 global settings changes. The complete tree had 1,830 nodes, one frame and one
 focused editable ENTRY with the required field states. The frame still lacked
-ACTIVE, even after a focus departure and return. The current Dipper guard
-therefore still rejects this client. Automatic Discord dictation/Paste remains
-unverified. See the [investigation](vesktop-insertion-research.md) for the source
+ACTIVE, even after a focus departure and return. The then-current Dipper guard
+therefore rejected this client. Automatic Discord dictation/Paste was still
+unverified at this point. See the [investigation](vesktop-insertion-research.md) for the source
 explanation and a proposed field-aware compatibility path. No blind fallback
 was added. Unsupported Collection providers and ambiguous/missing targets still
 fail closed.

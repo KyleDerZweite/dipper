@@ -28,14 +28,13 @@ Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
 Status, 2026-10-15: the development app records on Hold, retains its Journal,
-runs one Whisper/Vulkan job, and attempts guarded Paste into a supported
-focused desktop text field. New setups select Whisper large-v3-turbo; historical
-settings keep their explicit saved model profile. T3 and native GTK fields have
-current qualification evidence; full synthetic GTK dictation/Paste passed.
-Discord/Vesktop acceptance remains open. A native Accessibility query exposed
-its focused composer without a restart, but its frame still lacks the ACTIVE
-state required by the current guard. See the
-[Vesktop investigation](docs/vesktop-insertion-research.md).
+runs one Whisper/Vulkan job, and dispatches Paste in the original external window.
+New setups select Whisper large-v3-turbo; historical settings keep their explicit
+saved model profile. Kyle selected window-guarded insertion on 2026-10-15:
+Accessibility field admission is removed, while focus-loss and cancellation
+still suppress Paste. The target app handles its focused control; Dipper does
+not distinguish password or read-only fields. Actual target evidence belongs in
+the development guide.
 Use the [development guide](docs/development.md) for build/run commands and
 verification limits. Optional cleanup, Corrections, reduced retention,
 installable delivery and full-pilot evaluation remain open.
@@ -43,7 +42,7 @@ installable delivery and full-pilot evaluation remain open.
 ## Documentation
 
 - [App design and reviewed first-slice contract](docs/app-design.md): module responsibilities, interfaces, failure handling, and acceptance evidence.
-- [Cross-app insertion contract](docs/cross-app-insertion.md): focused-field qualification, preserved guards, and current compatibility limits.
+- [Cross-app insertion contract](docs/cross-app-insertion.md): original-window validation, Paste behavior, and compatibility limits.
 - [Development guide](docs/development.md): native dependencies, build/run commands, first use, and private storage.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.

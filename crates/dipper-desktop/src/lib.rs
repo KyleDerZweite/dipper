@@ -1,5 +1,4 @@
 //! Native KDE Wayland interaction, independent of the Tauri shell.
-mod accessibility;
 mod clipboard;
 mod observer;
 mod shortcuts;
@@ -136,6 +135,8 @@ impl DesktopAdapter {
         Ok(())
     }
 
+    // ponytail: target controls handle Paste; revisit field inspection only if
+    // an explicit product requirement needs it. KWin guards the original window.
     async fn validate(&self, permit: &TargetPermit) -> Result<()> {
         ensure!(
             permit.is_valid(),
@@ -147,11 +148,7 @@ impl DesktopAdapter {
             current.as_ref() == Some(&permit.identity),
             "Original target window is no longer active"
         );
-        accessibility::check_editor(permit.identity.pid).await?;
-        ensure!(
-            permit.is_valid(),
-            "Target changed during text field validation"
-        );
+        ensure!(permit.is_valid(), "Target changed during window validation");
         Ok(())
     }
 }

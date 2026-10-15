@@ -630,7 +630,7 @@ impl Dictation {
         self.publish(
             generation,
             "Inserting",
-            "Checking the original target window and focused text field.",
+            "Checking the original target window before Paste.",
             true,
             false,
             false,

@@ -2,6 +2,10 @@
 
 Research date: 2026-10-15. Upstream sources and bounded native probes against installed Vesktop 1.6.7. No restart or global setting change.
 
+Current decision: Kyle selected original-window-guarded Paste on 2026-10-15.
+The [insertion contract](cross-app-insertion.md) supersedes the field-proof
+proposals below. These findings retain the investigation history.
+
 ## Finding
 
 A standard AT-SPI `GetAttributes` and `GetRelationSet` probe exposed the focused composer in the running Vesktop client. Chromium deliberately uses these ATK requests to activate its renderer Accessibility tree lazily. This can preserve Dipper's focused-editor checks without a client restart, startup flag, global screen-reader setting, or weaker window-only guard. Native editor availability was verified below; automatic insertion still fails the separate ACTIVE-frame requirement.
