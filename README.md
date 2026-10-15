@@ -37,7 +37,8 @@ not distinguish password or read-only fields. Actual target evidence belongs in
 the development guide.
 Use the [development guide](docs/development.md) for build/run commands and
 verification limits. Optional cleanup, Corrections, reduced retention,
-installable delivery and full-pilot evaluation remain open.
+public distribution and full-pilot evaluation remain open. A versioned local
+release is now installed and verified on the Fedora target; see the delivery guide.
 
 ## Documentation
 
