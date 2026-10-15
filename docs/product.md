@@ -50,10 +50,12 @@ allowlist. Preserve the original-window guard, the unchanged-field operating
 assumption, cancellation and raw Journal fallback. The reviewed
 [cross-app contract](cross-app-insertion.md) owns the exact supported-field and
 failure behavior. Missing Accessibility never silently authorizes blind Paste.
-Actual Discord/Vesktop acceptance remains open because its currently launched
-normal client exposes no renderer fields. Per-app accessibility activation or
-an optional weaker window-only mode is an unresolved owner decision, not an
-implemented fallback.
+Actual Discord/Vesktop acceptance remains open. A native Accessibility query
+exposed its focused editable composer without restarting the client, but its
+frame still lacks the ACTIVE state required by the accepted contract. The
+[Vesktop investigation](vesktop-insertion-research.md) records a possible
+compatibility path that retains field checks. It remains a proposal; no weaker
+window-only fallback is implemented.
 
 UI polishing remains deferred. Model library/download/Reload, Corrections and
 retention, and installable desktop delivery are separately reviewed useful slices

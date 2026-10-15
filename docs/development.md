@@ -432,13 +432,23 @@ This is a verification-harness limitation, not a new product clipboard policy.
 Private evidence stays under `~/.local/state/dipper/verification/cross-app-20261014`.
 The folder date is the start of the work, which continued past midnight.
 
-The normal Vesktop client was opened for metadata-only inspection. KWin identifies
-its window correctly, but its Accessibility tree exposes only a FRAME, with no
-renderer text fields and no ACTIVE state. The normal launch therefore cannot
-qualify a Discord composer. Actual Discord Paste remains unexecuted while the
-owner chooses per-app accessibility activation or a separately reviewed optional
-window-only fallback. No message was sent and no blind fallback was added.
-Unsupported Collection providers and ambiguous/missing targets still fail closed.
+On 2026-10-15, a manual OS Paste test inserted a synthetic marker into the
+owner-designated empty Vesktop composer and removed it without sending. The
+empty composer was visually confirmed and both original clipboard payloads
+were restored. Initial Paste before explicit field focus produced no insertion;
+Undo did not remove the marker. Select All and Backspace removed the visually
+confirmed synthetic-only contents.
+
+Further native inspection exposed the renderer tree after root/frame
+GetAttributes and frame GetRelationSet queries, without a client restart or
+global settings changes. The complete tree had 1,830 nodes, one frame and one
+focused editable ENTRY with the required field states. The frame still lacked
+ACTIVE, even after a focus departure and return. The current Dipper guard
+therefore still rejects this client. Automatic Discord dictation/Paste remains
+unverified. See the [investigation](vesktop-insertion-research.md) for the source
+explanation and a proposed field-aware compatibility path. No blind fallback
+was added. Unsupported Collection providers and ambiguous/missing targets still
+fail closed.
 
 Original Journal data, normal settings, user applications and system defaults
 are preserved. The temporary private app and owned input were removed after verification;

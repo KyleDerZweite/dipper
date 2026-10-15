@@ -32,8 +32,10 @@ runs one Whisper/Vulkan job, and attempts guarded Paste into a supported
 focused desktop text field. New setups select Whisper large-v3-turbo; historical
 settings keep their explicit saved model profile. T3 and native GTK fields have
 current qualification evidence; full synthetic GTK dictation/Paste passed.
-Discord/Vesktop acceptance remains open because the normal client currently
-exposes no renderer text fields through Accessibility.
+Discord/Vesktop acceptance remains open. A native Accessibility query exposed
+its focused composer without a restart, but its frame still lacks the ACTIVE
+state required by the current guard. See the
+[Vesktop investigation](docs/vesktop-insertion-research.md).
 Use the [development guide](docs/development.md) for build/run commands and
 verification limits. Optional cleanup, Corrections, reduced retention,
 installable delivery and full-pilot evaluation remain open.
