@@ -535,7 +535,7 @@ replacement. The frontend uses a symlink to canonical `Logo.png`; the actual
 Tauri build was checked to embed and render it.
 
 The owner extended this polish slice to app-owned window controls after providing
-Sotto screenshots. Replace server decorations with one shared themed titlebar,
+Sotto screenshots. Replace server decorations with app-owned themed window controls,
 standard Minimize/Maximize/Restore and Close-to-tray buttons, a Tauri drag region,
 and bounded resize edges. `ui/window.js` owns window presentation and delegates
 to Tauri window APIs with narrowly scoped permissions for the main window.
@@ -684,3 +684,12 @@ and a native mismatch failure. Native replay and rendered Settings evidence
 must identify the tested revision; passing process fixtures alone does not
 establish native model acceptance. Download, GGUF folder discovery, Reload,
 and cleanup execution belong to later slices.
+
+## Compact window header, 2026-10-15
+
+Kyle requested removal of the duplicate Dipper label and empty top bar. The
+sidebar keeps the single brand. Main-window controls share the existing page
+header with the draggable view title and status. At widths of 520 CSS pixels
+or less, status and Cancel use a second row to keep window controls accessible.
+The separate 35-pixel titlebar is removed. Existing host window actions, close
+to tray, resize edges and recording ownership remain unchanged.

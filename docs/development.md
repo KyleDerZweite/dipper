@@ -499,3 +499,18 @@ app or control accepts Ctrl+V. Password/read-only controls are no longer screene
 The Journal continues to record dispatched Paste as unverified, even when this
 verification harness observed the receiving field. Full-pilot acceptance and
 installable delivery remain separate work.
+
+## Compact window header verification, 2026-10-15
+
+The standalone titlebar and duplicate Dipper label were removed. Native rendered
+views at 680 by 540 and 420 by 540 were inspected with actual existing Journal
+text. The narrow view retains all window controls and wraps status to its own
+row. Actual title dragging, maximize/restore, minimize, close to tray and tray
+reopen passed against the rebuilt Tauri app. Four existing Node UI regressions
+and the native build passed. A focused independent diff review checks the layout
+and unchanged host interactions. Private screenshots are retained locally.
+
+The collaborative browser returned a 1280-pixel viewport for a requested
+680-pixel resize, then timed out on snapshot and resize; rendered acceptance
+therefore uses the actual native app rather than browser emulation. Recording,
+recognition and insertion code were not changed in this UI slice.
