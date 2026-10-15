@@ -198,7 +198,7 @@ def activate(args):
         quoted = launch.replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$')
         entry = ('[Desktop Entry]\nType=Application\nName=Dipper\nComment=Local voice dictation\n'
                  f'Exec="{quoted}" --show\nIcon={desktop_string(current / "logo.png")}\n'
-                 'Terminal=false\nCategories=Utility;Audio;\nStartupWMClass=dipper\n')
+                 'Terminal=false\nCategories=Utility;\nStartupWMClass=dipper\n')
         atomic(entries[0], entry.encode(), 0o644)
         atomic(entries[1], (entry + 'NoDisplay=true\n').encode(), 0o644)
         link(executable, current / 'launch')
