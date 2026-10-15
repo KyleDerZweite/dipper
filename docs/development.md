@@ -566,3 +566,8 @@ prerequisites and public update/signature acceptance are still separate work.
 Private evidence stays in `~/.local/state/dipper/verification/installed-20261015`.
 The normal installed final app is running; settings, models and existing Journal
 remain in their established private locations.
+
+The first menu-test app was no longer present at the final process check. A
+second `gtk-launch` in a detached session remained running across later tool
+calls. That successful persistent process is the final installed app; the
+initial missing-process check is retained in the private verification record.
