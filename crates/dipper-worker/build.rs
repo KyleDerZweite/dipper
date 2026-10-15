@@ -37,7 +37,11 @@ fn main() {
         for name in ["whisper", "ggml", "ggml-base", "ggml-vulkan"] {
             println!("cargo:rustc-link-lib=dylib={name}");
         }
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", library.display());
+        if env::var("PROFILE").as_deref() == Ok("release") {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/runtime/build/bin");
+        } else {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", library.display());
+        }
     } else {
         // Builds and public transport/audio tests remain possible without a native install.
         // Starting recognition reports an explicit unavailable-runtime failure.

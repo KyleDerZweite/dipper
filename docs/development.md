@@ -1,8 +1,9 @@
-# Build and run the raw desktop slice
+# Build and run the desktop development app
 
 The first app targets Fedora 43 KDE on Wayland. It uses a Rust core, a Tauri 2
 shell, direct PipeWire capture, SQLite/RF64 storage, and one local Whisper
-worker per dictation. This development build is not an installer or release.
+worker per dictation. This section describes checkout builds. For the installed user-local release,
+see the [delivery guide](desktop-delivery.md) and the dated verification below.
 
 Use Rust 1.95, a C/C++ compiler, GTK 3/WebKitGTK 4.1/AppIndicator development
 packages, and the existing PipeWire runtime. Tests also require Python 3, FFmpeg,
@@ -66,10 +67,10 @@ Hold again; KDE can reuse an existing grant without another dialog. F2 is only
 an initial preference. KDE Shortcuts owns
 changes on GlobalShortcuts v1; Dipper does not remap Caps Lock.
 
-Focus a T3 composer, then hold the configured key. Wait for Recording before
+Focus a supported editable desktop text field, then hold the configured key. Wait for Recording before
 speaking. Use only that key during pilot dictation. Release to finalize audio,
 recognize, and attempt Paste. Do not switch targets if you want automatic
-insertion. Observed departure from the original T3 window permanently suppresses
+insertion. Observed departure from the original target window permanently suppresses
 that dictation's insertion, even if you return. The raw text remains in Journal
 for explicit Copy. Dipper never sends Enter or pulls focus back.
 
@@ -396,3 +397,177 @@ The [cleanup research](recognition-cleanup-research.md) and
 [public synthetic trial artifact](evidence/cleanup-models-20261014.json) record
 separate small-model experiments. Cleanup and model management are not integrated
 into the app by this slice. No comparison model remains intentionally resident.
+
+
+## Cross-app verification, 2026-10-15
+
+The bounded cross-app implementation at `3a1ddb5` removes the T3 app/class
+allowlist and keeps KWin departure revocation and metadata-only field checks.
+The live T3 provider qualified. A disposable GTK application qualified single-line
+ENTRY and multiline TEXT fields, including two windows with one active target.
+Password and read-only fields failed qualification. No existing user draft was
+modified by these inspections.
+
+An isolated tray-hidden app with an owned PipeWire input completed five actual
+F2 Hold/capture/Turbo/Vulkan jobs. ENTRY and TEXT received the exact raw
+transcript through Paste, respectively 1.108 s and 1.004 s after release. Their
+owned fields were cleared after checking the exact test text. Password, read-only
+and departure-and-return cases retained complete recognition results but suppressed
+Paste and clipboard mutation. Every worker was reaped. These are short synthetic
+integration cases, not microphone quality, production latency or P95/P99.
+
+The native app build and workspace suite passed 84 tests. Three child fixture
+entry points are ignored in the direct parent invocation and exercised by parent
+scenarios. Both independent Standards and Spec reviews found no blockers. A
+subsequent readability-only patch names the unchanged AT-SPI state bits; the 28
+desktop tests were repeated successfully. Current-head formatting, Clippy and CI
+results are recorded separately with the PR. Temporary native examples are not
+part of the installed app.
+
+The test clipboard was restored across all formats in the five completed runs.
+An initial harness restoration attempt failed on KDE's `onlyReplaceEmpty` control
+MIME, which cannot be blindly replayed over a nonempty test clipboard. Original
+text bytes were restored after omitting that control hint; its control metadata
+was not reproduced. The rerun used a fresh stable clipboard baseline and passed.
+This is a verification-harness limitation, not a new product clipboard policy.
+Private evidence stays under `~/.local/state/dipper/verification/cross-app-20261014`.
+The folder date is the start of the work, which continued past midnight.
+
+The following observations describe the superseded Accessibility guard. Kyle
+subsequently selected [window-guarded Paste](cross-app-insertion.md); field
+metadata no longer gates insertion.
+
+On 2026-10-15, a manual OS Paste test inserted a synthetic marker into the
+owner-designated empty Vesktop composer and removed it without sending. The
+empty composer was visually confirmed and both original clipboard payloads
+were restored. Initial Paste before explicit field focus produced no insertion;
+Undo did not remove the marker. Select All and Backspace removed the visually
+confirmed synthetic-only contents.
+
+Further native inspection exposed the renderer tree after root/frame
+GetAttributes and frame GetRelationSet queries, without a client restart or
+global settings changes. The complete tree had 1,830 nodes, one frame and one
+focused editable ENTRY with the required field states. The frame still lacked
+ACTIVE, even after a focus departure and return. The then-current Dipper guard
+therefore rejected this client. Automatic Discord dictation/Paste was still
+unverified at this point. See the [investigation](vesktop-insertion-research.md) for the source
+explanation and a proposed field-aware compatibility path. No blind fallback
+was added. Unsupported Collection providers and ambiguous/missing targets still
+fail closed.
+
+Original Journal data, normal settings, user applications and system defaults
+are preserved. The temporary private app and owned input were removed after verification;
+the owned test editor had already exited. The normal app is restarted with
+its existing settings after the current build is verified. Installable desktop delivery and upgrade recovery remain issue #26.
+
+## Window-guarded insertion verification, 2026-10-15
+
+Kyle selected the reduced [insertion contract](cross-app-insertion.md): keep
+original-window validation and remove Accessibility field admission. Implementation
+and independent Standards/Spec reviews at `03ac88da` found no blockers relative
+to base `a9a9eb1`. Core Insertion and desktop dependency directions are unchanged.
+The unused Accessibility implementation was removed, including its superseded
+qualification tests; no dormant strict mode remains.
+
+Native verification used the real Vesktop 1.6.7 composer, a private Dipper store,
+an owned PipeWire source, synthetic speech and the normal restored F2 Hold binding.
+A complete Hold/capture/Whisper large-v3-turbo/Vulkan/Paste journey inserted exactly
+that attempt's raw transcript. Accessibility was used only by the verification
+harness to compare the selected field's text; product admission makes no such
+queries. The test text was removed, the empty composer visually confirmed and
+both original clipboard MIME payloads restored byte-for-byte. No Enter was sent.
+
+A second complete job deliberately left the original window and returned before
+release. Recognition completed and its worker was reaped, but insertion was
+suppressed at the unchanged stage. Clipboard payloads and empty composer stayed
+unchanged. Both workers exited after their jobs. The owned private app and virtual
+input were removed after settlement; Vesktop, T3 and system services remained
+running. The normal app was then started with its original settings unchanged.
+Private evidence and screenshots remain under
+`~/.local/state/dipper/verification/window-guard-20261015`.
+
+Passed: `cargo test --locked --workspace` (76 tests; three child entrypoints
+ignored in parent suites and exercised by their owning tests), workspace Clippy
+with `--all-targets -- -D warnings`, `cargo fmt --all --check`, native workspace
+build and four Node UI regressions. The first test run hit an existing temporary
+helper executable `Text file busy` failure; a fresh full workspace run passed.
+The initial format check failed and was corrected before final checks.
+
+This qualifies the actual Discord path under the accepted operating assumption.
+The current T3 composer was not modified in this round. Previous T3 evidence and
+existing lifecycle regressions remain available; this is not a claim that every
+app or control accepts Ctrl+V. Password/read-only controls are no longer screened.
+The Journal continues to record dispatched Paste as unverified, even when this
+verification harness observed the receiving field. Full-pilot acceptance and
+installable delivery remain separate work.
+
+## Compact window header verification, 2026-10-15
+
+The standalone titlebar and duplicate Dipper label were removed. Native rendered
+views at 680 by 540 and 420 by 540 were inspected with actual existing Journal
+text. The narrow view retains all window controls and wraps status to its own
+row. Actual title dragging, maximize/restore, minimize, close to tray and tray
+reopen passed against the rebuilt Tauri app. Four existing Node UI regressions
+and the native build passed. A focused independent diff review checks the layout
+and unchanged host interactions. Private screenshots are retained locally.
+
+The collaborative browser returned a 1280-pixel viewport for a requested
+680-pixel resize, then timed out on snapshot and resize; rendered acceptance
+therefore uses the actual native app rather than browser emulation. Recording,
+recognition and insertion code were not changed in this UI slice.
+
+## Installed local release verification, 2026-10-15
+
+The optimized Fedora 43 x86_64 release at source `4f9f312227f9` is installed under
+`~/.local/opt/dipper/releases/0.1.0-local.4f9f312227f9-fedora43-x86_64`.
+`~/.local/bin/dipper` and the visible Dipper desktop entry use the stable current
+link. This is a user-local versioned bundle, not an RPM/AppImage or public release.
+The approximately 26 MiB archive contains the app, sibling helpers and pinned
+Whisper/Vulkan libraries, with source/runtime provenance and SHA-256 manifest.
+Models and private stores are excluded. No autostart or auto-updater was enabled.
+
+The first installed `3b85661` release passed actual F2/capture/Turbo/Vulkan/Paste
+into the owner-designated empty Vesktop composer from working directory `/`.
+The inserted text equaled the raw transcript. Only that text was removed; no
+Enter was sent and both original clipboard payloads were restored. A departure
+and return suppressed both Paste and clipboard publication. `/proc` mappings
+proved the worker executable and all five Whisper/GGML libraries came from the
+installed release, with no prototype runtime path. Both workers were reaped.
+The owned test app and virtual input were removed after settlement.
+
+The final `4f9f312` package changes only the desktop entry category relative to
+that runtime implementation. Actual upgrade to it, rollback to `3b85661`, then
+upgrade back passed using the real user installation and existing private store.
+Each installed CLI reported the expected source revision. The final desktop file
+passed `desktop-file-validate`, and actual `gtk-launch` from `/` displayed the
+installed compact window. All 37 retained file hashes and Journal row counts
+were unchanged; model/input/Hold settings were unchanged. Only native_lib_dir
+now points to the stable installed runtime, with private metadata backups.
+
+A direct installed-binary attempt with a pending transaction failed before
+creating its data directory. Installation while the actual app was running also
+refused without changing settings. Eight delivery tests cover handled failures,
+interrupted recovery and blocked launch, custom data-directory precedence,
+corruption/unsafe paths, collision rejection and install/update/rollback.
+The 76 Rust tests, four Node regressions, strict Clippy, formatting, shell/Python
+syntax and local documentation links passed. Initial independent reviews found
+transaction-start and build-provenance gaps; all were fixed and re-reviewed with
+no remaining findings. The initial desktop-file category validation failed; the
+final installer category passed after correction. An initial long-running shell
+build encountered a parse error after its script was edited; subsequent complete
+packager builds passed from clean committed revisions.
+
+A single warm desktop launch reached a visible window in 0.658 seconds. The
+main process with that window visible sampled 214,511,616 bytes RSS; this excludes
+renderer processes and is not a total-memory measurement or resource budget.
+No fresh installed hard-crash or storage-full Journal exercise was run: prior
+core failure tests remain that evidence. Broader target coverage, clean-machine
+prerequisites and public update/signature acceptance are still separate work.
+Private evidence stays in `~/.local/state/dipper/verification/installed-20261015`.
+The normal installed final app is running; settings, models and existing Journal
+remain in their established private locations.
+
+The first menu-test app was no longer present at the final process check. A
+second `gtk-launch` in a detached session remained running across later tool
+calls. That successful persistent process is the final installed app; the
+initial missing-process check is retained in the private verification record.

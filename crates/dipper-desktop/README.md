@@ -24,15 +24,17 @@ ordered portal signal stream. Portal Deactivated is the recording end signal;
 strict physical-key release detection is outside this pilot. Manual Cancel
 remains necessary if a release disappears without session failure.
 
-The target permit requires the original KWin window UUID, PID, and T3 app
-identity, plus one current focused and editable Tiptap/ProseMirror entry on its
-accessibility process. KWin reports authenticate their unique sender. Observed
-focus departure permanently revokes the shared permit, including if T3 returns.
-The adapter never activates a window or reads drafts. A small script-health
-check runs once per second while a permit remains valid; dispatch also checks
-script availability. Accessibility checks have a four-second total deadline
-and a 650-object bound. The compositor, clipboard, and target still perform
-separate operations, with the accepted residual focus race.
+The target permit requires the original normal external KWin window UUID, PID,
+and application identity. Dipper itself and invalid identities are rejected.
+KWin reports authenticate their unique sender. Observed focus departure
+permanently revokes the shared permit, including departure and return. The
+adapter never activates a window or reads drafts. A small script-health check
+runs once per second while a permit remains valid; dispatch also checks script
+availability. The target application handles Ctrl+V in its focused control.
+Accessibility availability, field role, password and read-only status are not
+inspected. The compositor, clipboard and target still perform separate
+operations, with the accepted residual focus race. See the
+[current insertion contract](../../docs/cross-app-insertion.md).
 
 Build the `dipper-clipboard` executable alongside the app and pass its absolute
 path to `DesktopAdapter::new`. It uses wl-clipboard-rs 0.9's native data-control
@@ -56,4 +58,4 @@ closes only its own portal session, stops and reaps its helper, and unloads only
 Dipper's observer script. Persisted KDE user assignments remain configured.
 Synthetic tests exercise focus revocation, clipboard protocol bounds,
 cancellation during preparation, publication failure stages, and owned helper
-cleanup. They establish no live portal, KWin, AT-SPI, clipboard, or T3 evidence.
+cleanup. They establish no live portal, KWin, clipboard, or actual application evidence.

@@ -31,6 +31,19 @@ impl AppPaths {
             .open(runtime.join("dipper-app.lock"))?;
         lock.try_lock_exclusive()
             .context("Dipper is already running in this desktop session")?;
+        let executable = env::current_exe()?;
+        let bin = executable
+            .parent()
+            .context("application executable directory")?;
+        if let Some(releases) = bin.parent()
+            && releases.file_name().is_some_and(|name| name == "releases")
+            && let Some(prefix) = releases.parent()
+        {
+            ensure!(
+                !prefix.join("install-transaction.json").exists(),
+                "Dipper installation was interrupted. Run install.py --recover before launching."
+            );
+        }
         Ok(lock)
     }
 

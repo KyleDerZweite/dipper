@@ -4,7 +4,37 @@ The following plan tracks development preparation and the accepted move from exp
 
 Kyle selected the core dictation workflow, configurable retention, and explicit correction, with comprehensive history for his pilot as the first pilot scope on 2026-10-13. The benchmark contract must refine that direction. Feature parity is not a requirement; ideas from reference products remain optional.
 
-## Start development here
+## Current delivery frontier, 2026-10-14
+
+The raw desktop app, compact tray workflow, Auto recognition and explicit Turbo
+profile are integrated. Twenty retained recordings were replayed through seven
+ASR configurations in a protected comparison. Those runs do not establish full
+pilot acceptance; only two recordings have confirmed literal references and
+longer duration classes remain missing. Turbo stays the live default. Cleanup
+is optional, and the small Qwen text comparison has not selected a safe live
+processor. Current model findings belong to the recognition research, not the
+historical prototype candidates below.
+
+Kyle requested the next step toward everyday desktop use with UI polishing
+later. Deliver [cross-app guarded insertion](cross-app-insertion.md) first,
+including real Discord/Vesktop Hold-to-Paste evidence. Kyle selected the reduced
+original-window guard on 2026-10-15. Accessibility field admission is no longer
+required; focus loss, cancellation and session failure still suppress Paste.
+Preserve the Insertion interface, raw Journal fallback and the working T3 chain.
+
+The first user-local release installation and explicit upgrade/rollback path are
+implemented and verified under the [delivery contract](desktop-delivery.md).
+Public GitHub release channels and signed automatic updates remain proposals.
+The [development guide](development.md) records exact installed-target evidence.
+
+Then review and deliver model library/download/Reload in issue #22, explicit
+Corrections and retention in #14, and subsequent public desktop distribution. Issue #26 owns the first local
+installation; optional startup and signed updates remain separate decisions. These remain separate useful PR slices. Their
+contracts must settle the actual worker/model compatibility and update ownership
+before implementation Ready. Installation and OTA are not silently included in
+the cross-app slice, and a development binary is not a production release.
+
+## Initial app-start sequence, 2026-10-13
 
 The owner accepted the current recorder/transcription experiment as a sufficient
 provisional starting point on 2026-10-13 and ended further prototype work.

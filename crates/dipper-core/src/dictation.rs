@@ -38,7 +38,7 @@ impl Default for DictationSnapshot {
     fn default() -> Self {
         Self {
             phase: "Ready".into(),
-            detail: "Focus the T3 composer, then hold your configured key.".into(),
+            detail: "Focus a text field, then hold your configured key.".into(),
             busy: false,
             recording: false,
             error: false,
@@ -598,7 +598,7 @@ impl Dictation {
         if !target_done {
             let result = tokio::time::timeout(Duration::from_secs(12), &mut target_task.0)
                 .await
-                .context("T3 admission validation timed out")
+                .context("Target admission validation timed out")
                 .and_then(|result| result.map_err(anyhow::Error::from))
                 .and_then(|result| result);
             target_error = settle_target_qualification(&permit_slot, &canceled, result);
@@ -630,7 +630,7 @@ impl Dictation {
         self.publish(
             generation,
             "Inserting",
-            "Checking the original T3 window and current composer.",
+            "Checking the original target window before Paste.",
             true,
             false,
             false,

@@ -55,8 +55,15 @@ impl State {
         ensure!(self.healthy && !self.failed, "KWin observer is unavailable");
         let identity = self.current.clone().context("No active target window")?;
         ensure!(
-            identity.application == "com.t3tools.T3Code",
-            "The active window is not T3"
+            !identity.window_id.trim().is_empty()
+                && !identity.application.trim().is_empty()
+                && identity.pid > 0
+                && identity.pid <= i32::MAX as u32,
+            "The active window has no valid process identity"
+        );
+        ensure!(
+            identity.pid != std::process::id(),
+            "Dipper cannot insert into its own window"
         );
         let permit = TargetPermit::new(identity);
         self.permits
@@ -674,6 +681,18 @@ mod tests {
         }
     }
     #[test]
+    fn reservation_accepts_external_apps_without_a_t3_allowlist() {
+        let mut identity = target("discord-window");
+        identity.application = "dev.vencord.Vesktop".into();
+        let mut state = State {
+            healthy: true,
+            current: Some(identity.clone()),
+            ..State::default()
+        };
+        assert_eq!(state.reserve().unwrap().identity, identity);
+    }
+
+    #[test]
     fn focus_return_never_rearms_permit() {
         let original = target("original");
         let permit = TargetPermit::new(original.clone());
@@ -707,14 +726,29 @@ mod tests {
     }
 
     #[test]
-    fn reservation_rejects_unhealthy_or_non_t3_current_state() {
+    fn reservation_rejects_unhealthy_self_and_invalid_current_state() {
         let mut state = State {
             current: Some(target("original")),
             ..State::default()
         };
         assert!(state.reserve().is_err());
         state.healthy = true;
-        state.current.as_mut().unwrap().application = "game".into();
+        for pid in [0, u32::MAX, std::process::id()] {
+            state.current = Some(TargetIdentity {
+                pid,
+                ..target("original")
+            });
+            assert!(state.reserve().is_err());
+        }
+        for (window_id, application) in [("", "app"), ("window", " ")] {
+            state.current = Some(TargetIdentity {
+                window_id: window_id.into(),
+                application: application.into(),
+                ..target("original")
+            });
+            assert!(state.reserve().is_err());
+        }
+        state.current = parse(r#"{"id":"popup","pid":123,"app":"app","normal":false}"#).unwrap();
         assert!(state.reserve().is_err());
         assert!(state.permits.is_empty());
     }

@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "dipper"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -772,7 +772,7 @@ dependencies = [
 
 [[package]]
 name = "dipper-core"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "dipper-desktop"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "dipper-worker"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 dependencies = [
  "anyhow",
  "cc",

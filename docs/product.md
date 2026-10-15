@@ -41,6 +41,22 @@ research. Mobile UI is deferred, and both long-term update goals remain in scope
 [app design record](app-design.md). Cleanup remains part of the overall pilot,
 not a requirement to add before the first raw-chain slice.
 
+## Everyday desktop preparation
+
+On 2026-10-15, Kyle requested freer insertion into the field he has already
+focused. Dipper uses the original external KWin window for admission and Paste,
+without Accessibility field qualification or an app allowlist. The target app
+handles Ctrl+V. Dipper does not distinguish password or read-only fields and does
+not follow focus to another window. Preserve permanent focus-departure
+revocation, cancellation, worker lifetime and Journal fallback. The
+[cross-app contract](cross-app-insertion.md) owns current behavior and supersedes
+the stricter field contract and single-frame proposal. Dispatch stays unverified
+until actual target acceptance is observed; Dipper never sends Enter or retries.
+
+UI polishing remains deferred. Model library/download/Reload, Corrections and
+retention, and installable desktop delivery are separately reviewed useful slices
+in issues #22, #14 and #26. A development build is not a production release.
+
 ## Intended workflow
 
 Press a shortcut, speak, and insert usable text into the intended application.

@@ -27,18 +27,24 @@ is not a project requirement.
 Desktop comes first. Phone and other mobile use are a long-term ambition, well
 beyond the initial desktop work.
 
-Status, 2026-10-14: the raw voice-to-T3 development app records on Hold, retains
-its Journal, runs one Whisper/Vulkan job, and attempts guarded Paste. New setups
-select Whisper large-v3-turbo; existing settings retain their large-v3 profile
-until the model profile and path are changed in Settings.
-A real T3 integration test passed with synthetic German audio. Use the
-[development guide](docs/development.md) for build/run commands and verification
-limits. HyperX spoken testing, cleanup, Corrections, reduced retention, and full
-pilot evaluation remain open.
+Status, 2026-10-15: the development app records on Hold, retains its Journal,
+runs one Whisper/Vulkan job, and dispatches Paste in the original external window.
+New setups select Whisper large-v3-turbo; historical settings keep their explicit
+saved model profile. Kyle selected window-guarded insertion on 2026-10-15:
+Accessibility field admission is removed, while focus-loss and cancellation
+still suppress Paste. The target app handles its focused control; Dipper does
+not distinguish password or read-only fields. Actual target evidence belongs in
+the development guide.
+Use the [development guide](docs/development.md) for build/run commands and
+verification limits. Optional cleanup, Corrections, reduced retention,
+public distribution and full-pilot evaluation remain open. A versioned local
+release is now installed and verified on the Fedora target; see the delivery guide.
 
 ## Documentation
 
 - [App design and reviewed first-slice contract](docs/app-design.md): module responsibilities, interfaces, failure handling, and acceptance evidence.
+- [Cross-app insertion contract](docs/cross-app-insertion.md): original-window validation, Paste behavior, and compatibility limits.
+- [Desktop installation and updates](docs/desktop-delivery.md): local release ownership, installation, rollback, and proposed release channels.
 - [Development guide](docs/development.md): native dependencies, build/run commands, first use, and private storage.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.

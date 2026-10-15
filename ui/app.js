@@ -235,3 +235,10 @@ initialize().catch((error) => {
 });
 
 window.addEventListener("dipper-window-error", (event) => feedback(event.detail, true));
+
+// Read the packaged host version; do not maintain a separate frontend version.
+window.__TAURI__?.app.getVersion().then((version) => {
+  $("app-version").textContent = `v${version}`;
+  $("app-version").setAttribute("aria-label", `Dipper version ${version}`);
+  $("app-version").title = `Dipper ${version}`;
+}).catch(() => { $("app-version").textContent = "Version unavailable"; });
