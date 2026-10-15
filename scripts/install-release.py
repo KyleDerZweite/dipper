@@ -220,7 +220,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundle', nargs='?', type=Path, default=Path(__file__).resolve().parent)
     parser.add_argument('--prefix', type=Path, default=home / '.local/opt/dipper')
-    parser.add_argument('--data-dir', type=Path, default=Path(os.environ.get('XDG_DATA_HOME', home / '.local/share')) / 'dipper/app')
+    parser.add_argument('--data-dir', type=Path, default=Path(os.environ['DIPPER_DATA_DIR']) if 'DIPPER_DATA_DIR' in os.environ else Path(os.environ.get('XDG_DATA_HOME', home / '.local/share')) / 'dipper/app')
     parser.add_argument('--applications-dir', type=Path, default=Path(os.environ.get('XDG_DATA_HOME', home / '.local/share')) / 'applications')
     parser.add_argument('--bin-dir', type=Path, default=home / '.local/bin')
     parser.add_argument('--rollback', action='store_true')

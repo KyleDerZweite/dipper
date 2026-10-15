@@ -46,7 +46,7 @@ class Delivery(unittest.TestCase):
         for name in names:
             p = root / name
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_bytes((identity + name).encode())
+            p.write_bytes((ROOT / 'scripts/launch-release.py').read_bytes() if name == 'launch' else (identity + name).encode())
             p.chmod(0o755)
             files.append({'path': name, 'sha256': hashlib.sha256(p.read_bytes()).hexdigest(), 'mode': 0o755})
         (root / 'release.json').write_text(json.dumps({'format': 1, 'release_id': identity,
@@ -126,6 +126,9 @@ class Delivery(unittest.TestCase):
             with self.assertRaises(KeyboardInterrupt):
                 installer.activate(self.args)
         self.assertTrue((self.args.prefix / 'install-transaction.json').exists())
+        launch = subprocess.run(['python3', str(self.args.prefix / 'current/launch')], capture_output=True)
+        self.assertNotEqual(launch.returncode, 0)
+        self.assertIn(b'--recover', launch.stderr)
         self.args.recover = True
         installer.activate(self.args)
         self.assertEqual((self.args.prefix / 'current').resolve(), old)
@@ -144,6 +147,23 @@ class Delivery(unittest.TestCase):
         library.symlink_to(self.settings)
         with self.assertRaisesRegex(ValueError, 'escapes'):
             installer.verify(bundle)
+
+    def test_custom_data_environment_matches_application_precedence(self):
+        bundle = self.bundle('environment')
+        runtime = self.root / 'runtime'
+        runtime.mkdir()
+        default = self.root / 'xdg/dipper/app'
+        default.mkdir(parents=True)
+        default_file = default / 'settings.json'
+        default_file.write_bytes(self.original)
+        result = subprocess.run(['python3', str(ROOT / 'scripts/install-release.py'), str(bundle),
+            '--prefix', str(self.args.prefix), '--applications-dir', str(self.args.applications_dir),
+            '--bin-dir', str(self.args.bin_dir)], capture_output=True,
+            env={**os.environ, 'XDG_RUNTIME_DIR': str(runtime), 'XDG_DATA_HOME': str(self.root / 'xdg'),
+                 'DIPPER_DATA_DIR': str(self.args.data_dir)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotEqual(self.settings.read_bytes(), self.original)
+        self.assertEqual(default_file.read_bytes(), self.original)
 
     def test_running_app_lock_refuses_cli_install(self):
         runtime = self.root / 'runtime'

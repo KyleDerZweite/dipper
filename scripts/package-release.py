@@ -28,7 +28,15 @@ def main():
     actual = subprocess.check_output(['git', '-C', str(whisper), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != PIN or subprocess.check_output(['git', '-C', str(whisper), 'status', '--porcelain']).strip():
         raise SystemExit('Whisper source must be clean at the pinned revision.')
-    release = ROOT / 'target/release'
+    cache = (whisper / 'build/CMakeCache.txt').read_text()
+    if f'CMAKE_HOME_DIRECTORY:INTERNAL={whisper.resolve()}' not in cache or 'GGML_VULKAN:BOOL=ON' not in cache:
+        raise SystemExit('Whisper build must be configured from this pinned source with Vulkan enabled.')
+    # Rebuild every shipped native target and all three Rust binaries together.
+    # A desktop-only build must never stamp stale helpers as this release.
+    subprocess.run(['cmake', '--build', str(whisper / 'build'), '--target', 'whisper', '--parallel', '2'], check=True)
+    environment = {**os.environ, 'DIPPER_WHISPER_DIR': str(whisper)}
+    subprocess.run([str(ROOT / 'scripts/build.sh'), '--release'], env=environment, check=True)
+    release = ROOT / 'target/release' 
     version = tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['package']['version']
     identity = f'{version}-local.{revision[:12]}-fedora43-{platform.machine()}'
     dest = ROOT / 'target/dist' / ('dipper-' + identity)
@@ -64,7 +72,8 @@ def main():
                 files.append({'path': str(path.relative_to(dest)), 'sha256': hashlib.file_digest(path.open('rb'), 'sha256').hexdigest(), 'mode': path.stat().st_mode & 0o777})
         metadata = {'format': 1, 'release_id': identity, 'version': version,
                     'source_revision': revision, 'whisper_revision': PIN,
-                    'platform': 'Fedora 43 x86_64', 'journal_schema': 1, 'files': files}
+                    'platform': 'Fedora 43 x86_64', 'journal_schema': 1,
+                    'build_steps': ['cmake --build pinned-whisper/build --target whisper', 'scripts/build.sh --release (complete workspace)'], 'files': files}
         (dest / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
         archive = dest.with_name(dest.name + '.tar.gz')
         with tarfile.open(archive, 'w:gz') as bundle:

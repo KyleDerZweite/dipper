@@ -22,7 +22,8 @@ holds the same session lock as the app throughout every installation mutation
 and refuses a running Dipper. Never stop an active dictation to upgrade.
 A private, durable transaction records prior settings, launchers, desktop entries
 and links before changes. Handled failures restore them. After interruption,
-recover that transaction under the lock before another operation. Switch current
+recover that transaction under the lock before another operation. Both launcher
+and direct installed app startup refuse a pending transaction. Switch current
 atomically; reject release-ID collisions with different content. Test injected
 failure and interrupted-transaction recovery, not only successful installation.
 
@@ -75,10 +76,11 @@ signatures without real protected signing keys. Mobile updates remain separate.
 
 ## Build and installation commands
 
-On the declared Fedora build host, build from a clean committed checkout:
+On the declared Fedora build host, build from a clean committed checkout. The
+packager rebuilds the pinned native runtime and complete Rust workspace before
+copying artifacts, so a desktop-only build cannot mix stale helpers into a release:
 
 ```sh
-scripts/build.sh --release
 python3 scripts/package-release.py
 ```
 
