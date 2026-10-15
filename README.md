@@ -37,12 +37,14 @@ not distinguish password or read-only fields. Actual target evidence belongs in
 the development guide.
 Use the [development guide](docs/development.md) for build/run commands and
 verification limits. Optional cleanup, Corrections, reduced retention,
-installable delivery and full-pilot evaluation remain open.
+public distribution and full-pilot evaluation remain open. A versioned local
+release is now installed and verified on the Fedora target; see the delivery guide.
 
 ## Documentation
 
 - [App design and reviewed first-slice contract](docs/app-design.md): module responsibilities, interfaces, failure handling, and acceptance evidence.
 - [Cross-app insertion contract](docs/cross-app-insertion.md): original-window validation, Paste behavior, and compatibility limits.
+- [Desktop installation and updates](docs/desktop-delivery.md): local release ownership, installation, rollback, and proposed release channels.
 - [Development guide](docs/development.md): native dependencies, build/run commands, first use, and private storage.
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.

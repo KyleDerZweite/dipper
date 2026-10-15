@@ -2,7 +2,8 @@
 
 The first app targets Fedora 43 KDE on Wayland. It uses a Rust core, a Tauri 2
 shell, direct PipeWire capture, SQLite/RF64 storage, and one local Whisper
-worker per dictation. This development build is not an installer or release.
+worker per dictation. This section describes checkout builds. For the installed user-local release,
+see the [delivery guide](desktop-delivery.md) and the dated verification below.
 
 Use Rust 1.95, a C/C++ compiler, GTK 3/WebKitGTK 4.1/AppIndicator development
 packages, and the existing PipeWire runtime. Tests also require Python 3, FFmpeg,
@@ -499,3 +500,74 @@ app or control accepts Ctrl+V. Password/read-only controls are no longer screene
 The Journal continues to record dispatched Paste as unverified, even when this
 verification harness observed the receiving field. Full-pilot acceptance and
 installable delivery remain separate work.
+
+## Compact window header verification, 2026-10-15
+
+The standalone titlebar and duplicate Dipper label were removed. Native rendered
+views at 680 by 540 and 420 by 540 were inspected with actual existing Journal
+text. The narrow view retains all window controls and wraps status to its own
+row. Actual title dragging, maximize/restore, minimize, close to tray and tray
+reopen passed against the rebuilt Tauri app. Four existing Node UI regressions
+and the native build passed. A focused independent diff review checks the layout
+and unchanged host interactions. Private screenshots are retained locally.
+
+The collaborative browser returned a 1280-pixel viewport for a requested
+680-pixel resize, then timed out on snapshot and resize; rendered acceptance
+therefore uses the actual native app rather than browser emulation. Recording,
+recognition and insertion code were not changed in this UI slice.
+
+## Installed local release verification, 2026-10-15
+
+The optimized Fedora 43 x86_64 release at source `4f9f312227f9` is installed under
+`~/.local/opt/dipper/releases/0.1.0-local.4f9f312227f9-fedora43-x86_64`.
+`~/.local/bin/dipper` and the visible Dipper desktop entry use the stable current
+link. This is a user-local versioned bundle, not an RPM/AppImage or public release.
+The approximately 26 MiB archive contains the app, sibling helpers and pinned
+Whisper/Vulkan libraries, with source/runtime provenance and SHA-256 manifest.
+Models and private stores are excluded. No autostart or auto-updater was enabled.
+
+The first installed `3b85661` release passed actual F2/capture/Turbo/Vulkan/Paste
+into the owner-designated empty Vesktop composer from working directory `/`.
+The inserted text equaled the raw transcript. Only that text was removed; no
+Enter was sent and both original clipboard payloads were restored. A departure
+and return suppressed both Paste and clipboard publication. `/proc` mappings
+proved the worker executable and all five Whisper/GGML libraries came from the
+installed release, with no prototype runtime path. Both workers were reaped.
+The owned test app and virtual input were removed after settlement.
+
+The final `4f9f312` package changes only the desktop entry category relative to
+that runtime implementation. Actual upgrade to it, rollback to `3b85661`, then
+upgrade back passed using the real user installation and existing private store.
+Each installed CLI reported the expected source revision. The final desktop file
+passed `desktop-file-validate`, and actual `gtk-launch` from `/` displayed the
+installed compact window. All 37 retained file hashes and Journal row counts
+were unchanged; model/input/Hold settings were unchanged. Only native_lib_dir
+now points to the stable installed runtime, with private metadata backups.
+
+A direct installed-binary attempt with a pending transaction failed before
+creating its data directory. Installation while the actual app was running also
+refused without changing settings. Eight delivery tests cover handled failures,
+interrupted recovery and blocked launch, custom data-directory precedence,
+corruption/unsafe paths, collision rejection and install/update/rollback.
+The 76 Rust tests, four Node regressions, strict Clippy, formatting, shell/Python
+syntax and local documentation links passed. Initial independent reviews found
+transaction-start and build-provenance gaps; all were fixed and re-reviewed with
+no remaining findings. The initial desktop-file category validation failed; the
+final installer category passed after correction. An initial long-running shell
+build encountered a parse error after its script was edited; subsequent complete
+packager builds passed from clean committed revisions.
+
+A single warm desktop launch reached a visible window in 0.658 seconds. The
+main process with that window visible sampled 214,511,616 bytes RSS; this excludes
+renderer processes and is not a total-memory measurement or resource budget.
+No fresh installed hard-crash or storage-full Journal exercise was run: prior
+core failure tests remain that evidence. Broader target coverage, clean-machine
+prerequisites and public update/signature acceptance are still separate work.
+Private evidence stays in `~/.local/state/dipper/verification/installed-20261015`.
+The normal installed final app is running; settings, models and existing Journal
+remain in their established private locations.
+
+The first menu-test app was no longer present at the final process check. A
+second `gtk-launch` in a detached session remained running across later tool
+calls. That successful persistent process is the final installed app; the
+initial missing-process check is retained in the private verification record.

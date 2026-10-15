@@ -26,4 +26,5 @@ jobs:
       - run: node --check ui/quick.js
       - run: node --check ui/transcript.js
       - run: node --test tests/*.cjs
+      - run: python3 tests/delivery.py -v
       - run: bash -n scripts/*.sh

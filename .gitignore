@@ -6,3 +6,4 @@
 *.sqlite*
 *.log
 /apps/desktop/gen/
+__pycache__/
