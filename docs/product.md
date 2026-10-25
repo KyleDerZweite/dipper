@@ -8,6 +8,14 @@ On 2026-10-13, Kyle selected the core shortcut, dictation, and insertion workflo
 
 ## Current development direction
 
+On 2026-10-25, Kyle accepted the [Whistle comparison](whistle-research.md) and
+closed the current speech-model evaluation in issue #3. Keep Whisper
+large-v3-turbo with Auto recognition. Do not integrate Whistle or continue Qwen
+speech comparisons now. Whistle remains a possible future CPU/low-memory
+candidate, without an active implementation commitment. This closes the current
+model-selection question, not the outstanding full-pilot acceptance evidence.
+Corpus work in #2 and Corrections/retention in #14 remain separate.
+
 The owner accepted the recorder/transcription experiment as a sufficient
 provisional baseline on 2026-10-13. Proceed toward the real app and stop further
 prototype iterations. Additional recordings can be collected incrementally;
