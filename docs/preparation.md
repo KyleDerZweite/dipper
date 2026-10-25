@@ -4,6 +4,17 @@ The following plan tracks development preparation and the accepted move from exp
 
 Kyle selected the core dictation workflow, configurable retention, and explicit correction, with comprehensive history for his pilot as the first pilot scope on 2026-10-13. The benchmark contract must refine that direction. Feature parity is not a requirement; ideas from reference products remain optional.
 
+## Model evaluation decision, 2026-10-25
+
+Kyle accepted the [Whistle results](whistle-research.md), selected continued
+Whisper large-v3-turbo/Auto use and closed the current evaluation in issue #3.
+Whistle remains a possible CPU/low-memory candidate for a future concrete need;
+neither Whistle integration nor more Qwen speech trials are planned now.
+This decision supersedes the earlier instruction below to continue #3.
+It does not establish full-pilot acceptance. Corpus/reference work remains in
+#2, and Corrections, processing and retention remain in #14. Broader workflow,
+resource and final-pilot evaluation are deferred until explicitly resumed.
+
 ## Current delivery frontier, 2026-10-14
 
 The raw desktop app, compact tray workflow, Auto recognition and explicit Turbo

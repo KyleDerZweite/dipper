@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-25",
+  "dipper_revision": "641b99e36c4f8bbb25b86a272d023e49b525497e",
+  "clips": 43,
+  "capture_seconds": 984.757,
+  "max_capture_seconds": 119.232,
+  "successful_jobs": 129,
+  "failed_jobs": 0,
+  "keywords": [
+    "Mergen"
+  ],
+  "keyword_changed_outputs": 1,
+  "summary": [
+    {
+      "model": "turbo",
+      "completed": 43,
+      "median_seconds": 2.2691350819950458,
+      "max_seconds": 6.0777487399900565,
+      "peak_host_rss_bytes": 220446720,
+      "confirmed_word_edits": 15,
+      "confirmed_words": 93
+    },
+    {
+      "model": "whistle",
+      "completed": 43,
+      "median_seconds": 2.329716541004018,
+      "max_seconds": 18.132701601003646,
+      "peak_host_rss_bytes": 134766592,
+      "confirmed_word_edits": 31,
+      "confirmed_words": 93
+    },
+    {
+      "model": "whistle-keywords",
+      "completed": 43,
+      "median_seconds": 2.2750779280031566,
+      "max_seconds": 19.728846897007315,
+      "peak_host_rss_bytes": 134791168,
+      "confirmed_word_edits": 31,
+      "confirmed_words": 93
+    }
+  ],
+  "official_artifacts": [
+    {
+      "repo": "Cactus-Compute/needle3",
+      "revision": "d6c7d6a2e9655505e0f8e23339356dd1705900eb",
+      "file": "python/cactus_needle-3.3.3-py3-none-manylinux2014_x86_64.whl",
+      "bytes": 689201,
+      "sha256": "b909897e11cf4da9566df6370f8a63564693fbd6edeaac0b8678b71865d4dc24",
+      "url": "https://huggingface.co/Cactus-Compute/needle3/resolve/d6c7d6a2e9655505e0f8e23339356dd1705900eb/python/cactus_needle-3.3.3-py3-none-manylinux2014_x86_64.whl",
+      "source_sha256": "b909897e11cf4da9566df6370f8a63564693fbd6edeaac0b8678b71865d4dc24",
+      "integrity_verified": true
+    },
+    {
+      "repo": "Cactus-Compute/whistle",
+      "revision": "741118687e1f008f06d1351a402a731274789790",
+      "file": "whistle.cact",
+      "bytes": 16919407,
+      "sha256": "b6e02f048568ac5d01a2042556c658061e699acbc0aa2a1439f52f3d461dffeb",
+      "url": "https://huggingface.co/Cactus-Compute/whistle/resolve/741118687e1f008f06d1351a402a731274789790/whistle.cact",
+      "source_sha256": "b6e02f048568ac5d01a2042556c658061e699acbc0aa2a1439f52f3d461dffeb",
+      "integrity_verified": true
+    }
+  ],
+  "limits": [
+    "Only two owner-confirmed reference clips; 93 normalized words.",
+    "Fresh-process replay, not live release-to-insertion latency.",
+    "Uncontrolled file caches and desktop load.",
+    "Host RSS excludes VRAM.",
+    "Whistle CPU defaults versus Turbo F16 Vulkan with eight threads."
+  ]
+}

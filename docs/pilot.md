@@ -155,8 +155,13 @@ design work.
 acceptance contract. [Issue #2](https://github.com/KyleDerZweite/dipper/issues/2)
 owns corpus preparation and the reproducible procedure, which can proceed from
 the accepted scope while the remaining acceptance criteria are refined.
-[Issue #3](https://github.com/KyleDerZweite/dipper/issues/3) owns the candidate
-comparison. [Issue #4](https://github.com/KyleDerZweite/dipper/issues/4) owns
+[Issue #3](https://github.com/KyleDerZweite/dipper/issues/3) records the candidate
+comparison, closed by Kyle on 2026-10-25 after the
+[Whistle trial](whistle-research.md). Whisper large-v3-turbo/Auto remains selected;
+further model comparisons are deferred. This owner decision does not establish
+the full pilot gates above. Corpus/reference gaps remain in #2, and
+Corrections/processing/retention remain in #14. Broader workflow/resource and
+final-pilot evaluation require an explicit resumption.
+[Issue #4](https://github.com/KyleDerZweite/dipper/issues/4) owns
 foundation selection and reviewed component contracts. Issue #4 is no longer blocked by completion of the full comparison in #3.
-Keep final corpus/comparison evidence open, and make each implementation slice
-ready only when its own reviewed contract is coherent.
+Make each implementation slice ready only when its own reviewed contract is coherent.
