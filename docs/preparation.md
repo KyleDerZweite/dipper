@@ -35,11 +35,13 @@ Preserve the Insertion interface, raw Journal fallback and the working T3 chain.
 
 The first user-local release installation and explicit upgrade/rollback path are
 implemented and verified under the [delivery contract](desktop-delivery.md).
-Public GitHub release channels and signed automatic updates remain proposals.
+The manual Fedora 43 x86_64 Alpha `0.0.1-alpha.1` was published on 2026-10-15;
+the delivery guide links the release and installation evidence. Signed delivery
+and automatic updates remain open in issue #30.
 The [development guide](development.md) records exact installed-target evidence.
 
 Then review and deliver model library/download/Reload in issue #22, explicit
-Corrections and retention in #14, and subsequent public desktop distribution. Issue #26 owns the first local
+Corrections and retention in #14, and broader desktop distribution. Issue #26 owns the first local
 installation; optional startup and signed updates remain separate decisions. These remain separate useful PR slices. Their
 contracts must settle the actual worker/model compatibility and update ownership
 before implementation Ready. Installation and OTA are not silently included in
