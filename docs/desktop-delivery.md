@@ -1,8 +1,15 @@
-# Local desktop delivery and update policy
+# Desktop delivery and update policy
 
-Status: local installation authorized by Kyle on 2026-10-15. Public GitHub
-Releases and automatic updates are proposed distribution steps, not publication
-in this slice. This follows the existing Rust/Tauri/worker/Journal boundaries.
+Status, verified 2026-10-28: Kyle authorized local installation and manual Alpha
+publication on 2026-10-15. [0.0.1-alpha.1](https://github.com/KyleDerZweite/dipper/releases/tag/v0.0.1-alpha.1)
+is a published GitHub pre-release for Fedora 43 x86_64, built from source
+`94be0956673c1617f49b11d8fd5542d43dcbaef4`. Its assets are the platform archive,
+adjacent SHA-256 checksum and `release.json` source/runtime manifest.
+[Issue #30's publication record](https://github.com/KyleDerZweite/dipper/issues/30#issuecomment-6196474661)
+records a fresh download, checksum match, local installation and preserved
+settings/Journal evidence. These are historical target checks, not fresh runtime
+acceptance of current `main`. Signed delivery and automatic updates remain open
+in #30. This follows the existing Rust/Tauri/worker/Journal boundaries.
 
 ## Local installation contract
 
@@ -62,11 +69,11 @@ a useful tested group of changes, rather than publishing every commit. A weekly
 candidate is a useful ceiling for routine batches; urgent fixes can ship sooner.
 Only promote a candidate after target-machine installation and recovery checks.
 
-A future GitHub Release should contain the platform-specific artifact, checksums,
-source/runtime manifest, release notes and compatibility/rollback limits. Start
-with manual download and explicit installation. Keep models independent from
-app releases. Build Linux artifacts on a declared compatibility baseline; this
-Fedora 43 build does not establish support for older distributions.
+Future GitHub Releases should retain the Alpha's platform-specific artifact,
+checksums and source/runtime manifest, with release notes and compatibility/rollback
+limits. The Alpha uses manual download and explicit installation. Keep models
+independent from app releases. Build Linux artifacts on a declared compatibility
+baseline; this Fedora 43 build does not establish support for older distributions.
 
 Before automatic updates, choose RPM versus AppImage as the public channel,
 settle signing-key custody and the supported updater version, and test interrupted

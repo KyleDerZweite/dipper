@@ -125,6 +125,36 @@ unavailable native Whisper backend, so protocol and resampling fixtures need no
 model download. It does not establish native Whisper ABI or GPU acceptance;
 those require the local pinned-runtime build and integration evidence.
 
+## Dependency maintenance
+
+Cargo and the committed `Cargo.lock` own application dependencies. The frontend
+has no Node package dependencies, and Python delivery tools use the standard
+library, so no pnpm or uv dependency environment is needed. Keep their direct
+`node` and `python3` commands. `.github/dependabot.yml` checks Cargo and GitHub
+Actions weekly. Review and run the existing locked workspace checks for dependency
+updates; CI does not establish native runtime or desktop acceptance.
+
+Dependabot vulnerability alerts and the dependency graph were enabled through
+the GitHub API on 2026-10-28. Automatic security-update PRs remain disabled.
+Branch protection and code scanning were not changed. To inspect current Rust
+advisories with an existing `cargo-audit` installation, run `cargo audit` from the
+checkout. Review unmaintained-dependency notices separately from vulnerabilities;
+do not replace the accepted Rust/Tauri architecture merely to suppress a notice.
+
+On 2026-10-28, GitHub reported [medium-severity alert #1](https://github.com/KyleDerZweite/dipper/security/dependabot/1)
+for `glib 0.18.5`, [RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html).
+The advisory fixes `VariantStrIter` unsoundness in `glib >=0.20.0`; the desktop's
+GTK 0.18 and WebKitGTK 2.0.2 dependencies require GLib 0.18. A direct version bump
+cannot replace those dependencies, so the alert remains unresolved pending an
+upstream-compatible fix or separately reviewed desktop dependency change. No
+advisory is ignored. The same audit reports unmaintained `proc-macro-error`,
+`zbus_names`, `zvariant` and `zvariant_derive`. Moving the D-Bus types to zbus 6
+requires a separate compatibility review, including transitive desktop callers.
+The audit database was at `40f5be6fb12ed93fc591bf4ab23b7d793b3f2239`.
+Registry requests timed out during the initial audit's yanked-crate checks;
+`cargo audit --no-fetch --no-yanked` completed against that database. It does not
+establish the current registry's yanked-crate status or a clean security result.
+
 ## Native verification, 2026-10-14
 
 Code revision `79aa5db` was built and checked on Fedora KDE Wayland with the
