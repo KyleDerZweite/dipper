@@ -53,6 +53,7 @@ on the Fedora target. See the delivery guide for evidence and compatibility limi
 - [Recognition and cleanup comparison](docs/recognition-cleanup-research.md): Turbo measurements and local cleanup candidates.
 - [Current ASR alternatives](docs/asr-alternatives-research.md): multilingual speech candidates and native runtime options.
 - [Whistle comparison](docs/whistle-research.md): Cactus artifacts, runtime limits, and the local comparison with Turbo.
+- [FreeFlow comparison](docs/freeflow-research.md): shortcut, cleanup, recovery, and context ideas, with platform limits.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
 - [Native desktop research](docs/native-desktop-research.md): KDE interaction, target validation, and insertion limits. Related reports cover [worker supervision](docs/worker-lifecycle-research.md) and [Journal recovery](docs/journal-recovery-research.md).
 - [Pilot procedure](docs/pilot-procedure.md): recording slots, measurement steps, and quality examples.
