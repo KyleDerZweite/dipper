@@ -102,6 +102,14 @@ or latency on the target PC.
 
 ## Optional feature ideas
 
+On 2026-10-29, Kyle shelved the [FreeFlow comparison](freeflow-research.md).
+No FreeFlow-inspired feature or experiment is scheduled. Hold remains preferred;
+realtime recognition is interesting but has no current priority. Kyle sees more
+potential in a future configurable keyword library with explicit replacements,
+such as `Merchen` → `mergen` in his German technical dictation. This relates to
+[issue #8](https://github.com/KyleDerZweite/dipper/issues/8), remains deferred,
+and does not authorize implementation or establish general matching rules.
+
 Wispr Flow and Superwhisper inspired some of the ideas below. They are not a
 parity checklist or a commitment to implement every feature. The accepted pilot
 scope above owns mandatory capabilities; additions require an explicit scope
