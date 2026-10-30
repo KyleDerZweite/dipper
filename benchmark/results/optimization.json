@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "experiments": [
+    {
+      "id": "skillopt-01",
+      "target_model": "lfm3-text",
+      "optimizer_model": "qwen3.5:4b",
+      "history": [
+        {
+          "round": 0,
+          "validation_wer": 0.4420289855072464,
+          "accepted": true,
+          "prompt_sha256": "82e4c6628427f0698ffeecfe894124767995df88cffe182d8258961c10baef3f"
+        },
+        {
+          "round": 1,
+          "validation_wer": 0.6014492753623188,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "074951276eab85bf701564c4ffd9cfa744da826ca4175ccd9b6da31dc5648b27",
+          "patches": 1
+        },
+        {
+          "round": 2,
+          "validation_wer": 27.753623188405797,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "9e552aafc7a81f510cd66604877cc71bac104dc346e4d87a4dacc527a44d9679",
+          "patches": 2
+        },
+        {
+          "round": 3,
+          "validation_wer": 9.746376811594203,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "52d202680159fc40892c1f2300ce7b33c4c0c631358e88318a3dc55d93cce53a",
+          "patches": 2
+        }
+      ],
+      "configuration": {
+        "target_temperature": 0.1,
+        "target_max_tokens": 1024,
+        "optimizer_max_tokens": 4096,
+        "train_samples": 8,
+        "validation_samples": 8
+      },
+      "selected_prompt": "cleanup-seed.md"
+    },
+    {
+      "id": "skillopt-02",
+      "target_model": "lfm3-text",
+      "optimizer_model": "qwen3.5:4b",
+      "history": [
+        {
+          "round": 0,
+          "validation_wer": 0.4420289855072464,
+          "accepted": true,
+          "prompt_sha256": "82e4c6628427f0698ffeecfe894124767995df88cffe182d8258961c10baef3f"
+        },
+        {
+          "round": 1,
+          "validation_wer": 1.108695652173913,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "cf37ce3e4d9ed5733eee453044a0b623f8fc426ab031ec27d76c71b54c7f49d3",
+          "patches": 2
+        },
+        {
+          "round": 2,
+          "validation_wer": 0.6304347826086957,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "9982c12dd869b1cd87a8e21f6438b9e0dec078859a06c251bdd356b98c079317",
+          "patches": 1
+        },
+        {
+          "round": 3,
+          "validation_wer": 6.840579710144928,
+          "best_validation_wer": 0.4420289855072464,
+          "accepted": false,
+          "prompt_sha256": "31d256755027c7d9c2f6576d1da5a927052de7b28f2db52800516a86b07e02a6",
+          "patches": 2
+        }
+      ],
+      "configuration": {
+        "target_temperature": 0.0,
+        "target_max_tokens": 1024,
+        "optimizer_max_tokens": 4096,
+        "train_samples": 8,
+        "validation_samples": 8
+      },
+      "selected_prompt": "cleanup-seed.md"
+    }
+  ],
+  "limitations": [
+    "Local 4B optimizer, bounded search, not the complete upstream ReflACT trainer.",
+    "The first experiment did not retain completion reasons.",
+    "One analyst response in the second experiment was malformed; optional JSON recovery was added afterward.",
+    "No held-out test data were used for prompt selection."
+  ]
+}

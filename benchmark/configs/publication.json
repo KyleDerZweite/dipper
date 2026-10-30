@@ -1,0 +1,39 @@
+{
+  "datasets": [
+    "nyra",
+    "sotto",
+    "fleurs:de_de",
+    "fleurs:en_us"
+  ],
+  "models": {
+    "No cleanup": {
+      "label": "No cleanup",
+      "configuration": {
+        "kind": "identity"
+      }
+    },
+    "lfm3-text": {
+      "label": "LFM3 Text Q4_K_M",
+      "configuration": {
+        "runtime": "llama.cpp b11960",
+        "precision": "Q4_K_M",
+        "weights_sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+      }
+    },
+    "LFM3-Audio-2B Q4_K_M": {
+      "label": "LFM3 Audio Q4_K_M",
+      "configuration": {
+        "runtime": "llama.cpp b11960",
+        "precision": "Q4_K_M",
+        "weights_sha256": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2"
+      }
+    },
+    "Whisper large-v3-turbo f16": {
+      "label": "Whisper Turbo f16",
+      "configuration": {
+        "runtime": "whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6",
+        "precision": "f16"
+      }
+    }
+  }
+}

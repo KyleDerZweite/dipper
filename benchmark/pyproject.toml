@@ -1,0 +1,13 @@
+[project]
+name = "dipper-benchmark"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "huggingface-hub>=0.35,<2",
+    "json-repair>=0.61,<1",
+    "pyarrow>=20,<24",
+    "skillopt",
+]
+
+[tool.uv.sources]
+skillopt = { git = "https://github.com/microsoft/SkillOpt", rev = "bc0a392ef0a7f92840ec673d80204d34ced169d0" }

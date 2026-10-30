@@ -52,6 +52,8 @@ on the Fedora target. See the delivery guide for evidence and compatibility limi
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Recognition and cleanup comparison](docs/recognition-cleanup-research.md): Turbo measurements and local cleanup candidates.
 - [Current ASR alternatives](docs/asr-alternatives-research.md): multilingual speech candidates and native runtime options.
+- [Reusable benchmark](benchmark/README.md): local datasets, ASR/cleanup evaluation, SkillOpt and public results.
+- [LFM3 evaluation](docs/lfm3-evaluation.md): retained-recording Audio replay and proposed text/context Modes.
 - [Whistle comparison](docs/whistle-research.md): Cactus artifacts, runtime limits, and the local comparison with Turbo.
 - [FreeFlow comparison](docs/freeflow-research.md): shortcut, cleanup, recovery, and context ideas, with platform limits.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.

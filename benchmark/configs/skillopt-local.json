@@ -1,0 +1,1 @@
+{"target_endpoint":"http://127.0.0.1:18743/v1","target_model":"lfm3-text","optimizer_endpoint":"http://127.0.0.1:11434/v1","optimizer_model":"qwen3.5:4b"}
