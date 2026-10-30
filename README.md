@@ -56,6 +56,7 @@ on the Fedora target. See the delivery guide for evidence and compatibility limi
 - [LFM3 evaluation](docs/lfm3-evaluation.md): retained-recording Audio replay and proposed text/context Modes.
 - [Whistle comparison](docs/whistle-research.md): Cactus artifacts, runtime limits, and the local comparison with Turbo.
 - [FreeFlow comparison](docs/freeflow-research.md): shortcut, cleanup, recovery, and context ideas, with platform limits.
+- [Hex comparison](docs/hex-research.md): replacements, processing fallback, Linux portals, and isolated Fedora KDE trial prerequisites.
 - [Foundation research](docs/research.md): dated candidate comparison, dependencies, hardware, and background sources.
 - [Native desktop research](docs/native-desktop-research.md): KDE interaction, target validation, and insertion limits. Related reports cover [worker supervision](docs/worker-lifecycle-research.md) and [Journal recovery](docs/journal-recovery-research.md).
 - [Pilot procedure](docs/pilot-procedure.md): recording slots, measurement steps, and quality examples.
