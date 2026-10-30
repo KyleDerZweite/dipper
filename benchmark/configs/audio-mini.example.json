@@ -1,0 +1,179 @@
+{
+  "evaluations": [
+    {
+      "id": "nyra-de-whisper",
+      "label": "whisper raw ASR",
+      "task": "asr",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "whisper",
+        "model": "Whisper large-v3-turbo f16",
+        "binary": "${DIPPER_WHISPER_DIR}/build/bin/whisper-cli",
+        "weights": "${DIPPER_WHISPER_DIR}/models/ggml-large-v3-turbo.bin",
+        "runtime_revision": "whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6",
+        "timeout_s": 300
+      }
+    },
+    {
+      "id": "nyra-de-whisper-identity",
+      "task": "chain",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "identity",
+        "model": "No cleanup"
+      },
+      "upstream": "nyra-de-whisper"
+    },
+    {
+      "id": "nyra-de-whisper-cleanup",
+      "task": "chain",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "chat",
+        "model": "lfm3-text",
+        "endpoint": "http://127.0.0.1:18743/v1",
+        "temperature": 0.0,
+        "max_tokens": 1024,
+        "runtime_revision": "llama.cpp b11960",
+        "weights_sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+      },
+      "prompt": "prompts/cleanup-seed.md",
+      "upstream": "nyra-de-whisper"
+    },
+    {
+      "id": "nyra-de-audio",
+      "label": "audio raw ASR",
+      "task": "asr",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "lfm-audio",
+        "model": "LFM3-Audio-2B Q4_K_M",
+        "binary": "${DIPPER_BENCH_LLAMA}/llama-cli",
+        "weights": "${DIPPER_BENCH_MODELS}/audio-Q4_K_M.gguf",
+        "projector": "${DIPPER_BENCH_MODELS}/projector-parallel.gguf",
+        "weights_sha256": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
+        "projector_sha256": "2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365",
+        "runtime_revision": "llama.cpp b11960",
+        "timeout_s": 300
+      }
+    },
+    {
+      "id": "nyra-de-audio-identity",
+      "task": "chain",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "identity",
+        "model": "No cleanup"
+      },
+      "upstream": "nyra-de-audio"
+    },
+    {
+      "id": "nyra-de-audio-cleanup",
+      "task": "chain",
+      "dataset": "nyra",
+      "language": "de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "chat",
+        "model": "lfm3-text",
+        "endpoint": "http://127.0.0.1:18743/v1",
+        "temperature": 0.0,
+        "max_tokens": 1024,
+        "runtime_revision": "llama.cpp b11960",
+        "weights_sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4"
+      },
+      "prompt": "prompts/cleanup-seed.md",
+      "upstream": "nyra-de-audio"
+    },
+    {
+      "id": "fleurs-de_de-whisper",
+      "label": "whisper raw ASR",
+      "task": "asr",
+      "dataset": "fleurs",
+      "language": "de_de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "whisper",
+        "model": "Whisper large-v3-turbo f16",
+        "binary": "${DIPPER_WHISPER_DIR}/build/bin/whisper-cli",
+        "weights": "${DIPPER_WHISPER_DIR}/models/ggml-large-v3-turbo.bin",
+        "runtime_revision": "whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6",
+        "timeout_s": 300
+      }
+    },
+    {
+      "id": "fleurs-de_de-audio",
+      "label": "audio raw ASR",
+      "task": "asr",
+      "dataset": "fleurs",
+      "language": "de_de",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "lfm-audio",
+        "model": "LFM3-Audio-2B Q4_K_M",
+        "binary": "${DIPPER_BENCH_LLAMA}/llama-cli",
+        "weights": "${DIPPER_BENCH_MODELS}/audio-Q4_K_M.gguf",
+        "projector": "${DIPPER_BENCH_MODELS}/projector-parallel.gguf",
+        "weights_sha256": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
+        "projector_sha256": "2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365",
+        "runtime_revision": "llama.cpp b11960",
+        "timeout_s": 300
+      }
+    },
+    {
+      "id": "fleurs-en_us-whisper",
+      "label": "whisper raw ASR",
+      "task": "asr",
+      "dataset": "fleurs",
+      "language": "en_us",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "whisper",
+        "model": "Whisper large-v3-turbo f16",
+        "binary": "${DIPPER_WHISPER_DIR}/build/bin/whisper-cli",
+        "weights": "${DIPPER_WHISPER_DIR}/models/ggml-large-v3-turbo.bin",
+        "runtime_revision": "whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6",
+        "timeout_s": 300
+      }
+    },
+    {
+      "id": "fleurs-en_us-audio",
+      "label": "audio raw ASR",
+      "task": "asr",
+      "dataset": "fleurs",
+      "language": "en_us",
+      "split": "test",
+      "limit": 6,
+      "model": {
+        "kind": "lfm-audio",
+        "model": "LFM3-Audio-2B Q4_K_M",
+        "binary": "${DIPPER_BENCH_LLAMA}/llama-cli",
+        "weights": "${DIPPER_BENCH_MODELS}/audio-Q4_K_M.gguf",
+        "projector": "${DIPPER_BENCH_MODELS}/projector-parallel.gguf",
+        "weights_sha256": "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
+        "projector_sha256": "2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365",
+        "runtime_revision": "llama.cpp b11960",
+        "timeout_s": 300
+      }
+    }
+  ]
+}

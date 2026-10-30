@@ -1,0 +1,35 @@
+name: Benchmark checks
+on:
+  push:
+    branches: [main]
+    paths: ['benchmark/**', '.github/workflows/benchmark*.yml']
+  pull_request:
+    paths: ['benchmark/**', '.github/workflows/benchmark*.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        run: python -m pip install uv==0.11.16
+      - name: Install locked benchmark dependencies
+        run: uv sync --project benchmark --locked
+      - name: Check benchmark boundaries
+        working-directory: benchmark
+        run: |
+          uv run --locked python -m unittest discover -s tests -v
+          node --check site/app.js
+          uv run --locked python -m dipperbench build-site --approved-results results/latest.json --output runs/site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-site
+          path: benchmark/runs/site
+          include-hidden-files: true

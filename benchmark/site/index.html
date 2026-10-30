@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Dipper Bench · Dictation evaluations</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip" href="#results">Skip to results</a>
+  <header class="header">
+    <a class="wordmark" href="./">Dipper<span> / bench</span></a>
+    <nav aria-label="Main navigation"><a href="#results" aria-current="page">Results</a><a href="https://github.com/KyleDerZweite/dipper/tree/main/benchmark">Protocol &amp; source</a></nav>
+    <button id="theme" type="button" aria-label="Color theme: dark. Switch to light.">Theme: dark</button>
+  </header>
+  <main id="results">
+    <div class="intro"><p class="eyebrow">Dictation evaluations</p><h1>Dipper benchmarks</h1><p>Speech recognition, text cleanup, and complete chains. Compare runs within the same task, dataset, and split.</p></div>
+    <div class="workspace">
+      <aside aria-label="Result filters">
+        <h2>Compare runs</h2>
+        <label for="task">Task</label><select id="task"><option value="">All tasks</option></select>
+        <label for="dataset">Dataset</label><select id="dataset"><option value="">All datasets</option></select>
+        <label for="split">Split</label><select id="split"><option value="">All splits</option></select>
+        <label for="metric">Chart metric</label><select id="metric"><option value="wer">Word error rate</option><option value="cer">Character error rate</option><option value="exact_match_rate">Exact match</option><option value="latency_median_s">Median latency</option></select>
+        <button id="reset" type="button">Reset filters</button>
+        <p class="note">An unconfirmed transcript is a comparison reference, not ground truth. Scores depend on the reference and normalization protocol.</p>
+      </aside>
+      <div class="results-main">
+        <section aria-labelledby="comparison-title" class="panel">
+          <div class="section-heading"><h2 id="comparison-title">Run comparison</h2><span id="count" role="status" aria-live="polite">Loading results…</span></div>
+          <p id="metric-note" class="muted">Lower word error rate is better. Missing measurements are unavailable.</p>
+          <p class="note">This is an index of observations, not a controlled ranking across datasets or hardware. Select a run to inspect its configuration and limitations.</p>
+          <div id="chart" class="chart" aria-label="Run comparison chart"></div>
+          <div id="status" role="status" class="state">Loading public benchmark results…</div>
+          <button id="retry" type="button" hidden>Retry loading results</button>
+        </section>
+        <section aria-labelledby="table-title" class="panel">
+          <div class="section-heading"><h2 id="table-title">Results</h2><span class="muted">Select a run for evidence</span></div>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable results table"><table><caption class="sr-only">Filtered benchmark runs. The selected chart metric determines the order.</caption><thead><tr><th scope="col">Run / model</th><th scope="col">Task / dataset / split</th><th scope="col">Samples</th><th scope="col"><abbr title="Word error rate">WER</abbr></th><th scope="col"><abbr title="Character error rate">CER</abbr></th><th scope="col">Exact match</th><th scope="col">Median latency</th><th scope="col">Reference</th></tr></thead><tbody id="rows"></tbody></table></div>
+        </section>
+        <section id="optimization" class="panel" hidden aria-labelledby="optimization-title"><h2 id="optimization-title">Prompt optimization</h2><p class="note">SkillOpt candidates are selected on validation data. These are not held-out test scores. An update is accepted only when validation WER strictly decreases.</p><div id="optimization-results"></div></section>
+        <section id="detail" class="panel" aria-labelledby="detail-title"><h2 id="detail-title" tabindex="-1">Run evidence</h2><p class="muted">Select a run from the chart or table to inspect its prompt, configuration, reference status, and limitations.</p></section>
+      </div>
+    </div>
+  </main>
+  <footer>Public results only. Private recordings and local artifact paths belong outside this site. <a href="results.json">Download results JSON</a></footer>
+  <noscript><p class="state">JavaScript is required for filters and run details. <a href="results.json">Read the public results JSON.</a></p></noscript>
+</body>
+</html>
