@@ -29,7 +29,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -v
           node --check site/app.js
           uv run --locked python -m dipperbench build-site --approved-results results/latest.json --output runs/site
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: benchmark/runs/site
