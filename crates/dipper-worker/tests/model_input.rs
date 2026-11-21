@@ -38,6 +38,7 @@ fn source(directory: &tempfile::TempDir, samples: &[f32]) -> AudioSource {
         channels: 1,
         frames: count,
         data_offset: 92,
+        recovered: false,
     }
 }
 
@@ -100,4 +101,40 @@ fn nonfinite_corrupt_counts_and_unsupported_format_fail_without_truncation() {
     let mut valid = source(&directory, &[0.0; 4]);
     valid.frames = (i32::MAX as u64 + 1) * 3;
     assert!(prepare_model_input(&valid).is_err());
+}
+
+#[test]
+fn recovered_source_allows_stale_header_counts_while_rejecting_truncation_and_nan() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut recovered = source(&directory, &[0.25; 64]);
+    let mut bytes = fs::read(&recovered.path).unwrap();
+    // Simulate crash-recovered unfinalized RF64 header counts (smaller than available tail).
+    bytes[28..36].copy_from_slice(&(16_u64 * 4).to_le_bytes());
+    bytes[36..44].copy_from_slice(&16_u64.to_le_bytes());
+    bytes[80..84].copy_from_slice(&16_u32.to_le_bytes());
+    fs::write(&recovered.path, &bytes).unwrap();
+    let original = fs::read(&recovered.path).unwrap();
+
+    // Non-recovered refuses mismatched header counts.
+    assert!(prepare_model_input(&recovered).is_err());
+
+    // Recovered reads the valid 48 kHz tail read-only without modifying the source file.
+    recovered.recovered = true;
+    let prepared = prepare_model_input(&recovered).unwrap();
+    assert_eq!(prepared.samples.len(), 64_usize.div_ceil(3));
+    assert_eq!(fs::read(&recovered.path).unwrap(), original);
+
+    // Recovered still enforces file length and finite samples.
+    let mut truncated = recovered.clone();
+    truncated.frames = 65;
+    assert!(prepare_model_input(&truncated).is_err());
+
+    let mut nan_source = source(&directory, &[0.25, f32::NAN, 0.25, 0.25]);
+    nan_source.recovered = true;
+    assert!(
+        prepare_model_input(&nan_source)
+            .unwrap_err()
+            .to_string()
+            .contains("non-finite")
+    );
 }

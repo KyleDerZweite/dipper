@@ -26,6 +26,8 @@ pub struct AudioSource {
     pub channels: u16,
     pub frames: u64,
     pub data_offset: u64,
+    #[serde(default)]
+    pub recovered: bool,
 }
 
 /// Explicit model architecture. Missing fields retain the original large-v3 contract.
@@ -35,13 +37,34 @@ pub enum RecognitionModel {
     #[default]
     LargeV3,
     LargeV3Turbo,
+    #[serde(rename = "large_v3_turbo_q8_0")]
+    LargeV3TurboQ8_0,
+    #[serde(rename = "large_v3_turbo_q5_0")]
+    LargeV3TurboQ5_0,
 }
 
 impl RecognitionModel {
     pub fn decoder_layers(self) -> i32 {
         match self {
             Self::LargeV3 => 32,
-            Self::LargeV3Turbo => 4,
+            Self::LargeV3Turbo | Self::LargeV3TurboQ8_0 | Self::LargeV3TurboQ5_0 => 4,
+        }
+    }
+
+    pub fn expected_ftype(self) -> i32 {
+        match self {
+            Self::LargeV3 | Self::LargeV3Turbo => 1,
+            Self::LargeV3TurboQ8_0 => 7,
+            Self::LargeV3TurboQ5_0 => 8,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::LargeV3 => "Whisper large-v3",
+            Self::LargeV3Turbo => "Whisper large-v3-turbo",
+            Self::LargeV3TurboQ8_0 => "Whisper large-v3-turbo Q8_0",
+            Self::LargeV3TurboQ5_0 => "Whisper large-v3-turbo Q5_0",
         }
     }
 }

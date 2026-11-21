@@ -30,7 +30,9 @@ async fn main() -> Result<()> {
         .join("dipper-worker");
     let profile = match std::env::var("DIPPER_MODEL_PROFILE") {
         Ok(value) => serde_json::from_value::<RecognitionModel>(serde_json::Value::String(value))
-            .context("DIPPER_MODEL_PROFILE must be large_v3 or large_v3_turbo")?,
+            .context(
+                "DIPPER_MODEL_PROFILE must be large_v3, large_v3_turbo, large_v3_turbo_q8_0, or large_v3_turbo_q5_0",
+            )?,
         Err(std::env::VarError::NotPresent) => RecognitionModel::LargeV3,
         Err(error) => return Err(error.into()),
     };
@@ -58,6 +60,7 @@ async fn main() -> Result<()> {
         channels: audio.channels,
         frames: audio.frames,
         data_offset: audio.data_offset,
+        recovered: audio.recovered,
     })
     .await?;
     let outcome = job.wait().await;

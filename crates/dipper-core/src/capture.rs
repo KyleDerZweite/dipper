@@ -25,12 +25,48 @@ unsafe extern "C" {
     fn dipper_ring_fault(ring: *mut std::ffi::c_void) -> i32;
     fn dipper_ring_fail(ring: *mut std::ffi::c_void, code: i32);
     fn dipper_ring_accepted(ring: *mut std::ffi::c_void) -> u64;
+    fn dipper_ring_high_water(ring: *mut std::ffi::c_void) -> u64;
+    fn dipper_ring_take_level_milli(ring: *mut std::ffi::c_void) -> u32;
     fn dipper_capture_open(serial: u64, ring: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-    fn dipper_capture_close(capture: *mut std::ffi::c_void);
+    fn dipper_capture_close_with_stats(
+        capture: *mut std::ffi::c_void,
+        stats: *mut NativeCaptureStats,
+    );
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct NativeCaptureStats {
+    callbacks: u64,
+    empty_buffers: u64,
+    discont_flags: u32,
+    states_mask: u32,
+    negotiated_rate: u32,
+    negotiated_channels: u32,
+    core_error_res: i32,
+    stream_error: [std::ffi::c_char; 256],
+    core_error: [std::ffi::c_char; 256],
+}
+
+impl Default for NativeCaptureStats {
+    fn default() -> Self {
+        Self {
+            callbacks: 0,
+            empty_buffers: 0,
+            discont_flags: 0,
+            states_mask: 0,
+            negotiated_rate: 0,
+            negotiated_channels: 0,
+            core_error_res: 0,
+            stream_error: [0; 256],
+            core_error: [0; 256],
+        }
+    }
 }
 
 pub(crate) struct SampleRing {
     raw: NonNull<std::ffi::c_void>,
+    capacity: u64,
     pub written: AtomicU64,
 }
 // C atomics implement an SPSC ring. Only Capture produces and one writer consumes.
@@ -41,8 +77,12 @@ impl SampleRing {
         Ok(Arc::new(Self {
             raw: NonNull::new(unsafe { dipper_ring_new(capacity) })
                 .context("cannot allocate lock-free capture ring")?,
+            capacity,
             written: AtomicU64::new(0),
         }))
+    }
+    pub(crate) fn capacity(&self) -> u64 {
+        self.capacity
     }
     pub(crate) fn read(&self, samples: &mut [f32]) -> usize {
         unsafe {
@@ -70,6 +110,13 @@ impl SampleRing {
     }
     pub(crate) fn accepted(&self) -> u64 {
         unsafe { dipper_ring_accepted(self.raw.as_ptr()) }
+    }
+    pub(crate) fn high_water(&self) -> u64 {
+        unsafe { dipper_ring_high_water(self.raw.as_ptr()) }
+    }
+    pub(crate) fn take_audio_level(&self) -> f32 {
+        let milli = unsafe { dipper_ring_take_level_milli(self.raw.as_ptr()) };
+        ((milli as f32) / 1000.0).sqrt().clamp(0.0, 1.0)
     }
     pub(crate) fn push_synthetic(&self, samples: &[f32]) -> bool {
         unsafe { dipper_ring_push(self.raw.as_ptr(), samples.as_ptr(), samples.len() as u64) != 0 }
@@ -226,16 +273,36 @@ impl CaptureStop {
         }
     }
 }
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaptureDiagnostics {
+    pub duration_ms: u64,
+    pub first_frame_ms: Option<u64>,
+    pub callbacks: u64,
+    pub empty_buffers: u64,
+    pub ring_capacity_frames: u64,
+    pub ring_high_water_frames: u64,
+    pub stream_states: Vec<String>,
+    pub negotiated_rate: Option<u32>,
+    pub negotiated_channels: Option<u32>,
+    pub discontinuity_flags: u32,
+    pub pipewire_error: Option<String>,
+    pub failure_category: Option<String>,
+    pub failure_hint: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct CaptureProgress {
     pub ready: bool,
     pub accepted_frames: u64,
     pub written_frames: u64,
+    pub audio_level: f32,
     pub error: Option<String>,
 }
 pub struct CaptureSession {
     native: Option<NonNull<std::ffi::c_void>>,
     ticket: Option<CaptureTicket>,
+    started_at: Instant,
+    first_frame_ms: AtomicU64,
 }
 // Session owns the native handle. Access is serialized by its mutable stop/Drop.
 unsafe impl Send for CaptureSession {}
@@ -247,16 +314,26 @@ impl CaptureSession {
             ticket.input.serial == input.serial && ticket.input.name == input.name,
             "capture input differs from its durable identity"
         );
+        let started_at = Instant::now();
         let ptr = unsafe { dipper_capture_open(input.serial, ticket.ring.raw.as_ptr()) };
         match NonNull::new(ptr) {
             Some(native) => Ok(Self {
                 native: Some(native),
                 ticket: Some(ticket),
+                started_at,
+                first_frame_ms: AtomicU64::new(u64::MAX),
             }),
             None => {
-                let _ = ticket.finish(CaptureStop::Failed(
-                    "cannot open native PipeWire capture".into(),
-                ));
+                let diag = CaptureDiagnostics {
+                    duration_ms: started_at.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                    ring_capacity_frames: ticket.ring.capacity(),
+                    pipewire_error: Some("cannot open native PipeWire capture".into()),
+                    ..Default::default()
+                };
+                let _ = ticket.finish_with_diagnostics(
+                    CaptureStop::Failed("cannot open native PipeWire capture".into()),
+                    Some(diag),
+                );
                 bail!("cannot open native PipeWire capture");
             }
         }
@@ -269,10 +346,26 @@ impl CaptureSession {
     }
     pub fn progress(&self) -> CaptureProgress {
         let ring = &self.ticket.as_ref().expect("live capture ticket").ring;
+        let accepted = ring.accepted();
+        let ready = accepted > 0;
+        if ready {
+            let elapsed = self
+                .started_at
+                .elapsed()
+                .as_millis()
+                .min(u64::MAX as u128 - 1) as u64;
+            let _ = self.first_frame_ms.compare_exchange(
+                u64::MAX,
+                elapsed,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            );
+        }
         CaptureProgress {
-            ready: ring.accepted() > 0,
-            accepted_frames: ring.accepted(),
+            ready,
+            accepted_frames: accepted,
             written_frames: ring.written.load(Ordering::Acquire),
+            audio_level: if ready { ring.take_audio_level() } else { 0.0 },
             error: ring.fault(),
         }
     }
@@ -280,23 +373,96 @@ impl CaptureSession {
         self.progress().ready
     }
     pub fn stop(mut self, reason: CaptureStop) -> Result<CaptureOutcome> {
+        let mut stats = NativeCaptureStats::default();
         if let Some(native) = self.native.take() {
-            unsafe { dipper_capture_close(native.as_ptr()) }
+            unsafe { dipper_capture_close_with_stats(native.as_ptr(), &mut stats) }
         }
-        self.ticket
-            .take()
-            .expect("live capture ticket")
-            .finish(reason)
+        let ticket = self.ticket.take().expect("live capture ticket");
+        let first_frame = match self.first_frame_ms.load(Ordering::Acquire) {
+            u64::MAX => None,
+            value => Some(value),
+        };
+        let diag = build_diagnostics(self.started_at.elapsed(), first_frame, &ticket.ring, &stats);
+        ticket.finish_with_diagnostics(reason, Some(diag))
     }
 }
 impl Drop for CaptureSession {
     fn drop(&mut self) {
+        let mut stats = NativeCaptureStats::default();
         if let Some(native) = self.native.take() {
-            unsafe { dipper_capture_close(native.as_ptr()) }
+            unsafe { dipper_capture_close_with_stats(native.as_ptr(), &mut stats) }
         }
         if let Some(ticket) = self.ticket.take() {
-            let _ = ticket.finish(CaptureStop::Failed("capture session abandoned".into()));
+            let diag = build_diagnostics(
+                self.started_at.elapsed(),
+                match self.first_frame_ms.load(Ordering::Acquire) {
+                    u64::MAX => None,
+                    value => Some(value),
+                },
+                &ticket.ring,
+                &stats,
+            );
+            let _ = ticket.finish_with_diagnostics(
+                CaptureStop::Failed("capture session abandoned".into()),
+                Some(diag),
+            );
         }
+    }
+}
+
+fn cstr_to_option(buf: &[std::ffi::c_char]) -> Option<String> {
+    let nul = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    if nul == 0 {
+        return None;
+    }
+    let bytes: Vec<u8> = buf[..nul].iter().map(|&b| b as u8).collect();
+    let s = String::from_utf8_lossy(&bytes).trim().to_owned();
+    if s.is_empty() { None } else { Some(s) }
+}
+
+fn build_diagnostics(
+    elapsed: Duration,
+    first_frame_ms: Option<u64>,
+    ring: &SampleRing,
+    stats: &NativeCaptureStats,
+) -> CaptureDiagnostics {
+    let mut stream_states = Vec::new();
+    for (bit, label) in [
+        (1u32 << 1, "unconnected"),
+        (1u32 << 2, "connecting"),
+        (1u32 << 3, "paused"),
+        (1u32 << 4, "streaming"),
+        (1u32 << 0, "error"),
+    ] {
+        if stats.states_mask & bit != 0 {
+            stream_states.push(label.to_owned());
+        }
+    }
+    let pipewire_error = match (
+        cstr_to_option(&stats.stream_error),
+        cstr_to_option(&stats.core_error),
+        stats.core_error_res,
+    ) {
+        (Some(s), Some(c), res) => Some(format!("stream: {s}; core ({res}): {c}")),
+        (Some(s), None, _) => Some(format!("stream: {s}")),
+        (None, Some(c), res) => Some(format!("core ({res}): {c}")),
+        (None, None, res) if res < 0 => Some(format!("core error {res}")),
+        _ => None,
+    };
+    CaptureDiagnostics {
+        duration_ms: elapsed.as_millis().min(u64::MAX as u128) as u64,
+        first_frame_ms,
+        callbacks: stats.callbacks,
+        empty_buffers: stats.empty_buffers,
+        ring_capacity_frames: ring.capacity(),
+        ring_high_water_frames: ring.high_water(),
+        stream_states,
+        negotiated_rate: (stats.negotiated_rate > 0).then_some(stats.negotiated_rate),
+        negotiated_channels: (stats.negotiated_channels > 0).then_some(stats.negotiated_channels),
+        discontinuity_flags: stats.discont_flags,
+        pipewire_error,
+        failure_category: None,
+        failure_hint: None,
     }
 }
 

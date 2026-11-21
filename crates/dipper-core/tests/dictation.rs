@@ -157,6 +157,7 @@ impl CaptureRun for SyntheticRun {
             ready: self.control.ready.load(Ordering::SeqCst),
             accepted_frames: SAMPLES as u64,
             written_frames: 0,
+            audio_level: 0.25,
             error: self.control.fault.lock().unwrap().clone(),
         }
     }
@@ -347,6 +348,13 @@ impl Fixture {
     fn reaped(&self, record: &RecordingSnapshot) {
         assert_eq!(record.attempts.len(), 1);
         assert_eq!(record.attempts[0].details["reaped"], true);
+        assert_worker_gone(&self.marker("pid"));
+    }
+    fn all_reaped(&self, record: &RecordingSnapshot) {
+        assert!(!record.attempts.is_empty());
+        for attempt in &record.attempts {
+            assert_eq!(attempt.details["reaped"], true);
+        }
         assert_worker_gone(&self.marker("pid"));
     }
 }
@@ -859,4 +867,95 @@ async fn turbo_settings_reach_worker_and_journal_as_one_snapshot() {
     assert_eq!(record.attempts[0].raw_text.as_deref(), Some(TEXT));
     assert_eq!(fixture.target.delivered(), vec![TEXT]);
     fixture.reaped(&record);
+}
+
+#[tokio::test]
+async fn retry_recognition_recovers_failed_capture_without_touching_target_or_clipboard() {
+    let fixture = Fixture::new("normal");
+    fixture.dictation.begin().unwrap();
+    fixture.recording().await;
+    *fixture.capture.fault.lock().unwrap() = Some("capture queue overflow".into());
+    fixture.idle().await;
+
+    let failed = fixture.record();
+    assert_eq!(failed.state, "failed");
+    assert_eq!(failed.available_frames, SAMPLES as u64);
+    assert!(failed.recoverable);
+    assert_eq!(
+        failed
+            .capture_diagnostics
+            .as_ref()
+            .and_then(|d| d.failure_category.as_deref()),
+        Some("queue_overflow")
+    );
+    assert_eq!(failed.attempts.len(), 1);
+    assert_eq!(failed.attempts[0].state, "canceled");
+    assert!(fixture.target.delivered().is_empty());
+
+    let text = fixture
+        .dictation
+        .retry_recognition(failed.recording_id)
+        .await
+        .unwrap();
+    assert_eq!(text, TEXT);
+    assert!(fixture.target.delivered().is_empty());
+    assert!(!fixture.target.dispatch_entered.load(Ordering::SeqCst));
+
+    let recovered = fixture.record();
+    assert_eq!(recovered.attempts.len(), 2);
+    assert_eq!(recovered.attempts[0].state, "canceled");
+    assert_eq!(recovered.attempts[1].state, "complete");
+    assert_eq!(recovered.attempts[1].raw_text.as_deref(), Some(TEXT));
+    assert_eq!(
+        recovered.attempts[1].configuration["retry_from_journal"],
+        serde_json::json!(true)
+    );
+    assert!(recovered.insertions.is_empty());
+    fixture.all_reaped(&recovered);
+}
+
+#[tokio::test]
+async fn retry_recognition_enforces_single_worker_and_supports_cancel() {
+    let fixture = Fixture::new("normal");
+    fixture.dictation.begin().unwrap();
+    fixture.recording().await;
+    fixture.dictation.cancel();
+    fixture.idle().await;
+    let initial = fixture.record();
+    assert_eq!(initial.state, "canceled");
+    assert_eq!(initial.available_frames, SAMPLES as u64);
+
+    let executable = fixture.directory.path().join("worker");
+    fs::write(&executable, PROCESS.replace("MODE", "inference")).unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+
+    let handle = tokio::spawn({
+        let dictation = fixture.dictation.clone();
+        let id = initial.recording_id;
+        async move { dictation.retry_recognition(id).await }
+    });
+    fixture.marker_ready("started").await;
+
+    // Second retry and new Hold activation must both avoid spawning a second worker.
+    assert!(
+        fixture
+            .dictation
+            .retry_recognition(initial.recording_id)
+            .await
+            .is_err()
+    );
+    fixture.dictation.begin().unwrap();
+    assert_eq!(fixture.journal.recent(10).unwrap().len(), 1);
+
+    fixture.dictation.cancel();
+    let result = handle.await.unwrap();
+    assert!(result.is_err());
+    fixture.idle().await;
+    assert!(!fixture.dictation.snapshot().error);
+    assert!(fixture.target.delivered().is_empty());
+
+    let updated = fixture.record();
+    assert_eq!(updated.attempts.len(), 2);
+    assert_eq!(updated.attempts[1].state, "canceled");
+    fixture.all_reaped(&updated);
 }

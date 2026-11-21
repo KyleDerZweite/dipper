@@ -10,55 +10,250 @@
 
 <a class="skip-link" href="#main-content">Skip to content</a>
 <div class="app-frame">
-<div class="app-shell">
-  <aside class="sidebar" aria-label="Dipper sidebar">
-    <a class="brand" href="#dictation" aria-label="Dipper, Dictation"><img src="logo.png" alt="" width="44" height="44"><span>Dipper</span></a>
-    <nav aria-label="Main navigation">
-      <a class="nav-link" href="#dictation" aria-label="Dictation" title="Dictation"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg><span>Dictation</span></a>
-      <a class="nav-link" href="#journal" aria-label="Journal" title="Journal"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-journal"/></svg><span>Journal</span></a>
-      <a class="nav-link" href="#settings" aria-label="Settings" title="Settings"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-settings"/></svg><span>Settings</span></a>
-    </nav>
-    <div class="sidebar-bottom"><span id="app-version" class="sidebar-version" aria-label="App version">Alpha</span></div>
-  </aside>
-  <main id="main-content" class="workspace" tabindex="-1">
-    <header class="workspace-header">
-      <div class="workspace-title" data-tauri-drag-region="deep"><h1 id="view-title">Dictation</h1></div>
-      <div class="activity" role="status"><span id="status-light" class="status-light" aria-hidden="true"></span><span id="phase">Starting</span><button id="cancel" type="button" class="quiet-button" disabled>Cancel</button></div>
-      <div class="window-actions" role="group" aria-label="Window controls">
-        <button id="window-minimize" class="window-button" type="button" aria-label="Minimize" title="Minimize"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-minimize"/></svg></button>
-        <button id="window-maximize" class="window-button" type="button" aria-label="Maximize" title="Maximize"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-maximize"/></svg></button>
-        <button id="window-close" class="window-button window-close" type="button" aria-label="Close to tray" title="Close to tray"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-close"/></svg></button>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Dipper sidebar">
+      <a class="brand" href="#dictation" aria-label="Dipper, Dictation">
+        <img src="logo.png" alt="" width="32" height="32">
+        <span class="brand-text">Dipper</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a class="nav-link" href="#dictation" aria-label="Dictation" title="Dictation">
+          <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg>
+          <span class="nav-label">Dictation</span>
+        </a>
+        <a class="nav-link" href="#journal" aria-label="Journal" title="Journal">
+          <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-journal"/></svg>
+          <span class="nav-label">Journal</span>
+          <span id="nav-recovery-badge" class="nav-badge" hidden>0</span>
+        </a>
+        <a class="nav-link" href="#settings" aria-label="Settings" title="Settings">
+          <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-settings"/></svg>
+          <span class="nav-label">Settings</span>
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <span id="app-version" class="sidebar-version" aria-label="App version">Alpha</span>
       </div>
-    </header>
-    <p id="detail" class="activity-detail" aria-live="polite">Connecting to the desktop.</p>
-    <div id="feedback" class="feedback" role="status" hidden></div>
-    <div class="view-scroll">
-      <section id="view-dictation" class="view dictation-view" aria-label="Dictation">
-        <div class="dictation-prompt"><p id="hold-instruction" class="prompt-title">Configure your Hold key</p><kbd id="binding">Unassigned</kbd></div>
-        <a href="#settings" class="microphone-row" aria-label="Microphone settings"><svg class="icon" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg><span id="input-summary">Loading input devices…</span><svg class="icon row-arrow" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></a>
-        <p class="hold-note">Use only your Hold key during recording.</p>
-        <div id="last-transcript" class="last-transcript"></div>
-        <div class="view-actions"><a href="#journal" class="text-link">Open Journal <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg></a><span id="recognition-summary" class="local-note">Loading recognition settings…</span></div>
-      </section>
-      <section id="view-journal" class="view" aria-label="Journal" hidden>
-        <div class="view-toolbar"><span id="journal-count" class="muted">Recent recordings</span><button id="retry-recovery" type="button" class="secondary-button">Retry recovery</button></div>
-        <p class="retention-note">Audio and diagnostics are retained. Nothing is automatically deleted.</p>
-        <div id="journal" class="journal" aria-busy="true"><p class="empty">Loading recordings…</p></div>
-      </section>
-      <section id="view-settings" class="view" aria-label="Settings" hidden>
-        <form id="settings" novalidate>
-          <fieldset id="settings-fields">
-            <div class="field"><div class="field-label"><label for="input">Microphone</label><button id="refresh" type="button" class="text-button">Refresh devices</button></div><select id="input" aria-describedby="input-help"><option value="">System default</option></select><p id="input-help" class="field-help">System default is resolved at the start of each recording.</p></div>
-            <div class="field"><label for="hold">Preferred Hold key</label><div class="control-row"><input id="hold" value="F2" required maxlength="128" spellcheck="false" aria-describedby="hold-help"><button id="configure-hold" type="button" class="secondary-button">Configure Hold</button></div><p id="hold-help" class="field-help">KDE assigns the effective shortcut. Use one key during dictation.</p><button id="kde-shortcuts" type="button" class="text-button">Open KDE Shortcuts</button></div>
-            <details id="recognition-settings"><summary>Recognition setup</summary><div class="field"><label for="model-profile">Recognition model</label><select id="model-profile"><option value="large_v3_turbo">Whisper large-v3-turbo</option><option value="large_v3">Whisper large-v3</option></select></div><div class="field"><label for="model">Model file</label><input id="model" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/ggml-large-v3-turbo.bin" aria-describedby="model-help"><p id="model-help" class="field-help">Float16 model file matching the selected model. The worker exits after each dictation.</p></div><div class="field"><label for="runtime">Native runtime libraries</label><input id="runtime" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/whisper.cpp/build/bin" aria-describedby="runtime-help"><p id="runtime-help" class="field-help">Directory containing the pinned Whisper/Vulkan libraries.</p></div></details>
-            <div class="form-actions"><button id="save" type="submit" class="primary-button">Save settings</button><span class="field-help">Changes apply to the next dictation.</span></div>
-          </fieldset>
-        </form>
-      </section>
-    </div>
-  </main>
+    </aside>
+
+    <main id="main-content" class="workspace" tabindex="-1">
+      <header class="workspace-header">
+        <div class="workspace-title" data-tauri-drag-region="deep">
+          <h1 id="view-title">Dictation</h1>
+        </div>
+        <div class="header-activity">
+          <div class="activity-pill" role="status">
+            <span id="status-light" class="status-light" aria-hidden="true"></span>
+            <span id="phase">Starting</span>
+          </div>
+          <button id="cancel" type="button" class="danger-button header-cancel" disabled hidden>Cancel</button>
+        </div>
+        <div class="window-actions" role="group" aria-label="Window controls">
+          <button id="window-minimize" class="window-button" type="button" aria-label="Minimize" title="Minimize">
+            <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-minimize"/></svg>
+          </button>
+          <button id="window-maximize" class="window-button" type="button" aria-label="Maximize" title="Maximize">
+            <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-maximize"/></svg>
+          </button>
+          <button id="window-close" class="window-button window-close" type="button" aria-label="Close to tray" title="Close to tray">
+            <svg class="icon" aria-hidden="true"><use href="icons.svg#icon-close"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <p id="detail" class="activity-detail" aria-live="polite">Connecting to the desktop.</p>
+      <div id="feedback" class="feedback" role="status" hidden></div>
+
+      <div class="view-scroll">
+        <section id="view-dictation" class="view dictation-view" aria-label="Dictation">
+          <section id="dictation-hero" class="hero-card" aria-label="Live dictation status">
+            <div class="hero-top">
+              <div class="hero-heading">
+                <span id="hero-state-pill" class="state-badge tone-muted">
+                  <span id="hero-dot" class="state-dot" aria-hidden="true"></span>
+                  <span id="hero-phase-text">Starting</span>
+                </span>
+                <p id="hold-instruction" class="prompt-title">Configure your Hold key</p>
+              </div>
+              <div class="hero-indicators">
+                <span id="elapsed-timer" class="elapsed-timer" aria-label="Recording duration">00:00</span>
+                <kbd id="binding" class="keycap" title="Effective Hold shortcut">Unassigned</kbd>
+              </div>
+            </div>
+
+            <div id="dictation-waveform" class="waveform" aria-hidden="true"></div>
+
+            <div class="hero-footer">
+              <div class="hero-chips">
+                <a href="#settings" class="meta-chip" aria-label="Microphone settings">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="icons.svg#icon-mic"/></svg>
+                  <span id="input-summary">Loading input devices…</span>
+                </a>
+                <a href="#settings" class="meta-chip" aria-label="Recognition model settings">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="icons.svg#icon-cpu"/></svg>
+                  <span id="recognition-summary">Loading recognition settings…</span>
+                </a>
+              </div>
+              <button id="hero-cancel" type="button" class="danger-button hero-cancel" hidden>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="icons.svg#icon-stop"/></svg>
+                <span>Cancel</span>
+              </button>
+            </div>
+            <p class="hold-note">Focus a target application field and hold only your configured key during dictation.</p>
+          </section>
+
+          <section id="dictation-recovery" class="recovery-callout" aria-live="polite" hidden>
+            <div class="recovery-callout-body">
+              <svg class="icon icon-sm recovery-callout-icon" aria-hidden="true"><use href="icons.svg#icon-alert"/></svg>
+              <div class="recovery-callout-text">
+                <p id="dictation-recovery-title" class="recovery-callout-title">Retained audio ready to recover</p>
+                <p id="dictation-recovery-message" class="recovery-callout-message"></p>
+              </div>
+            </div>
+            <button id="dictation-recovery-action" type="button" class="secondary-button recovery-callout-btn">
+              Inspect &amp; recover in Journal
+            </button>
+          </section>
+
+          <section id="last-transcript" class="card last-transcript" aria-label="Latest transcript"></section>
+
+          <section id="setup-strip" class="card setup-strip" aria-label="Setup readiness">
+            <div class="setup-strip-header">
+              <span class="setup-strip-title">Setup readiness</span>
+              <a href="#settings" class="text-link compact-link">
+                <span>Configure</span>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="icons.svg#icon-arrow"/></svg>
+              </a>
+            </div>
+            <div id="setup-strip-items" class="setup-strip-grid"></div>
+          </section>
+        </section>
+
+        <section id="view-journal" class="view journal-view" aria-label="Journal" hidden>
+          <div class="journal-toolbar">
+            <div class="journal-title-meta">
+              <span id="journal-count" class="journal-count">Recent recordings</span>
+              <span class="retention-pill" title="Recordings, audio, and diagnostics are kept locally without automatic expiry.">Local retention</span>
+            </div>
+            <button id="retry-recovery" type="button" class="secondary-button">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="icons.svg#icon-refresh"/></svg>
+              <span>Reconcile storage</span>
+            </button>
+          </div>
+
+          <div class="journal-controls">
+            <div class="filter-chips" role="group" aria-label="Filter recordings">
+              <button type="button" class="filter-chip is-active" data-journal-filter="all" aria-pressed="true">
+                <span>All</span>
+                <span id="filter-count-all" class="chip-count">0</span>
+              </button>
+              <button type="button" class="filter-chip" data-journal-filter="recovery" aria-pressed="false">
+                <span>Needs recovery</span>
+                <span id="filter-count-recovery" class="chip-count">0</span>
+              </button>
+              <button type="button" class="filter-chip" data-journal-filter="completed" aria-pressed="false">
+                <span>Completed</span>
+                <span id="filter-count-completed" class="chip-count">0</span>
+              </button>
+            </div>
+            <div class="search-box">
+              <svg class="icon icon-sm search-icon" aria-hidden="true"><use href="icons.svg#icon-search"/></svg>
+              <input id="journal-search" type="search" placeholder="Search transcripts, errors, devices…" aria-label="Search Journal recordings" spellcheck="false">
+            </div>
+          </div>
+
+          <div id="journal" class="journal" aria-busy="true">
+            <p class="empty">Loading recordings…</p>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view settings-view" aria-label="Settings" hidden>
+          <form id="settings" novalidate>
+            <fieldset id="settings-fields">
+              <section class="card settings-card">
+                <div class="settings-section-head">
+                  <div>
+                    <h2 class="section-heading">Speech model</h2>
+                    <p class="section-subtitle">Auto-detects spoken language locally via Whisper/Vulkan and releases VRAM after each job.</p>
+                  </div>
+                </div>
+                <div id="model-cards" class="model-cards" role="radiogroup" aria-label="Recognition model profile"></div>
+              </section>
+
+              <section id="setup-check-panel" class="card settings-card setup-check-card">
+                <div class="settings-section-head">
+                  <div>
+                    <h2 class="section-heading">Setup &amp; runtime check</h2>
+                    <p class="section-subtitle">Live verification of selected model weights, runtime library, shortcut, and storage.</p>
+                  </div>
+                  <div class="setup-check-actions">
+                    <span id="setup-overall-badge" class="status-pill tone-muted" aria-live="polite">Checking</span>
+                    <button id="recheck-setup" type="button" class="quiet-button compact-button">Re-check</button>
+                  </div>
+                </div>
+                <div id="setup-check-rows" class="setup-check-rows"></div>
+              </section>
+
+              <section class="card settings-card">
+                <div class="settings-section-head">
+                  <div>
+                    <h2 class="section-heading">Input &amp; Hold shortcut</h2>
+                    <p class="section-subtitle">Choose your PipeWire audio source and global Wayland Hold key.</p>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field-label">
+                    <label for="input">Microphone</label>
+                    <button id="refresh" type="button" class="text-button">Refresh devices</button>
+                  </div>
+                  <select id="input" aria-describedby="input-help">
+                    <option value="">System default</option>
+                  </select>
+                  <p id="input-help" class="field-help">System default resolves your active PipeWire source at the start of each recording.</p>
+                </div>
+
+                <div class="field">
+                  <label for="hold">Preferred Hold key</label>
+                  <div class="control-row">
+                    <input id="hold" value="F2" required maxlength="128" spellcheck="false" aria-describedby="hold-help">
+                    <button id="configure-hold" type="button" class="secondary-button">Configure Hold</button>
+                  </div>
+                  <p id="hold-help" class="field-help">KDE assigns the effective global shortcut. Hold only this key while dictating.</p>
+                  <button id="kde-shortcuts" type="button" class="text-button">Open KDE Shortcut Settings</button>
+                </div>
+              </section>
+
+              <section class="card settings-card">
+                <div class="settings-section-head">
+                  <div>
+                    <h2 class="section-heading">Model &amp; runtime paths</h2>
+                    <p class="section-subtitle">Absolute filesystem paths validated against the selected profile.</p>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="model">Model file</label>
+                  <input id="model" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/ggml-large-v3-turbo-q8_0.bin" aria-describedby="model-help">
+                  <p id="model-help" class="field-help">GGML binary file matching the selected model profile above.</p>
+                </div>
+                <div class="field field-last">
+                  <label for="runtime">Runtime library directory</label>
+                  <input id="runtime" class="path-input" required pattern="/.*" spellcheck="false" placeholder="/path/to/whisper.cpp/build/bin" aria-describedby="runtime-help">
+                  <p id="runtime-help" class="field-help">Directory containing <span class="mono-inline">libwhisper.so</span> and Vulkan/GGML runtime libraries.</p>
+                </div>
+              </section>
+
+              <div class="form-actions">
+                <button id="save" type="submit" class="primary-button">Save settings</button>
+                <span class="field-help">Changes apply to the next dictation or Journal recovery.</span>
+              </div>
+            </fieldset>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
 </div>
-</div>
+
 <div class="resize-edge north" data-resize="North" aria-hidden="true"></div>
 <div class="resize-edge east" data-resize="East" aria-hidden="true"></div>
 <div class="resize-edge south" data-resize="South" aria-hidden="true"></div>
@@ -67,6 +262,8 @@
 <div class="resize-edge north-east" data-resize="NorthEast" aria-hidden="true"></div>
 <div class="resize-edge south-west" data-resize="SouthWest" aria-hidden="true"></div>
 <div class="resize-edge south-east" data-resize="SouthEast" aria-hidden="true"></div>
+
+<script src="journal_format.js"></script>
 <script src="transcript.js"></script>
 <script src="app.js"></script>
 <script src="window.js"></script>

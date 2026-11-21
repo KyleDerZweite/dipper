@@ -19,7 +19,7 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
@@ -32,6 +32,7 @@ pub struct DictationSnapshot {
     pub recording: bool,
     pub error: bool,
     pub generation: u64,
+    pub recording_started_at_ms: Option<u64>,
 }
 
 impl Default for DictationSnapshot {
@@ -43,6 +44,7 @@ impl Default for DictationSnapshot {
             recording: false,
             error: false,
             generation: 0,
+            recording_started_at_ms: None,
         }
     }
 }
@@ -61,10 +63,53 @@ impl TargetTask {
 
 struct Active {
     generation: u64,
+    is_capture: bool,
     stop: watch::Sender<Option<CaptureStop>>,
     canceled: CancellationToken,
     permit: Arc<Mutex<Option<TargetPermit>>>,
     released_at: Option<std::time::Instant>,
+}
+
+struct ActiveCleanupGuard<'a> {
+    dictation: &'a Arc<Dictation>,
+    generation: u64,
+    worker_slot: &'a Arc<Mutex<Option<RecognitionJob>>>,
+    armed: bool,
+}
+impl Drop for ActiveCleanupGuard<'_> {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        if let Ok(mut slot) = self.worker_slot.lock()
+            && let Some(worker) = slot.take()
+        {
+            worker.cancel();
+        }
+        self.dictation.finish(
+            self.generation,
+            "Operation stopped unexpectedly due to an internal error.",
+            true,
+        );
+    }
+}
+
+struct MaintainingGuard<'a>(&'a Dictation);
+impl Drop for MaintainingGuard<'_> {
+    fn drop(&mut self) {
+        if let Ok(_gate) = self.0.active.lock()
+            && self.0.maintaining.swap(false, Ordering::SeqCst)
+        {
+            self.0.publish(
+                0,
+                "Needs attention",
+                "Journal recovery stopped unexpectedly.",
+                false,
+                false,
+                true,
+            );
+        }
+    }
 }
 
 pub struct Dictation {
@@ -76,6 +121,7 @@ pub struct Dictation {
     settings: Mutex<Settings>,
     active: Mutex<Option<Active>>,
     state: watch::Sender<DictationSnapshot>,
+    audio_level: watch::Sender<f32>,
     next_generation: AtomicU64,
     accepting: AtomicBool,
     maintaining: AtomicBool,
@@ -107,6 +153,7 @@ impl Dictation {
         capture: Arc<dyn CaptureProvider>,
     ) -> Arc<Self> {
         let (state, _) = watch::channel(DictationSnapshot::default());
+        let (audio_level, _) = watch::channel(0.0);
         Arc::new(Self {
             journal,
             capture,
@@ -116,6 +163,7 @@ impl Dictation {
             settings: Mutex::new(settings),
             active: Mutex::new(None),
             state,
+            audio_level,
             next_generation: AtomicU64::new(1),
             accepting: AtomicBool::new(true),
             maintaining: AtomicBool::new(false),
@@ -126,6 +174,9 @@ impl Dictation {
     }
     pub fn subscribe(&self) -> watch::Receiver<DictationSnapshot> {
         self.state.subscribe()
+    }
+    pub fn subscribe_audio_level(&self) -> watch::Receiver<f32> {
+        self.audio_level.subscribe()
     }
     pub fn settings(&self) -> Settings {
         self.settings.lock().unwrap().clone()
@@ -142,6 +193,94 @@ impl Dictation {
         settings.save(&self.settings_path)?;
         *self.settings.lock().unwrap() = settings;
         Ok(())
+    }
+    /// Retranscribe a retained recording from the Journal without touching any
+    /// target window or clipboard. Enforces single-worker occupancy.
+    pub async fn retry_recognition(self: &Arc<Self>, recording_id: uuid::Uuid) -> Result<String> {
+        let generation;
+        let canceled = CancellationToken::new();
+        let settings = {
+            let mut active = self.active.lock().unwrap();
+            ensure!(
+                self.accepting.load(Ordering::SeqCst),
+                "Dipper is shutting down."
+            );
+            ensure!(
+                active.is_none() && !self.maintaining.load(Ordering::SeqCst),
+                "Dipper is busy. Wait for the active dictation or recovery job to finish."
+            );
+            ensure!(
+                !self.journal.recovery_report().unpersisted,
+                "Journal recovery is unpersisted. Retry recovery first."
+            );
+            let settings = self.settings();
+            if let Err(error) = settings.ready_for_recognition() {
+                self.publish(0, "Setup needed", &error.to_string(), false, false, true);
+                return Err(error);
+            }
+            ensure!(
+                self.worker.is_file(),
+                "Recognition worker is unavailable. Build the complete workspace."
+            );
+            generation = self.next_generation.fetch_add(1, Ordering::SeqCst);
+            let (stop, _) = watch::channel(None);
+            *active = Some(Active {
+                generation,
+                is_capture: false,
+                stop,
+                canceled: canceled.clone(),
+                permit: Arc::new(Mutex::new(None)),
+                released_at: None,
+            });
+            self.publish(
+                generation,
+                "Preparing",
+                "Opening retained audio and starting recognition worker.",
+                true,
+                false,
+                false,
+            );
+            settings
+        };
+        let this = self.clone();
+        let handle = tokio::spawn(async move {
+            let worker_slot = Arc::new(Mutex::new(None::<RecognitionJob>));
+            let mut cleanup_guard = ActiveCleanupGuard {
+                dictation: &this,
+                generation,
+                worker_slot: &worker_slot,
+                armed: true,
+            };
+            let result = this
+                .run_retry(
+                    generation,
+                    recording_id,
+                    settings,
+                    canceled,
+                    worker_slot.clone(),
+                )
+                .await;
+            let worker = worker_slot.lock().unwrap().take();
+            if let Some(worker) = worker {
+                worker.cancel();
+                let outcome = this
+                    .await_worker(generation, &worker, &CancellationToken::new())
+                    .await;
+                let _ = this.record_attempt(outcome.identity.attempt_id, &outcome);
+            }
+            match &result {
+                Ok((detail, _)) => this.finish(generation, detail, false),
+                Err((detail, is_error)) => this.finish(generation, detail, *is_error),
+            }
+            cleanup_guard.armed = false;
+            result
+        });
+        match handle.await {
+            Ok(Ok((_, Some(text)))) => Ok(text),
+            Ok(Ok((detail, None))) => Err(anyhow::anyhow!(detail)),
+            Ok(Err((detail, _))) => Err(anyhow::anyhow!(detail)),
+            Err(join_err) => Err(join_err.into()),
+        }
     }
     pub fn reconcile_journal(&self) -> Result<crate::journal::RecoveryReport> {
         {
@@ -164,9 +303,11 @@ impl Dictation {
                 false,
             );
         }
+        let maintaining_guard = MaintainingGuard(self);
         let result = self.journal.recover();
         let _gate = self.active.lock().unwrap();
         self.maintaining.store(false, Ordering::SeqCst);
+        drop(maintaining_guard);
         match &result {
             Ok(report) if !report.unpersisted => self.publish(
                 0,
@@ -240,6 +381,7 @@ impl Dictation {
         let permit = Arc::new(Mutex::new(self.insertion.reserve().ok()));
         *active = Some(Active {
             generation,
+            is_capture: true,
             stop,
             canceled: canceled.clone(),
             permit: permit.clone(),
@@ -256,6 +398,12 @@ impl Dictation {
         let this = self.clone();
         tokio::spawn(async move {
             let worker_slot = Arc::new(Mutex::new(None::<RecognitionJob>));
+            let mut cleanup_guard = ActiveCleanupGuard {
+                dictation: &this,
+                generation,
+                worker_slot: &worker_slot,
+                armed: true,
+            };
             let result = this
                 .run(
                     generation,
@@ -280,11 +428,14 @@ impl Dictation {
                 Ok(detail) => this.finish(generation, &detail, false),
                 Err(error) => this.finish(generation, &format!("{error:#}"), true),
             }
+            cleanup_guard.armed = false;
         });
         Ok(())
     }
     pub fn release(&self) {
-        if let Some(active) = self.active.lock().unwrap().as_mut() {
+        if let Some(active) = self.active.lock().unwrap().as_mut()
+            && active.is_capture
+        {
             active
                 .released_at
                 .get_or_insert_with(std::time::Instant::now);
@@ -335,6 +486,15 @@ impl Dictation {
         recording: bool,
         error: bool,
     ) {
+        let recording_started_at_ms = if recording {
+            self.state
+                .borrow()
+                .recording_started_at_ms
+                .or_else(|| Some(now_millis()))
+        } else {
+            let _ = self.audio_level.send(0.0);
+            None
+        };
         self.state.send_replace(DictationSnapshot {
             phase: phase.into(),
             detail: detail.into(),
@@ -342,6 +502,7 @@ impl Dictation {
             recording,
             error,
             generation,
+            recording_started_at_ms,
         });
     }
     fn finish(&self, generation: u64, detail: &str, error: bool) {
@@ -498,6 +659,7 @@ impl Dictation {
                     let progress = capture.progress();
                     if let Some(error) = progress.error { break CaptureStop::Failed(error); }
                     if progress.ready {
+                        let _ = self.audio_level.send(progress.audio_level);
                         let failure = worker.as_ref().and_then(|worker| worker.subscribe().borrow().outcome.clone())
                             .and_then(|outcome| outcome.error).or_else(|| worker_start_error.clone());
                         let current = self.snapshot();
@@ -568,8 +730,16 @@ impl Dictation {
             if matches!(capture_result.state.as_str(), "failed" | "interrupted")
                 || !capture_result.persisted
             {
+                let retained = if capture_result.available_frames > 0 {
+                    format!(
+                        "{:.1} s of audio was retained in Journal for recovery; no insertion.",
+                        capture_result.available_frames as f64 / crate::audio::SAMPLE_RATE as f64
+                    )
+                } else {
+                    "No audio frames were captured; nothing was inserted.".into()
+                };
                 anyhow::bail!(
-                    "Capture {}: {}. Available audio was retained; no insertion.",
+                    "Capture {}: {}. {retained}",
                     capture_result.state,
                     capture_result
                         .error
@@ -591,6 +761,7 @@ impl Dictation {
                 channels: audio.channels,
                 frames: audio.frames,
                 data_offset: audio.data_offset,
+                recovered: audio.recovered,
             })
             .await?;
         let outcome = self.await_worker(generation, &worker, &canceled).await;
@@ -739,6 +910,144 @@ impl Dictation {
             }
         }
     }
+    async fn run_retry(
+        self: &Arc<Self>,
+        generation: u64,
+        recording_id: uuid::Uuid,
+        settings: Settings,
+        canceled: CancellationToken,
+        worker_slot: Arc<Mutex<Option<RecognitionJob>>>,
+    ) -> std::result::Result<(String, Option<String>), (String, bool)> {
+        let journal = self.journal.clone();
+        let audio = tokio::task::spawn_blocking(move || journal.open_audio(recording_id))
+            .await
+            .map_err(|e| (e.to_string(), true))?
+            .map_err(|e| (format!("{e:#}"), true))?;
+        if canceled.is_cancelled() {
+            return Err((
+                "Recognition canceled. Original audio was preserved; no insertion.".into(),
+                false,
+            ));
+        }
+        let config = WorkerConfig::for_model(
+            self.worker.clone(),
+            settings.native_lib_dir.clone(),
+            settings.model_profile,
+            settings.model_path.clone(),
+        );
+        let mut attempt_config =
+            serde_json::to_value(&config.settings).map_err(|e| (e.to_string(), true))?;
+        if let Some(obj) = attempt_config.as_object_mut() {
+            obj.insert("retry_from_journal".into(), json!(true));
+        }
+        let attempt_id = self
+            .journal
+            .begin_attempt(recording_id, attempt_config)
+            .map_err(|e| (format!("{e:#}"), true))?;
+        let supervisor = RecognitionSupervisor {
+            config,
+            policy: SupervisorPolicy::default(),
+        };
+        let worker = match supervisor
+            .prepare(
+                JobIdentity {
+                    generation,
+                    recording_id,
+                    attempt_id,
+                },
+                self.journal.diagnostics_path(attempt_id),
+            )
+            .await
+        {
+            Ok(job) => job,
+            Err(error) => {
+                let message = format!("{error:#}");
+                let _ = self.journal.finish_attempt(
+                    attempt_id,
+                    "failed",
+                    None,
+                    json!({"error": message}),
+                );
+                return Err((
+                    format!(
+                        "Recognition worker could not start: {message}. Retained audio unchanged."
+                    ),
+                    true,
+                ));
+            }
+        };
+        *worker_slot.lock().unwrap() = Some(worker.clone());
+        if canceled.is_cancelled() {
+            worker.cancel();
+            let outcome = self
+                .await_worker(generation, &worker, &CancellationToken::new())
+                .await;
+            *worker_slot.lock().unwrap() = None;
+            let _ = self.record_attempt(attempt_id, &outcome);
+            return Err((
+                "Recognition canceled. Original audio was preserved; no insertion.".into(),
+                false,
+            ));
+        }
+        if let Err(error) = worker
+            .transcribe(AudioSource {
+                path: audio.path,
+                sample_rate: audio.sample_rate,
+                channels: audio.channels,
+                frames: audio.frames,
+                data_offset: audio.data_offset,
+                recovered: audio.recovered,
+            })
+            .await
+        {
+            return Err((format!("{error:#}"), true));
+        }
+        let outcome = self.await_worker(generation, &worker, &canceled).await;
+        *worker_slot.lock().unwrap() = None;
+        self.record_attempt(attempt_id, &outcome)
+            .map_err(|e| (format!("{e:#}"), true))?;
+        if canceled.is_cancelled() || outcome.status == RecognitionStatus::Canceled {
+            return Err((
+                "Recognition canceled. Original audio was preserved; no insertion.".into(),
+                false,
+            ));
+        }
+        if outcome.status == RecognitionStatus::NoText {
+            return Ok((
+                "No text returned. Recording retained; clipboard unchanged.".into(),
+                None,
+            ));
+        }
+        if outcome.status != RecognitionStatus::Succeeded {
+            return Err((
+                outcome
+                    .error
+                    .unwrap_or_else(|| "Recognition failed; audio retained.".into()),
+                true,
+            ));
+        }
+        let text = outcome
+            .raw_transcript
+            .ok_or_else(|| ("successful recognition has no transcript".into(), true))?;
+        if text.trim().is_empty() {
+            return Ok((
+                "No text returned. Recording retained; clipboard unchanged.".into(),
+                None,
+            ));
+        }
+        Ok((
+            "Recovery transcription complete. Copy from Journal when ready; clipboard unchanged."
+                .into(),
+            Some(text),
+        ))
+    }
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 // Both early and late completion must settle the same admission reservation.

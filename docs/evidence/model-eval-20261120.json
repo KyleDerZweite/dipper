@@ -1,0 +1,1006 @@
+{
+  "date": "2026-11-20",
+  "hardware": {
+    "gpu": "AMD Radeon RX 7700S (RADV NAVI33 / Vulkan1)",
+    "cpu_threads": 8,
+    "mode": "sequential_single_audio_with_1s_cooldown"
+  },
+  "artifacts_evaluated": {
+    "turbo_f16": {
+      "format": "ggml",
+      "ftype": 1,
+      "size_bytes": 1624555275
+    },
+    "turbo_q8_0": {
+      "format": "ggml",
+      "ftype": 7,
+      "size_bytes": 874188075
+    },
+    "turbo_q5_0": {
+      "format": "ggml",
+      "ftype": 8,
+      "size_bytes": 574041195
+    },
+    "parakeet_ultra_q8_0": {
+      "format": "gguf",
+      "size_bytes": 740363168,
+      "sha256": "007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59",
+      "runtime": "transcribe.cpp v0.4.2"
+    }
+  },
+  "native_dipper_worker_recovery_verification": {
+    "clip_category": "failed_recovery",
+    "audio_bytes": 8994908,
+    "wav_sha256_preserved": true,
+    "transcript_identical_f16_vs_q8_0": true,
+    "transcript_bytes": 884,
+    "runs": {
+      "large_v3_turbo": {
+        "preparation_ms": 3503,
+        "inference_ms": 2368,
+        "input_preparation_ms": 32,
+        "wall_ms": 6037
+      },
+      "large_v3_turbo_q8_0": {
+        "preparation_ms": 2279,
+        "inference_ms": 2557,
+        "input_preparation_ms": 32,
+        "wall_ms": 4961
+      }
+    }
+  },
+  "clips": [
+    {
+      "clip_id": "C01",
+      "category": "pilot_confirmed",
+      "duration_s": 23.808
+    },
+    {
+      "clip_id": "C02",
+      "category": "pilot_confirmed",
+      "duration_s": 20.832
+    },
+    {
+      "clip_id": "C03",
+      "category": "failed_recovery",
+      "duration_s": 46.85
+    },
+    {
+      "clip_id": "C04",
+      "category": "live_sample",
+      "duration_s": 4.03
+    },
+    {
+      "clip_id": "C05",
+      "category": "live_sample",
+      "duration_s": 5.66
+    },
+    {
+      "clip_id": "C06",
+      "category": "live_sample",
+      "duration_s": 10.42
+    },
+    {
+      "clip_id": "C07",
+      "category": "live_sample",
+      "duration_s": 12.79
+    },
+    {
+      "clip_id": "C08",
+      "category": "live_sample",
+      "duration_s": 22.06
+    },
+    {
+      "clip_id": "C09",
+      "category": "live_sample",
+      "duration_s": 26.22
+    },
+    {
+      "clip_id": "C10",
+      "category": "live_sample",
+      "duration_s": 49.28
+    },
+    {
+      "clip_id": "C11",
+      "category": "live_sample",
+      "duration_s": 55.17
+    },
+    {
+      "clip_id": "C12",
+      "category": "live_sample",
+      "duration_s": 94.53
+    },
+    {
+      "clip_id": "C13",
+      "category": "live_sample",
+      "duration_s": 117.09
+    }
+  ],
+  "model_summary": {
+    "parakeet_ultra_cpu": {
+      "n": 13,
+      "all_rc_zero": true,
+      "all_gpu": false,
+      "ftype": [],
+      "wall_s_min_med_max": [
+        1.153,
+        2.576,
+        10.511
+      ],
+      "load_ms_min_med_max": [
+        573.5,
+        588.2,
+        629.5
+      ],
+      "total_ms_min_med_max": null,
+      "rss_mb_min_med_max": [
+        1213.4,
+        1308.0,
+        1716.0
+      ],
+      "edits": {
+        "C01": 7,
+        "C02": 5
+      },
+      "ref_words": {
+        "C01": 48,
+        "C02": 45
+      }
+    },
+    "parakeet_ultra_vulkan": {
+      "n": 13,
+      "all_rc_zero": true,
+      "all_gpu": false,
+      "ftype": [],
+      "wall_s_min_med_max": [
+        1.065,
+        1.406,
+        3.426
+      ],
+      "load_ms_min_med_max": [
+        693.3,
+        768.5,
+        786.9
+      ],
+      "total_ms_min_med_max": null,
+      "rss_mb_min_med_max": [
+        171.4,
+        174.8,
+        196.6
+      ],
+      "edits": {
+        "C01": 7,
+        "C02": 5
+      },
+      "ref_words": {
+        "C01": 48,
+        "C02": 45
+      }
+    },
+    "turbo_f16_vulkan": {
+      "n": 13,
+      "all_rc_zero": true,
+      "all_gpu": true,
+      "ftype": [
+        1
+      ],
+      "wall_s_min_med_max": [
+        2.386,
+        2.728,
+        6.862
+      ],
+      "load_ms_min_med_max": [
+        1299.0,
+        1499.8,
+        1561.0
+      ],
+      "total_ms_min_med_max": [
+        2191.5,
+        2532.0,
+        6656.7
+      ],
+      "rss_mb_min_med_max": [
+        221.0,
+        221.4,
+        221.8
+      ],
+      "edits": {
+        "C01": 9,
+        "C02": 6
+      },
+      "ref_words": {
+        "C01": 48,
+        "C02": 45
+      }
+    },
+    "turbo_q5_0_vulkan": {
+      "n": 13,
+      "all_rc_zero": true,
+      "all_gpu": true,
+      "ftype": [
+        8
+      ],
+      "wall_s_min_med_max": [
+        1.454,
+        1.97,
+        5.815
+      ],
+      "load_ms_min_med_max": [
+        505.4,
+        566.4,
+        665.2
+      ],
+      "total_ms_min_med_max": [
+        1282.0,
+        1814.4,
+        5633.8
+      ],
+      "rss_mb_min_med_max": [
+        130.8,
+        135.1,
+        178.0
+      ],
+      "edits": {
+        "C01": 9,
+        "C02": 5
+      },
+      "ref_words": {
+        "C01": 48,
+        "C02": 45
+      }
+    },
+    "turbo_q8_0_vulkan": {
+      "n": 13,
+      "all_rc_zero": true,
+      "all_gpu": true,
+      "ftype": [
+        7
+      ],
+      "wall_s_min_med_max": [
+        1.678,
+        2.2,
+        5.975
+      ],
+      "load_ms_min_med_max": [
+        711.7,
+        822.9,
+        1082.6
+      ],
+      "total_ms_min_med_max": [
+        1522.4,
+        2034.3,
+        5807.5
+      ],
+      "rss_mb_min_med_max": [
+        155.6,
+        155.9,
+        177.8
+      ],
+      "edits": {
+        "C01": 9,
+        "C02": 5
+      },
+      "ref_words": {
+        "C01": 48,
+        "C02": 45
+      }
+    }
+  },
+  "per_clip_runs": [
+    {
+      "clip_id": "C01",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.6128,
+      "load_ms": 1298.95,
+      "whisper_total_ms": 2423.04,
+      "rss_mb": 221.4,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 9
+    },
+    {
+      "clip_id": "C02",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.7279,
+      "load_ms": 1461.4,
+      "whisper_total_ms": 2532.01,
+      "rss_mb": 221.76,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 6
+    },
+    {
+      "clip_id": "C03",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 4.2083,
+      "load_ms": 1499.8,
+      "whisper_total_ms": 4008.87,
+      "rss_mb": 221.34,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C04",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.4802,
+      "load_ms": 1561.05,
+      "whisper_total_ms": 2274.74,
+      "rss_mb": 221.78,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C05",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.3859,
+      "load_ms": 1531.73,
+      "whisper_total_ms": 2191.48,
+      "rss_mb": 221.55,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C06",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.4255,
+      "load_ms": 1497.68,
+      "whisper_total_ms": 2237.11,
+      "rss_mb": 221.5,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C07",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.6319,
+      "load_ms": 1502.71,
+      "whisper_total_ms": 2444.84,
+      "rss_mb": 220.96,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C08",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.7136,
+      "load_ms": 1527.6,
+      "whisper_total_ms": 2526.03,
+      "rss_mb": 221.43,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C09",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 2.9006,
+      "load_ms": 1496.7,
+      "whisper_total_ms": 2712.98,
+      "rss_mb": 221.31,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C10",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 3.944,
+      "load_ms": 1499.81,
+      "whisper_total_ms": 3731.13,
+      "rss_mb": 221.38,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C11",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 4.382,
+      "load_ms": 1490.54,
+      "whisper_total_ms": 4183.69,
+      "rss_mb": 221.33,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C12",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 5.7544,
+      "load_ms": 1499.15,
+      "whisper_total_ms": 5545.12,
+      "rss_mb": 221.59,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C13",
+      "model": "turbo_f16_vulkan",
+      "wall_s": 6.8621,
+      "load_ms": 1527.72,
+      "whisper_total_ms": 6656.68,
+      "rss_mb": 221.25,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C01",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 2.8942,
+      "load_ms": 1082.63,
+      "whisper_total_ms": 2693.07,
+      "rss_mb": 155.97,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 9
+    },
+    {
+      "clip_id": "C02",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 2.0979,
+      "load_ms": 797.21,
+      "whisper_total_ms": 1932.82,
+      "rss_mb": 156.28,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 5
+    },
+    {
+      "clip_id": "C03",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 3.4548,
+      "load_ms": 830.22,
+      "whisper_total_ms": 3275.1,
+      "rss_mb": 156.03,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C04",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 1.8798,
+      "load_ms": 822.92,
+      "whisper_total_ms": 1695.47,
+      "rss_mb": 155.63,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C05",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 1.6783,
+      "load_ms": 794.26,
+      "whisper_total_ms": 1522.4,
+      "rss_mb": 155.76,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C06",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 1.763,
+      "load_ms": 807.26,
+      "whisper_total_ms": 1590.69,
+      "rss_mb": 155.88,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C07",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 1.9496,
+      "load_ms": 825.08,
+      "whisper_total_ms": 1786.44,
+      "rss_mb": 155.93,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C08",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 2.045,
+      "load_ms": 811.6,
+      "whisper_total_ms": 1854.38,
+      "rss_mb": 155.67,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C09",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 2.2001,
+      "load_ms": 823.05,
+      "whisper_total_ms": 2034.3,
+      "rss_mb": 155.76,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C10",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 3.1953,
+      "load_ms": 833.83,
+      "whisper_total_ms": 3026.55,
+      "rss_mb": 156.3,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C11",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 3.4632,
+      "load_ms": 711.67,
+      "whisper_total_ms": 3293.17,
+      "rss_mb": 155.82,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C12",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 5.0212,
+      "load_ms": 844.3,
+      "whisper_total_ms": 4823.44,
+      "rss_mb": 175.49,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C13",
+      "model": "turbo_q8_0_vulkan",
+      "wall_s": 5.975,
+      "load_ms": 801.67,
+      "whisper_total_ms": 5807.49,
+      "rss_mb": 177.84,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C01",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 2.5291,
+      "load_ms": 665.19,
+      "whisper_total_ms": 2367.74,
+      "rss_mb": 153.08,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 9
+    },
+    {
+      "clip_id": "C02",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.8307,
+      "load_ms": 568.69,
+      "whisper_total_ms": 1673.62,
+      "rss_mb": 131.39,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": 5
+    },
+    {
+      "clip_id": "C03",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 3.1271,
+      "load_ms": 567.82,
+      "whisper_total_ms": 2967.04,
+      "rss_mb": 152.88,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C04",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.4713,
+      "load_ms": 505.36,
+      "whisper_total_ms": 1315.33,
+      "rss_mb": 131.37,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C05",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.4545,
+      "load_ms": 567.75,
+      "whisper_total_ms": 1282.04,
+      "rss_mb": 130.76,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C06",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.5931,
+      "load_ms": 575.69,
+      "whisper_total_ms": 1416.7,
+      "rss_mb": 135.1,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C07",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.7069,
+      "load_ms": 558.94,
+      "whisper_total_ms": 1516.87,
+      "rss_mb": 131.19,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C08",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.7514,
+      "load_ms": 539.63,
+      "whisper_total_ms": 1574.55,
+      "rss_mb": 131.26,
+      "detected_language": "en",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C09",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 1.9696,
+      "load_ms": 567.12,
+      "whisper_total_ms": 1814.39,
+      "rss_mb": 130.88,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C10",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 2.9075,
+      "load_ms": 560.47,
+      "whisper_total_ms": 2746.45,
+      "rss_mb": 140.44,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C11",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 3.4146,
+      "load_ms": 566.36,
+      "whisper_total_ms": 3257.09,
+      "rss_mb": 153.79,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C12",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 4.8932,
+      "load_ms": 562.51,
+      "whisper_total_ms": 4731.58,
+      "rss_mb": 175.34,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C13",
+      "model": "turbo_q5_0_vulkan",
+      "wall_s": 5.8154,
+      "load_ms": 554.05,
+      "whisper_total_ms": 5633.75,
+      "rss_mb": 178.02,
+      "detected_language": "de",
+      "gpu_confirmed": true,
+      "edits": null
+    },
+    {
+      "clip_id": "C01",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.6862,
+      "load_ms": 774.15,
+      "whisper_total_ms": null,
+      "rss_mb": 188.78,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": 7
+    },
+    {
+      "clip_id": "C02",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.3752,
+      "load_ms": 786.92,
+      "whisper_total_ms": null,
+      "rss_mb": 172.46,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": 5
+    },
+    {
+      "clip_id": "C03",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 2.0699,
+      "load_ms": 770.92,
+      "whisper_total_ms": null,
+      "rss_mb": 193.52,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C04",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.229,
+      "load_ms": 768.45,
+      "whisper_total_ms": null,
+      "rss_mb": 174.8,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C05",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.0652,
+      "load_ms": 766.88,
+      "whisper_total_ms": null,
+      "rss_mb": 171.44,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C06",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.1037,
+      "load_ms": 762.02,
+      "whisper_total_ms": null,
+      "rss_mb": 171.95,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C07",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.1987,
+      "load_ms": 782.03,
+      "whisper_total_ms": null,
+      "rss_mb": 171.95,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C08",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.2921,
+      "load_ms": 765.57,
+      "whisper_total_ms": null,
+      "rss_mb": 172.43,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C09",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.4063,
+      "load_ms": 772.07,
+      "whisper_total_ms": null,
+      "rss_mb": 172.86,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C10",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 1.9782,
+      "load_ms": 693.29,
+      "whisper_total_ms": null,
+      "rss_mb": 190.78,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C11",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 2.1743,
+      "load_ms": 744.62,
+      "whisper_total_ms": null,
+      "rss_mb": 192.81,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C12",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 3.0106,
+      "load_ms": 771.35,
+      "whisper_total_ms": null,
+      "rss_mb": 192.87,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C13",
+      "model": "parakeet_ultra_vulkan",
+      "wall_s": 3.4265,
+      "load_ms": 768.3,
+      "whisper_total_ms": null,
+      "rss_mb": 196.58,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C01",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 2.4388,
+      "load_ms": 596.76,
+      "whisper_total_ms": null,
+      "rss_mb": 1308.02,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": 7
+    },
+    {
+      "clip_id": "C02",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 2.3345,
+      "load_ms": 587.18,
+      "whisper_total_ms": null,
+      "rss_mb": 1294.22,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": 5
+    },
+    {
+      "clip_id": "C03",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 4.5693,
+      "load_ms": 607.55,
+      "whisper_total_ms": null,
+      "rss_mb": 1413.06,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C04",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 1.1529,
+      "load_ms": 591.41,
+      "whisper_total_ms": null,
+      "rss_mb": 1213.39,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C05",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 1.2648,
+      "load_ms": 581.36,
+      "whisper_total_ms": null,
+      "rss_mb": 1223.6,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C06",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 1.5113,
+      "load_ms": 587.85,
+      "whisper_total_ms": null,
+      "rss_mb": 1246.04,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C07",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 1.9709,
+      "load_ms": 573.52,
+      "whisper_total_ms": null,
+      "rss_mb": 1257.1,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C08",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 2.5765,
+      "load_ms": 593.57,
+      "whisper_total_ms": null,
+      "rss_mb": 1300.37,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C09",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 2.7851,
+      "load_ms": 588.24,
+      "whisper_total_ms": null,
+      "rss_mb": 1319.44,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C10",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 5.0757,
+      "load_ms": 586.66,
+      "whisper_total_ms": null,
+      "rss_mb": 1425.6,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C11",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 6.2127,
+      "load_ms": 586.88,
+      "whisper_total_ms": null,
+      "rss_mb": 1451.85,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C12",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 8.4723,
+      "load_ms": 629.53,
+      "whisper_total_ms": null,
+      "rss_mb": 1619.64,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    },
+    {
+      "clip_id": "C13",
+      "model": "parakeet_ultra_cpu",
+      "wall_s": 10.5106,
+      "load_ms": 609.39,
+      "whisper_total_ms": null,
+      "rss_mb": 1716.03,
+      "detected_language": "",
+      "gpu_confirmed": false,
+      "edits": null
+    }
+  ]
+}

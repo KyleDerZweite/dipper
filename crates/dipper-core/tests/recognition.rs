@@ -136,6 +136,7 @@ impl Fixture {
             channels: 1,
             frames: 4800,
             data_offset: 92,
+            recovered: false,
         }
     }
 

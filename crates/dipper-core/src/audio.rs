@@ -19,6 +19,8 @@ pub struct AudioArtifact {
     pub channels: u16,
     pub frames: u64,
     pub data_offset: u64,
+    #[serde(default)]
+    pub recovered: bool,
 }
 
 pub(crate) struct AudioWriter {
@@ -109,6 +111,7 @@ impl AudioWriter {
             channels: CHANNELS,
             frames: self.frames,
             data_offset: DATA_OFFSET,
+            recovered: false,
         })
     }
 }
@@ -147,33 +150,23 @@ pub fn validate_artifact(artifact: &AudioArtifact) -> Result<()> {
 
 /// Read a finalized artifact. Header counts and file length must agree exactly.
 pub fn read_f32(artifact: &AudioArtifact) -> Result<Vec<f32>> {
-    let mut file = File::open(&artifact.path)?;
-    validate_open_file(artifact, &mut file)?;
-    let bytes = artifact
-        .frames
-        .checked_mul(4)
-        .context("audio size overflow")?;
-    let sample_count =
-        usize::try_from(artifact.frames).context("audio exceeds addressable memory")?;
-    let mut samples = Vec::new();
-    samples
-        .try_reserve_exact(sample_count)
-        .context("audio allocation failed")?;
-    let mut batch = [0; 16_384];
-    let mut remaining = bytes;
-    while remaining > 0 {
-        let n = usize::try_from(remaining.min(batch.len() as u64))?;
-        file.read_exact(&mut batch[..n])?;
-        for b in batch[..n].chunks_exact(4) {
-            samples.push(f32::from_bits(u32::from_le_bytes(b.try_into().unwrap())));
-        }
-        remaining -= n as u64;
-    }
-    Ok(samples)
+    read_f32_prefix(artifact, artifact.frames)
 }
 
-/// A recovered prefix is read without trusting or rewriting an interrupted header.
+/// Read up to `max_frames` from a finalized artifact without buffering excess frames.
+pub fn read_f32_prefix(artifact: &AudioArtifact, max_frames: u64) -> Result<Vec<f32>> {
+    let mut file = File::open(&artifact.path)?;
+    validate_open_file(artifact, &mut file)?;
+    stream_f32_samples(&mut file, artifact.frames.min(max_frames))
+}
+
+/// A recovered prefix is read without trusting stale header counts or mutating the file.
 pub fn read_recovered_f32(artifact: &AudioArtifact) -> Result<Vec<f32>> {
+    read_recovered_prefix_f32(artifact, artifact.frames)
+}
+
+/// Read up to `max_frames` from a recovered prefix after validating container/format metadata.
+pub fn read_recovered_prefix_f32(artifact: &AudioArtifact, max_frames: u64) -> Result<Vec<f32>> {
     ensure!(
         artifact.sample_rate == SAMPLE_RATE
             && artifact.channels == CHANNELS
@@ -192,16 +185,37 @@ pub fn read_recovered_f32(artifact: &AudioArtifact) -> Result<Vec<f32>> {
                 .context("audio size overflow")?,
         "recovered prefix is shortened"
     );
-    file.seek(SeekFrom::Start(DATA_OFFSET))?;
-    let n = usize::try_from(bytes).context("recovered audio exceeds addressable memory")?;
-    let mut payload = Vec::new();
-    payload.try_reserve_exact(n)?;
-    payload.resize(n, 0);
-    file.read_exact(&mut payload)?;
-    Ok(payload
-        .chunks_exact(4)
-        .map(|b| f32::from_bits(u32::from_le_bytes(b.try_into().unwrap())))
-        .collect())
+    let mut stored_header = [0_u8; DATA_OFFSET as usize];
+    file.read_exact(&mut stored_header)
+        .context("read recovered RF64 header")?;
+    let canonical = header(0)?;
+    ensure!(
+        stored_header[0..20] == canonical[0..20]
+            && stored_header[44..80] == canonical[44..80]
+            && stored_header[84..92] == canonical[84..92],
+        "invalid recovered RF64 container or format"
+    );
+    stream_f32_samples(&mut file, artifact.frames.min(max_frames))
+}
+
+fn stream_f32_samples(file: &mut File, frames: u64) -> Result<Vec<f32>> {
+    let bytes = frames.checked_mul(4).context("audio size overflow")?;
+    let sample_count = usize::try_from(frames).context("audio exceeds addressable memory")?;
+    let mut samples = Vec::new();
+    samples
+        .try_reserve_exact(sample_count)
+        .context("audio allocation failed")?;
+    let mut batch = [0_u8; 16_384];
+    let mut remaining = bytes;
+    while remaining > 0 {
+        let n = usize::try_from(remaining.min(batch.len() as u64))?;
+        file.read_exact(&mut batch[..n])?;
+        for b in batch[..n].chunks_exact(4) {
+            samples.push(f32::from_bits(u32::from_le_bytes(b.try_into().unwrap())));
+        }
+        remaining -= n as u64;
+    }
+    Ok(samples)
 }
 
 pub(crate) fn available_frames(path: &Path) -> Result<u64> {
@@ -210,6 +224,56 @@ pub(crate) fn available_frames(path: &Path) -> Result<u64> {
         bail!("audio is shorter than its stored data offset");
     }
     Ok((length - DATA_OFFSET) / 4)
+}
+
+/// Convert 48 kHz mono float32 capture samples into a compact 16 kHz mono PCM16 RIFF WAV
+/// for browser/WebView preview playback without touching the retained capture artifact.
+pub fn to_16k_mono_pcm16_wav(samples_48k: &[f32], max_bytes: usize) -> Result<Vec<u8>> {
+    let out_frames = samples_48k.len() / 3;
+    let data_bytes = out_frames
+        .checked_mul(2)
+        .context("preview WAV size overflow")?;
+    let total_bytes = 44_usize
+        .checked_add(data_bytes)
+        .context("preview WAV total overflow")?;
+    ensure!(
+        total_bytes <= max_bytes,
+        "recording exceeds audio preview limit"
+    );
+    let data_len = u32::try_from(data_bytes).context("preview WAV exceeds RIFF size limit")?;
+    let riff_len = 36_u32
+        .checked_add(data_len)
+        .context("preview WAV exceeds RIFF size limit")?;
+    let mut wav = Vec::with_capacity(total_bytes);
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&riff_len.to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&16_u32.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&16_000_u32.to_le_bytes());
+    wav.extend_from_slice(&(16_000_u32 * 2).to_le_bytes());
+    wav.extend_from_slice(&2_u16.to_le_bytes());
+    wav.extend_from_slice(&16_u16.to_le_bytes());
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&data_len.to_le_bytes());
+    for chunk in samples_48k.chunks_exact(3) {
+        let clamped_avg = chunk
+            .iter()
+            .copied()
+            .map(|s| {
+                if s.is_finite() {
+                    s.clamp(-1.0, 1.0)
+                } else {
+                    0.0
+                }
+            })
+            .sum::<f32>()
+            / 3.0;
+        let pcm = (clamped_avg * i16::MAX as f32).round() as i16;
+        wav.extend_from_slice(&pcm.to_le_bytes());
+    }
+    Ok(wav)
 }
 
 #[cfg(test)]

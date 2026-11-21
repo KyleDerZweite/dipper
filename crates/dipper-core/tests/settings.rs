@@ -81,4 +81,44 @@ fn recognition_profiles_preserve_legacy_requests_and_reject_unknown_models() {
     turbo.validate().unwrap();
     legacy["model_profile"] = serde_json::json!("large_v3_turbo_quantized");
     assert!(serde_json::from_value::<RecognitionSettings>(legacy).is_err());
+
+    for (profile, name, expected_ftype) in [
+        (RecognitionModel::LargeV3, "large_v3", 1),
+        (RecognitionModel::LargeV3Turbo, "large_v3_turbo", 1),
+        (RecognitionModel::LargeV3TurboQ8_0, "large_v3_turbo_q8_0", 7),
+        (RecognitionModel::LargeV3TurboQ5_0, "large_v3_turbo_q5_0", 8),
+    ] {
+        let req = RecognitionSettings::for_model(profile, format!("/models/{name}.bin").into());
+        assert_eq!(req.model_profile.expected_ftype(), expected_ftype);
+        assert_eq!(
+            req.model_profile.decoder_layers(),
+            if profile == RecognitionModel::LargeV3 {
+                32
+            } else {
+                4
+            }
+        );
+        req.validate().unwrap();
+        let encoded = serde_json::to_value(&req).unwrap();
+        assert_eq!(encoded["model_profile"], serde_json::json!(name));
+        let decoded: RecognitionSettings = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.model_profile, profile);
+    }
+}
+
+#[test]
+fn quantized_turbo_profiles_roundtrip_through_settings_store() {
+    use dipper_core::protocol::RecognitionModel;
+    let store = tempfile::tempdir().unwrap();
+    let path = store.path().join("settings.json");
+    for profile in [
+        RecognitionModel::LargeV3TurboQ8_0,
+        RecognitionModel::LargeV3TurboQ5_0,
+    ] {
+        let mut settings = Settings::defaults(store.path());
+        settings.model_profile = profile;
+        settings.save(&path).unwrap();
+        let reloaded = Settings::load(&path, store.path()).unwrap();
+        assert_eq!(reloaded.model_profile, profile);
+    }
 }
