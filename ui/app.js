@@ -396,10 +396,12 @@
   }
 
   function selectModelProfile(profileId) {
-    if (selectedModelProfile === profileId) return;
+    const modelPath = F.modelPathForProfile($("model").value, profileId);
+    if (selectedModelProfile === profileId && modelPath === $("model").value) return;
     selectedModelProfile = profileId;
     const profile = F.getModelProfileMeta(profileId);
     $("model").placeholder = `/path/to/${profile.defaultFilename}`;
+    $("model").value = modelPath;
     syncModelCardSelection();
     synchronizeControls();
     scheduleSetupCheck(0);
