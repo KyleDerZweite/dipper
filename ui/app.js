@@ -24,7 +24,7 @@
   let savedSettings = null;
   let selectedModelProfile = "large_v3_turbo_q8_0";
   let inputCatalog = null;
-  let journalRefreshing = false;
+  let journalRefresh = null;
   let journalDirty = false;
   let snapshotSeq = 0;
   let allRecordings = [];
@@ -1157,10 +1157,17 @@
     renderFilteredJournal();
   }
 
-  async function refreshJournal() {
+  // Callers share one in-flight refresh and resolve only after its final
+  // render, including reruns requested while it was loading.
+  function refreshJournal() {
     journalDirty = true;
-    if (journalRefreshing) return;
-    journalRefreshing = true;
+    journalRefresh ??= drainJournalRefresh().finally(() => {
+      journalRefresh = null;
+    });
+    return journalRefresh;
+  }
+
+  async function drainJournalRefresh() {
     $("journal").setAttribute("aria-busy", "true");
     try {
       while (journalDirty) {
@@ -1188,7 +1195,6 @@
       throw error;
     } finally {
       $("journal").setAttribute("aria-busy", "false");
-      journalRefreshing = false;
     }
   }
 

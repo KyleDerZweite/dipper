@@ -255,6 +255,26 @@ test("summarizeSetupStatus formats model size, runtime, shortcut, and recovery s
   );
   assert.equal(unassigned.ready, false);
   assert.equal(unassigned.items[2].status, "warn");
+
+  const mismatch = F.summarizeSetupStatus(
+    {
+      model_exists: true,
+      model_size_bytes: 1624555275,
+      model_issue: "The model file does not match Whisper large-v3-turbo Q8_0.",
+      runtime_exists: true,
+      desktop_ready: true,
+      desktop_error: null,
+      effective_binding: "F2",
+      recovery_unpersisted: false,
+      ready: false,
+      issue: "The model file does not match Whisper large-v3-turbo Q8_0.",
+    },
+    { model_profile: "large_v3_turbo_q8_0" },
+    null
+  );
+  assert.equal(mismatch.ready, false);
+  assert.equal(mismatch.items[0].status, "error");
+  assert.match(mismatch.items[0].detail, /does not match/);
 });
 
 test("AudioUrlRegistry tracks and revokes Blob URLs without leaks", () => {

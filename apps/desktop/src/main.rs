@@ -174,6 +174,7 @@ struct AudioPreview {
 struct SetupStatus {
     model_exists: bool,
     model_size_bytes: Option<u64>,
+    model_issue: Option<String>,
     runtime_exists: bool,
     desktop_ready: bool,
     desktop_error: Option<String>,
@@ -467,31 +468,32 @@ async fn check_setup_paths(
     let desktop_ready = state.desktop.is_some();
     let desktop_error = state.desktop_error.clone();
     let recovery_unpersisted = state.dictation.journal().recovery_report().unpersisted;
-    let (model_exists, model_size_bytes, runtime_exists, validation) =
+    let (model_exists, model_size_bytes, model_issue, runtime_exists, validation) =
         tauri::async_runtime::spawn_blocking(move || {
             if let Err(err) = settings.validate() {
-                return (false, None, false, Err(err));
+                return (false, None, None, false, Err(err));
             }
             let model_meta = std::fs::metadata(&settings.model_path).ok();
             let model_exists = model_meta.as_ref().is_some_and(|m| m.is_file());
             let model_size_bytes = model_meta.filter(|m| m.is_file()).map(|m| m.len());
+            let model_issue = model_exists
+                .then(|| model_header_issue(&settings.model_path, settings.model_profile))
+                .flatten();
             let runtime_exists = settings.native_lib_dir.join("libwhisper.so").is_file();
-            let validation = settings.ready_for_recognition().and_then(|()| {
-                let profile = settings.model_profile;
-                match protocol::ggml_model_ftype(&settings.model_path) {
-                    Ok(Some(ftype)) if ftype != profile.expected_ftype() => Err(anyhow::anyhow!(
-                        "The model file does not match {}. Select the profile that matches the file, or choose a different file.",
-                        profile.label()
-                    )),
-                    _ => Ok(()),
-                }
-            });
-            (model_exists, model_size_bytes, runtime_exists, validation)
+            let validation = settings.ready_for_recognition();
+            (
+                model_exists,
+                model_size_bytes,
+                model_issue,
+                runtime_exists,
+                validation,
+            )
         })
         .await
         .map_err(|e| e.to_string())?;
     let issue = match validation {
         Err(err) => Some(err.to_string()),
+        Ok(()) if model_issue.is_some() => model_issue.clone(),
         Ok(()) if recovery_unpersisted => {
             Some("Journal recovery is unpersisted. Retry recovery first.".into())
         }
@@ -510,6 +512,7 @@ async fn check_setup_paths(
     Ok(SetupStatus {
         model_exists,
         model_size_bytes,
+        model_issue,
         runtime_exists,
         desktop_ready,
         desktop_error,
@@ -518,6 +521,18 @@ async fn check_setup_paths(
         ready,
         issue,
     })
+}
+/// Explain why the configured file cannot serve the selected profile, if it cannot.
+fn model_header_issue(path: &std::path::Path, profile: RecognitionModel) -> Option<String> {
+    match protocol::ggml_model_ftype(path) {
+        Ok(Some(ftype)) if ftype == profile.expected_ftype() => None,
+        Ok(Some(_)) => Some(format!(
+            "The model file does not match {}. Select the matching profile or another file.",
+            profile.label()
+        )),
+        Ok(None) => Some("The model file is not a whisper.cpp ggml model.".into()),
+        Err(error) => Some(format!("Could not read the model file header: {error}")),
+    }
 }
 #[tauri::command]
 async fn copy_transcript(state: State<'_, AppState>, recording_id: String) -> Result<(), String> {

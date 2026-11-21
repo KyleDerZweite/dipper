@@ -532,7 +532,15 @@
     const modelSize = formatBytes(setupStatus.model_size_bytes);
     const binding = setupStatus.effective_binding || fallbackBinding || null;
 
-    const modelItem = setupStatus.model_exists
+    const modelItem = setupStatus.model_exists && setupStatus.model_issue
+      ? {
+          id: "model",
+          label: "Model",
+          status: "error",
+          summary: "Wrong file",
+          detail: setupStatus.model_issue,
+        }
+      : setupStatus.model_exists
       ? {
           id: "model",
           label: "Model",
