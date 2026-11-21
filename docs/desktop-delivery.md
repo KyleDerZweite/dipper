@@ -13,7 +13,8 @@ in #30. This follows the existing Rust/Tauri/worker/Journal boundaries.
 
 ## Local installation contract
 
-Build optimized release binaries for the current Fedora 43 x86_64 system.
+Build optimized release binaries for the build host's Fedora x86_64 release;
+the release ID and `release.json` record that Fedora version.
 Package the app, sibling worker and clipboard helper, pinned Whisper/Vulkan
 shared libraries, icon, source/runtime provenance and SHA-256 file manifest.
 Models, settings, recordings and diagnostics never enter the distributable.

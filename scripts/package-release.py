@@ -19,7 +19,9 @@ LIBS = ['libwhisper.so', 'libwhisper.so.1', 'libggml.so', 'libggml.so.0',
 
 def main():
     os.chdir(ROOT)
-    if platform.system() != "Linux" or platform.machine() != "x86_64" or platform.freedesktop_os_release().get("ID") != "fedora" or platform.freedesktop_os_release().get("VERSION_ID") != "43":
+    os_release = platform.freedesktop_os_release() if platform.system() == "Linux" else {}
+    fedora = os_release.get("VERSION_ID", "")
+    if platform.machine() != "x86_64" or os_release.get("ID") != "fedora" or not fedora.isdigit():
         raise SystemExit("This release profile supports Fedora x86_64 only.")
     if subprocess.check_output(['git', 'status', '--porcelain']).strip():
         raise SystemExit('Commit the source before packaging a traceable release.')
@@ -42,7 +44,7 @@ def main():
     version = tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['package']['version']
     if json.loads((ROOT / 'apps/desktop/tauri.conf.json').read_text())['version'] != version:
         raise SystemExit('Cargo and desktop version metadata must agree.')
-    identity = f'{version}-{revision[:12]}-fedora43-{platform.machine()}'
+    identity = f'{version}-{revision[:12]}-fedora{fedora}-{platform.machine()}'
     dest = ROOT / 'target/dist' / ('dipper-' + identity)
     if dest.exists():
         raise SystemExit(f'Release already staged: {dest}')
@@ -76,7 +78,7 @@ def main():
                 files.append({'path': str(path.relative_to(dest)), 'sha256': hashlib.file_digest(path.open('rb'), 'sha256').hexdigest(), 'mode': path.stat().st_mode & 0o777})
         metadata = {'format': 1, 'release_id': identity, 'version': version,
                     'source_revision': revision, 'whisper_revision': PIN,
-                    'platform': 'Fedora 43 x86_64', 'journal_schema': 1,
+                    'platform': f'Fedora {fedora} x86_64', 'journal_schema': 1,
                     'build_steps': ['cmake --build pinned-whisper/build --target whisper', 'scripts/build.sh --release (complete workspace)'], 'files': files}
         (dest / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
         archive = dest.with_name(dest.name + '.tar.gz')
