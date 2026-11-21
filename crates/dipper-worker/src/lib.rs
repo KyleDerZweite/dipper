@@ -48,10 +48,18 @@ fn open_source(source: &AudioSource) -> Result<File> {
         .checked_add(RF64_DATA_OFFSET)
         .context("RF64 file size overflow")?;
     let mut file = File::open(&source.path).context("open finalized capture audio")?;
-    ensure!(
-        file.metadata()?.len() == file_size,
-        "RF64 file length does not match committed frame count"
-    );
+    let actual_len = file.metadata()?.len();
+    if source.recovered {
+        ensure!(
+            actual_len >= file_size,
+            "recovered RF64 prefix is shorter than committed frame count"
+        );
+    } else {
+        ensure!(
+            actual_len == file_size,
+            "RF64 file length does not match committed frame count"
+        );
+    }
     let mut header = [0_u8; RF64_DATA_OFFSET as usize];
     file.read_exact(&mut header).context("read RF64 header")?;
     ensure!(
@@ -62,12 +70,14 @@ fn open_source(source: &AudioSource) -> Result<File> {
         &header[12..16] == b"ds64" && u32_at(&header, 16) == 28 && u32_at(&header, 44) == 0,
         "unsupported RF64 size table"
     );
-    ensure!(
-        u64_at(&header, 20) == file_size - 8
-            && u64_at(&header, 28) == data_bytes
-            && u64_at(&header, 36) == source.frames,
-        "RF64 ds64 counts do not match finalized capture"
-    );
+    if !source.recovered {
+        ensure!(
+            u64_at(&header, 20) == file_size - 8
+                && u64_at(&header, 28) == data_bytes
+                && u64_at(&header, 36) == source.frames,
+            "RF64 ds64 counts do not match finalized capture"
+        );
+    }
     ensure!(
         &header[48..52] == b"fmt "
             && u32_at(&header, 52) == 16
@@ -79,12 +89,14 @@ fn open_source(source: &AudioSource) -> Result<File> {
             && u16_at(&header, 70) == 32,
         "unsupported RF64 sample format"
     );
-    ensure!(
-        &header[72..76] == b"fact"
-            && u32_at(&header, 76) == 4
-            && u32_at(&header, 80) == source.frames.min(u32::MAX as u64) as u32,
-        "RF64 fact count mismatch"
-    );
+    if !source.recovered {
+        ensure!(
+            &header[72..76] == b"fact"
+                && u32_at(&header, 76) == 4
+                && u32_at(&header, 80) == source.frames.min(u32::MAX as u64) as u32,
+            "RF64 fact count mismatch"
+        );
+    }
     ensure!(
         &header[84..88] == b"data" && u32_at(&header, 88) == u32::MAX,
         "invalid RF64 data chunk"

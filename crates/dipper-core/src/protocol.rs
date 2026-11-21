@@ -1,6 +1,9 @@
 //! Versioned, single-job transport shared by Recognition and its native worker.
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -26,6 +29,8 @@ pub struct AudioSource {
     pub channels: u16,
     pub frames: u64,
     pub data_offset: u64,
+    #[serde(default)]
+    pub recovered: bool,
 }
 
 /// Explicit model architecture. Missing fields retain the original large-v3 contract.
@@ -35,15 +40,51 @@ pub enum RecognitionModel {
     #[default]
     LargeV3,
     LargeV3Turbo,
+    #[serde(rename = "large_v3_turbo_q8_0")]
+    LargeV3TurboQ8_0,
+    #[serde(rename = "large_v3_turbo_q5_0")]
+    LargeV3TurboQ5_0,
 }
 
 impl RecognitionModel {
     pub fn decoder_layers(self) -> i32 {
         match self {
             Self::LargeV3 => 32,
-            Self::LargeV3Turbo => 4,
+            Self::LargeV3Turbo | Self::LargeV3TurboQ8_0 | Self::LargeV3TurboQ5_0 => 4,
         }
     }
+
+    pub fn expected_ftype(self) -> i32 {
+        match self {
+            Self::LargeV3 | Self::LargeV3Turbo => 1,
+            Self::LargeV3TurboQ8_0 => 7,
+            Self::LargeV3TurboQ5_0 => 8,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::LargeV3 => "Whisper large-v3",
+            Self::LargeV3Turbo => "Whisper large-v3-turbo",
+            Self::LargeV3TurboQ8_0 => "Whisper large-v3-turbo Q8_0",
+            Self::LargeV3TurboQ5_0 => "Whisper large-v3-turbo Q5_0",
+        }
+    }
+}
+
+/// Weight type from a whisper.cpp ggml header, without the quantization
+/// version factor. Returns `None` when the file is not a ggml model.
+pub fn ggml_model_ftype(path: &Path) -> std::io::Result<Option<i32>> {
+    const GGML_MAGIC: u32 = 0x6767_6d6c;
+    const QNT_VERSION_FACTOR: i32 = 1000;
+    let mut header = [0; 48];
+    std::fs::File::open(path)?.read_exact(&mut header)?;
+    if u32::from_le_bytes(header[0..4].try_into().unwrap()) != GGML_MAGIC {
+        return Ok(None);
+    }
+    // Magic, then ten hyperparameters, then ftype.
+    let ftype = i32::from_le_bytes(header[44..48].try_into().unwrap());
+    Ok(Some(ftype % QNT_VERSION_FACTOR))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

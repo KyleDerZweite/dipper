@@ -1,7 +1,7 @@
 use dipper_core::{
     audio::{self, AudioArtifact, DATA_OFFSET},
     capture::{Capture, CaptureStop, InputDevice},
-    journal::Journal,
+    journal::{CAPTURE_RING_FRAMES, Journal},
 };
 use serde_json::json;
 use std::{
@@ -145,7 +145,7 @@ fn cancel_overflow_and_empty_release_never_complete() {
     assert_eq!(canceled.available_frames, 128);
     let mut failed = journal.begin_capture(&input()).unwrap();
     assert!(failed.push_synthetic(&[0.5; 128]));
-    assert!(!failed.push_synthetic(&vec![0.0; 96_001]));
+    assert!(!failed.push_synthetic(&vec![0.0; (CAPTURE_RING_FRAMES + 1) as usize]));
     let failed = failed.finish(CaptureStop::Released).unwrap();
     assert_eq!(failed.state, "failed");
     assert_eq!(failed.accepted_frames, 128);
@@ -376,4 +376,127 @@ fn audio_write_failure_fixture() {
     assert_eq!(result.state, "failed");
     assert_eq!(result.available_frames, 2);
     assert!(result.error.unwrap().contains("audio write failed"));
+}
+
+#[test]
+fn capture_drains_trailing_ring_frames_pushed_before_stop_even_after_checkpoint() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let mut ticket = journal.begin_capture(&input()).unwrap();
+    let id = ticket.recording_id;
+    assert!(ticket.push_synthetic(&[0.25; 256]));
+    for _ in 0..300 {
+        if journal.recording(id).unwrap().unwrap().synced_frames == 256 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(journal.recording(id).unwrap().unwrap().synced_frames, 256);
+
+    // Push trailing frames right before stop to reproduce the 512-frame stop/checkpoint race.
+    assert!(ticket.push_synthetic(&[0.5; 512]));
+    let outcome = ticket.finish(CaptureStop::Released).unwrap();
+    assert_eq!(outcome.state, "complete");
+    assert!(outcome.persisted);
+    assert!(outcome.error.is_none());
+    assert_eq!(outcome.accepted_frames, 768);
+    assert_eq!(outcome.available_frames, 768);
+    assert_eq!(outcome.synced_frames, 768);
+    let mut expected = vec![0.25; 256];
+    expected.extend(vec![0.5; 512]);
+    assert_eq!(audio::read_f32(&outcome.audio.unwrap()).unwrap(), expected);
+}
+
+#[test]
+fn capture_overflow_preserves_accepted_frames_and_sets_queue_overflow_diagnostics() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let mut ticket = journal.begin_capture(&input()).unwrap();
+    assert!(ticket.push_synthetic(&[0.25; 1024]));
+    // Exceed remaining ring capacity in a single write to force overflow without dropping 1024.
+    let overflow_batch = vec![0.1; (CAPTURE_RING_FRAMES + 512) as usize];
+    assert!(!ticket.push_synthetic(&overflow_batch));
+    let outcome = ticket.finish(CaptureStop::Released).unwrap();
+    assert_eq!(outcome.state, "failed");
+    assert!(outcome.error.as_deref().unwrap_or("").contains("overflow"));
+    assert_eq!(outcome.accepted_frames, 1024);
+    assert_eq!(outcome.available_frames, 1024);
+    let diag = outcome.diagnostics.unwrap();
+    assert_eq!(diag.failure_category.as_deref(), Some("queue_overflow"));
+    assert!(diag.ring_capacity_frames >= CAPTURE_RING_FRAMES);
+
+    let snapshot = journal.recording(outcome.recording_id).unwrap().unwrap();
+    assert!(snapshot.recoverable);
+    let artifact = snapshot.audio.unwrap();
+    let raw_before = fs::read(&artifact.path).unwrap();
+    let opened = journal.open_audio(outcome.recording_id).unwrap();
+    assert!(!opened.recovered);
+    assert_eq!(audio::read_f32(&opened).unwrap(), vec![0.25; 1024]);
+    assert_eq!(fs::read(&artifact.path).unwrap(), raw_before);
+}
+
+#[test]
+fn quick_empty_release_classifies_too_short_and_zero_frame_audio_rejected() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let ticket = journal.begin_capture(&input()).unwrap();
+    let outcome = ticket.finish(CaptureStop::Released).unwrap();
+    assert_eq!(outcome.state, "failed");
+    assert_eq!(outcome.available_frames, 0);
+    let diag = outcome.diagnostics.unwrap();
+    assert_eq!(diag.failure_category.as_deref(), Some("too_short"));
+    assert!(journal.open_audio(outcome.recording_id).is_err());
+    assert!(
+        !journal
+            .recording(outcome.recording_id)
+            .unwrap()
+            .unwrap()
+            .recoverable
+    );
+}
+
+#[test]
+fn audio_initialization_failure_is_storage_error_not_too_short() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let audio_dir = directory.path().join("data/audio");
+    fs::create_dir_all(&audio_dir).unwrap();
+    fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o500)).unwrap();
+    let result = journal.begin_capture(&input());
+    fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(result.is_err());
+    let snapshot = journal.recent(1).unwrap().remove(0);
+    assert_eq!(snapshot.state, "failed");
+    let diag = snapshot.capture_diagnostics.unwrap();
+    assert_eq!(diag.failure_category.as_deref(), Some("storage_error"));
+    assert!(diag.failure_hint.unwrap().contains("writable"));
+}
+
+#[test]
+fn bounded_prefix_readers_and_wav_preview_validate_container_and_edge_floats() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let mut ticket = journal.begin_capture(&input()).unwrap();
+    ticket.push_synthetic(&[0.25; 24]);
+    let artifact = ticket.finish(CaptureStop::Released).unwrap().audio.unwrap();
+    assert_eq!(audio::read_f32_prefix(&artifact, 9).unwrap(), vec![0.25; 9]);
+
+    let mut recovered = artifact.clone();
+    recovered.recovered = true;
+    assert_eq!(
+        audio::read_recovered_prefix_f32(&recovered, 6).unwrap(),
+        vec![0.25; 6]
+    );
+
+    let mut corrupt = fs::read(&artifact.path).unwrap();
+    corrupt[0..4].copy_from_slice(b"RIFF");
+    fs::write(&artifact.path, corrupt).unwrap();
+    assert!(audio::read_recovered_prefix_f32(&recovered, 6).is_err());
+
+    let wav = audio::to_16k_mono_pcm16_wav(&[1e38, 1e38, 1e38, f32::NAN, 0.0, 0.0], 1024).unwrap();
+    assert_eq!(&wav[0..4], b"RIFF");
+    let first_sample = i16::from_le_bytes([wav[44], wav[45]]);
+    let second_sample = i16::from_le_bytes([wav[46], wav[47]]);
+    assert_eq!(first_sample, i16::MAX);
+    assert_eq!(second_sample, 0);
 }

@@ -51,6 +51,7 @@ on the Fedora target. See the delivery guide for evidence and compatibility limi
 - [Product direction](docs/product.md): workflow, priorities, candidate features, and scope boundaries.
 - [Journal requirements](docs/journal.md): recording history, attempts, corrections, recovery, and export.
 - [Recognition and cleanup comparison](docs/recognition-cleanup-research.md): Turbo measurements and local cleanup candidates.
+- [Model quantization, Parakeet & router evaluation](docs/model-efficiency-evaluation.md): RX 7700S benchmarks (`Turbo Q8_0`/`Q5_0`/`F16`, `parakeet-ultra-Q8_0`) and multilingual architecture selection.
 - [Current ASR alternatives](docs/asr-alternatives-research.md): multilingual speech candidates and native runtime options.
 - [Reusable benchmark](benchmark/README.md): local datasets, ASR/cleanup evaluation, SkillOpt and public results.
 - [LFM3 evaluation](docs/lfm3-evaluation.md): retained-recording Audio replay and proposed text/context Modes.

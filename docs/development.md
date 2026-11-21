@@ -38,10 +38,7 @@ Model weights remain external files. New settings select the float16
 `large_v3_turbo` profile and `models/ggml-large-v3-turbo.bin` inside the data
 directory. `DIPPER_MODEL_PATH` overrides that path for new settings only.
 Existing settings without a profile retain `large_v3` and their saved path.
-To switch an existing app, select Whisper large-v3-turbo in Recognition setup,
-set its matching float16 model path, and save while idle. The next dictation
-uses both saved values. Filenames never choose a profile; a mismatched model
-fails preparation explicitly and cannot produce an insertion.
+To switch an existing app, select `Whisper large-v3-turbo Q8_0` (recommended efficient default, ~874 MB, `ftype=7`), `Q5_0` (~574 MB, `ftype=8`), or `F16` (`~1.62 GB`, `ftype=1`) in Settings, set its matching GGML model path, check the live setup verification status, and save while idle. The next dictation uses both saved values. Filenames never choose a profile; a mismatched model `ftype` or decoder-layer count fails preparation explicitly and cannot produce an insertion. See the [model efficiency evaluation](model-efficiency-evaluation.md) for RX 7700S measurements.
 
 ```sh
 export DIPPER_WHISPER_DIR=/absolute/path/to/whisper.cpp
@@ -96,8 +93,9 @@ never automatically purged. Initial comprehensive retention is this slice's
 pilot policy, not a universal product default.
 
 Only synchronized audio plus committed metadata acknowledges complete capture.
+Capture diagnostics (ring high-water vs 12 s capacity, PipeWire callback counts, stream states, and plain-English failure classification) are stored with `recordings.input_json`.
 Interrupted work is recovered without automatic recognition or insertion.
-Original interrupted audio is preserved. A hard system crash can lose an
+Original interrupted or partial audio is preserved read-only and can be previewed or manually transcribed from Journal (`Recover & transcribe`) while keeping the clipboard and target window unchanged. Only one recognition worker runs at a time. A hard system crash can lose an
 unsynchronized tail; checkpoint cadence is not a measured maximum-loss promise.
 Do not remove a store's lock/WAL files while Dipper is running.
 

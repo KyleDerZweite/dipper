@@ -3,17 +3,22 @@ mod quick_panel;
 use anyhow::Result;
 use async_trait::async_trait;
 use dipper_core::{
-    capture::Capture,
+    audio,
+    capture::{Capture, CaptureDiagnostics, InputDevice},
     dictation::{Dictation, DictationSnapshot},
     journal::Journal,
+    protocol::{self, RecognitionModel},
     settings::Settings,
     target::{DeliveryStatus, DispatchStage, Insertion, InsertionOutcome, TargetPermit},
 };
 use dipper_desktop::{DesktopAdapter, DesktopEvent};
 use serde::Serialize;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 use tauri::{
     Emitter, Manager, State,
@@ -119,12 +124,86 @@ fn cancel_dictation(state: State<'_, AppState>) {
     state.dictation.cancel();
 }
 #[derive(Serialize)]
+struct AttemptSummary {
+    id: uuid::Uuid,
+    state: String,
+    raw_text: Option<String>,
+    error: Option<String>,
+    model_profile: Option<String>,
+    inference_ms: Option<u64>,
+    preparation_ms: Option<u64>,
+    retry_from_journal: bool,
+}
+#[derive(Serialize)]
 struct JournalRow {
     id: uuid::Uuid,
     started_at: String,
+    ended_at: Option<String>,
     state: String,
+    audio_state: String,
+    recognition_state: Option<String>,
+    insertion_state: Option<String>,
+    duration_ms: u64,
+    accepted_frames: u64,
+    available_frames: u64,
+    synced_frames: u64,
+    availability: String,
+    input_device: Option<InputDevice>,
+    model_profile: Option<String>,
+    inference_ms: Option<u64>,
+    preparation_ms: Option<u64>,
+    release_to_result_ms: Option<u64>,
+    capture_diagnostics: Option<CaptureDiagnostics>,
+    failure_category: Option<String>,
+    failure_hint: Option<String>,
+    can_recover: bool,
+    has_audio: bool,
     raw_text: Option<String>,
     detail: String,
+    attempts: Vec<AttemptSummary>,
+}
+#[derive(Serialize)]
+struct AudioPreview {
+    wav_base64: String,
+    sample_rate: u32,
+    duration_ms: u64,
+    recovered: bool,
+    truncated: bool,
+}
+#[derive(Serialize)]
+struct SetupStatus {
+    model_exists: bool,
+    model_size_bytes: Option<u64>,
+    model_issue: Option<String>,
+    runtime_exists: bool,
+    desktop_ready: bool,
+    desktop_error: Option<String>,
+    effective_binding: Option<String>,
+    recovery_unpersisted: bool,
+    ready: bool,
+    issue: Option<String>,
+}
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0] as usize;
+        let b1 = *chunk.get(1).unwrap_or(&0) as usize;
+        let b2 = *chunk.get(2).unwrap_or(&0) as usize;
+        out.push(TABLE[b0 >> 2] as char);
+        out.push(TABLE[((b0 & 0x03) << 4) | (b1 >> 4)] as char);
+        out.push(if chunk.len() > 1 {
+            TABLE[((b1 & 0x0f) << 2) | (b2 >> 6)] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[b2 & 0x3f] as char
+        } else {
+            '='
+        });
+    }
+    out
 }
 #[tauri::command]
 async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>, String> {
@@ -136,13 +215,24 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
     Ok(recordings
         .into_iter()
         .map(|recording| {
-            let text = recording
-                .attempts
-                .iter()
-                .rev()
-                .find_map(|attempt| attempt.raw_text.clone());
+            let text_attempt = recording.attempts.iter().rev().find(|attempt| {
+                attempt
+                    .raw_text
+                    .as_deref()
+                    .is_some_and(|s| !s.trim().is_empty())
+            });
+            let text = text_attempt.and_then(|attempt| attempt.raw_text.clone());
             let last_attempt = recording.attempts.last();
-            let last_insertion = recording.insertions.last();
+            // Insertion, model and timings describe the attempt whose text is
+            // shown, so a Journal-only retry never inherits an older paste.
+            let shown_attempt = text_attempt.or(last_attempt);
+            let last_insertion = shown_attempt.and_then(|attempt| {
+                recording
+                    .insertions
+                    .iter()
+                    .rev()
+                    .find(|insertion| insertion.attempt_id == attempt.id)
+            });
             let mut outcomes = vec![format!("Audio {}", recording.state)];
             if let Some(attempt) = last_attempt {
                 outcomes.push(format!("Recognition {}", attempt.state.replace('_', " ")));
@@ -188,12 +278,111 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
                         recording.available_frames, recording.synced_frames, recording.availability
                     )
                 });
+            let duration_ms = recording
+                .capture_diagnostics
+                .as_ref()
+                .map(|d| d.duration_ms)
+                .filter(|&ms| ms > 0)
+                .unwrap_or_else(|| {
+                    recording.available_frames.saturating_mul(1000) / audio::SAMPLE_RATE as u64
+                });
+            let failure_category = recording
+                .capture_diagnostics
+                .as_ref()
+                .and_then(|d| d.failure_category.clone());
+            let failure_hint = recording
+                .capture_diagnostics
+                .as_ref()
+                .and_then(|d| d.failure_hint.clone());
+            let model_profile = shown_attempt.and_then(|attempt| {
+                attempt
+                    .configuration
+                    .get("model_profile")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned)
+            });
+            let inference_ms = shown_attempt.and_then(|attempt| {
+                attempt
+                    .details
+                    .get("timings")
+                    .and_then(|t| t.get("inference_ms"))
+                    .and_then(serde_json::Value::as_u64)
+            });
+            let preparation_ms = shown_attempt.and_then(|attempt| {
+                attempt
+                    .details
+                    .get("timings")
+                    .and_then(|t| t.get("preparation_ms"))
+                    .and_then(serde_json::Value::as_u64)
+            });
+            let release_to_result_ms = shown_attempt.and_then(|attempt| {
+                attempt
+                    .details
+                    .get("release_to_result_ms")
+                    .and_then(serde_json::Value::as_u64)
+            });
+            let attempts = recording
+                .attempts
+                .iter()
+                .rev()
+                .map(|attempt| AttemptSummary {
+                    id: attempt.id,
+                    state: attempt.state.clone(),
+                    raw_text: attempt.raw_text.clone(),
+                    error: attempt
+                        .details
+                        .get("error")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                        .or_else(|| attempt.diagnostic_error.clone()),
+                    model_profile: attempt
+                        .configuration
+                        .get("model_profile")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned),
+                    inference_ms: attempt
+                        .details
+                        .get("timings")
+                        .and_then(|t| t.get("inference_ms"))
+                        .and_then(serde_json::Value::as_u64),
+                    preparation_ms: attempt
+                        .details
+                        .get("timings")
+                        .and_then(|t| t.get("preparation_ms"))
+                        .and_then(serde_json::Value::as_u64),
+                    retry_from_journal: attempt
+                        .configuration
+                        .get("retry_from_journal")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false),
+                })
+                .collect();
             JournalRow {
                 id: recording.recording_id,
                 started_at: recording.started_at,
+                ended_at: recording.ended_at,
                 state: outcomes.join(" · "),
+                audio_state: recording.state,
+                recognition_state: last_attempt.map(|attempt| attempt.state.clone()),
+                insertion_state: last_insertion.map(|insertion| insertion.state.clone()),
+                duration_ms,
+                accepted_frames: recording.accepted_frames,
+                available_frames: recording.available_frames,
+                synced_frames: recording.synced_frames,
+                availability: recording.availability,
+                input_device: recording.input_device,
+                model_profile,
+                inference_ms,
+                preparation_ms,
+                release_to_result_ms,
+                capture_diagnostics: recording.capture_diagnostics,
+                failure_category,
+                failure_hint,
+                can_recover: recording.recoverable,
+                has_audio: recording.audio.is_some() && recording.available_frames > 0,
                 raw_text: text,
                 detail,
+                attempts,
             }
         })
         .collect())
@@ -213,6 +402,139 @@ async fn retry_recovery(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
+async fn retry_recognition(
+    state: State<'_, AppState>,
+    recording_id: String,
+) -> Result<String, String> {
+    let id = uuid::Uuid::parse_str(&recording_id).map_err(|e| e.to_string())?;
+    state
+        .dictation
+        .retry_recognition(id)
+        .await
+        .map_err(|e| format!("{e:#}"))
+}
+#[tauri::command]
+async fn get_recording_audio(
+    state: State<'_, AppState>,
+    recording_id: String,
+) -> Result<AudioPreview, String> {
+    const MAX_WAV_BYTES: usize = 24 * 1024 * 1024;
+    let id = uuid::Uuid::parse_str(&recording_id).map_err(|e| e.to_string())?;
+    let journal = state.dictation.journal();
+    tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<AudioPreview> {
+        let artifact = journal.open_audio(id)?;
+        let max_samples_48k = ((MAX_WAV_BYTES - 44) / 2) * 3;
+        let truncated = artifact.frames > max_samples_48k as u64;
+        let samples = if artifact.recovered {
+            audio::read_recovered_prefix_f32(&artifact, max_samples_48k as u64)?
+        } else {
+            audio::read_f32_prefix(&artifact, max_samples_48k as u64)?
+        };
+        let duration_ms = (samples.len() as u64).saturating_mul(1000) / audio::SAMPLE_RATE as u64;
+        let wav = audio::to_16k_mono_pcm16_wav(&samples, MAX_WAV_BYTES)?;
+        Ok(AudioPreview {
+            wav_base64: encode_base64(&wav),
+            sample_rate: 16_000,
+            duration_ms,
+            recovered: artifact.recovered,
+            truncated,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| format!("{e:#}"))
+}
+#[tauri::command]
+async fn check_setup_paths(
+    state: State<'_, AppState>,
+    model_profile: Option<RecognitionModel>,
+    model_path: Option<String>,
+    native_lib_dir: Option<String>,
+) -> Result<SetupStatus, String> {
+    let mut settings = state.dictation.settings();
+    if let Some(profile) = model_profile {
+        settings.model_profile = profile;
+    }
+    if let Some(path) = model_path {
+        settings.model_path = PathBuf::from(path.trim());
+    }
+    if let Some(dir) = native_lib_dir {
+        settings.native_lib_dir = PathBuf::from(dir.trim());
+    }
+    let effective_binding = match &state.desktop {
+        Some(desktop) => desktop.effective_binding().await,
+        None => None,
+    };
+    let desktop_ready = state.desktop.is_some();
+    let desktop_error = state.desktop_error.clone();
+    let recovery_unpersisted = state.dictation.journal().recovery_report().unpersisted;
+    let (model_exists, model_size_bytes, model_issue, runtime_exists, validation) =
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(err) = settings.validate() {
+                return (false, None, None, false, Err(err));
+            }
+            let model_meta = std::fs::metadata(&settings.model_path).ok();
+            let model_exists = model_meta.as_ref().is_some_and(|m| m.is_file());
+            let model_size_bytes = model_meta.filter(|m| m.is_file()).map(|m| m.len());
+            let model_issue = model_exists
+                .then(|| model_header_issue(&settings.model_path, settings.model_profile))
+                .flatten();
+            let runtime_exists = settings.native_lib_dir.join("libwhisper.so").is_file();
+            let validation = settings.ready_for_recognition();
+            (
+                model_exists,
+                model_size_bytes,
+                model_issue,
+                runtime_exists,
+                validation,
+            )
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    let issue = match validation {
+        Err(err) => Some(err.to_string()),
+        Ok(()) if model_issue.is_some() => model_issue.clone(),
+        Ok(()) if recovery_unpersisted => {
+            Some("Journal recovery is unpersisted. Retry recovery first.".into())
+        }
+        Ok(()) if !desktop_ready => desktop_error.clone(),
+        Ok(()) if effective_binding.is_none() => {
+            Some("Configure a global Hold key in Settings.".into())
+        }
+        Ok(()) => None,
+    };
+    let ready = model_exists
+        && runtime_exists
+        && desktop_ready
+        && effective_binding.is_some()
+        && !recovery_unpersisted
+        && issue.is_none();
+    Ok(SetupStatus {
+        model_exists,
+        model_size_bytes,
+        model_issue,
+        runtime_exists,
+        desktop_ready,
+        desktop_error,
+        effective_binding,
+        recovery_unpersisted,
+        ready,
+        issue,
+    })
+}
+/// Explain why the configured file cannot serve the selected profile, if it cannot.
+fn model_header_issue(path: &std::path::Path, profile: RecognitionModel) -> Option<String> {
+    match protocol::ggml_model_ftype(path) {
+        Ok(Some(ftype)) if ftype == profile.expected_ftype() => None,
+        Ok(Some(_)) => Some(format!(
+            "The model file does not match {}. Select the matching profile or another file.",
+            profile.label()
+        )),
+        Ok(None) => Some("The model file is not a whisper.cpp ggml model.".into()),
+        Err(error) => Some(format!("Could not read the model file header: {error}")),
+    }
+}
+#[tauri::command]
 async fn copy_transcript(state: State<'_, AppState>, recording_id: String) -> Result<(), String> {
     let id = uuid::Uuid::parse_str(&recording_id).map_err(|e| e.to_string())?;
     let journal = state.dictation.journal();
@@ -225,7 +547,13 @@ async fn copy_transcript(state: State<'_, AppState>, recording_id: String) -> Re
         .attempts
         .iter()
         .rev()
-        .find_map(|attempt| attempt.raw_text.clone())
+        .find_map(|attempt| {
+            attempt
+                .raw_text
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .map(str::to_owned)
+        })
         .ok_or("No transcript retained")?;
     desktop(&state)?
         .copy_explicit(&text)
@@ -483,7 +811,7 @@ fn main() -> Result<()> {
     let settings = Settings::load(&paths.settings, &paths.data)?;
     let journal = Arc::new(Journal::open(&paths.data, &paths.state)?);
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, copy_transcript, open_main, hide_quick, quit_app])
+        .invoke_handler(tauri::generate_handler![get_snapshot, get_settings, save_settings, list_inputs, configure_hold, effective_binding, open_shortcut_settings, cancel_dictation, recent_recordings, retry_recovery, retry_recognition, get_recording_audio, check_setup_paths, copy_transcript, open_main, hide_quick, quit_app])
         .setup(move |app| {
             let brand = app.default_window_icon().ok_or_else(|| anyhow::anyhow!("Embedded Dipper logo missing"))?.clone();
             let tray_logo = small_logo(&brand);
@@ -542,6 +870,26 @@ fn main() -> Result<()> {
                         let _ = tray.set_icon(Some(tray_icon(&tray_logo, value.recording, value.busy, value.error)));
                     }
                     if snapshot.changed().await.is_err() { break; }
+                }
+            });
+            let mut level = dictation.subscribe_audio_level();
+            let level_handle = app.handle().clone();
+            let level_engine = dictation.clone();
+            tauri::async_runtime::spawn(async move {
+                let mut last_emit = std::time::Instant::now()
+                    .checked_sub(std::time::Duration::from_secs(1))
+                    .unwrap_or_else(std::time::Instant::now);
+                loop {
+                    if level.changed().await.is_err() {
+                        break;
+                    }
+                    let value = *level.borrow();
+                    if level_engine.snapshot().recording
+                        && last_emit.elapsed() >= std::time::Duration::from_millis(45)
+                    {
+                        last_emit = std::time::Instant::now();
+                        let _ = level_handle.emit("dictation-level", value);
+                    }
                 }
             });
             if let Some(native) = native {

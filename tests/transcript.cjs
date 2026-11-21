@@ -13,7 +13,7 @@ test('Copy retains the displayed Journal identity during a newer preview update'
   view.update([old]);
   const button=elements.find(el=>el.textContent==='Copy');
   const operation=button.click();
-  view.update([{id:'new',raw_text:'New transcript',state:'Insertion delivered'}]);
+  view.update([{id:'new',raw_text:'New transcript',state:'Insertion confirmed'}]);
   assert.equal(calls[0].args.recordingId,'old');
   assert.equal(button.disabled,true);
   finish();await operation;

@@ -42,10 +42,21 @@ static void log_to_stderr(enum ggml_log_level, const char * text, void * opaque)
 #endif
 
 extern "C" void * dipper_whisper_prepare(const char * model, const char * required_gpu,
-                                          int expected_decoder_layers, DipperGpu * gpu, char * error, size_t error_size) {
+                                          int expected_decoder_layers, int expected_ftype,
+                                          DipperGpu * gpu, char * error, size_t error_size) {
 #ifdef DIPPER_HAS_WHISPER
     if (expected_decoder_layers != 4 && expected_decoder_layers != 32) {
         copy_text(error, error_size, "unsupported Whisper model profile");
+        return nullptr;
+    }
+    if (expected_ftype != GGML_FTYPE_MOSTLY_F16 &&
+        expected_ftype != GGML_FTYPE_MOSTLY_Q8_0 &&
+        expected_ftype != GGML_FTYPE_MOSTLY_Q5_0) {
+        copy_text(error, error_size, "unsupported Whisper quantization profile");
+        return nullptr;
+    }
+    if (expected_decoder_layers == 32 && expected_ftype != GGML_FTYPE_MOSTLY_F16) {
+        copy_text(error, error_size, "large-v3 profile requires an F16 Whisper model");
         return nullptr;
     }
     auto * context = new DipperContext();
@@ -86,10 +97,17 @@ extern "C" void * dipper_whisper_prepare(const char * model, const char * requir
             whisper_model_n_text_layer(context->native) != expected_decoder_layers ||
             whisper_model_n_audio_state(context->native) != 1280 ||
             whisper_model_n_text_state(context->native) != 1280 ||
-            whisper_model_ftype(context->native) != GGML_FTYPE_MOSTLY_F16)
-            throw std::runtime_error(expected_decoder_layers == 4
-                ? "configured model does not match the float16 Whisper large-v3-turbo profile"
-                : "configured model does not match the float16 Whisper large-v3 profile");
+            whisper_model_ftype(context->native) != expected_ftype) {
+            if (expected_decoder_layers == 32) {
+                throw std::runtime_error("configured model does not match the float16 Whisper large-v3 profile");
+            } else if (expected_ftype == GGML_FTYPE_MOSTLY_Q8_0) {
+                throw std::runtime_error("configured model does not match the Q8_0 Whisper large-v3-turbo profile");
+            } else if (expected_ftype == GGML_FTYPE_MOSTLY_Q5_0) {
+                throw std::runtime_error("configured model does not match the Q5_0 Whisper large-v3-turbo profile");
+            } else {
+                throw std::runtime_error("configured model does not match the float16 Whisper large-v3-turbo profile");
+            }
+        }
         return context;
     } catch (const std::exception & exception) {
         copy_text(error, error_size, exception.what());
@@ -99,7 +117,7 @@ extern "C" void * dipper_whisper_prepare(const char * model, const char * requir
     ggml_log_set(nullptr, nullptr);
     delete context;
 #else
-    (void)model; (void)required_gpu; (void)expected_decoder_layers; (void)gpu;
+    (void)model; (void)required_gpu; (void)expected_decoder_layers; (void)expected_ftype; (void)gpu;
     copy_text(error, error_size, "native runtime unavailable; build with DIPPER_WHISPER_DIR at the pinned Vulkan checkout");
 #endif
     return nullptr;

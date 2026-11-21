@@ -1,7 +1,7 @@
 //! Durable capture identities and artifact ordering across SQLite and audio files.
 use crate::{
     audio::{self, AudioArtifact, AudioWriter, CHANNELS, DATA_OFFSET, SAMPLE_RATE},
-    capture::{CaptureStop, InputDevice, SampleRing},
+    capture::{CaptureDiagnostics, CaptureStop, InputDevice, SampleRing},
 };
 use anyhow::{Context, Result, ensure};
 use fs2::FileExt;
@@ -25,6 +25,8 @@ use std::{
 };
 use uuid::Uuid;
 
+pub const CAPTURE_RING_SECONDS: u64 = 12;
+pub const CAPTURE_RING_FRAMES: u64 = SAMPLE_RATE as u64 * CAPTURE_RING_SECONDS;
 const ADMISSION_FLOOR: u64 = 64 * 1024 * 1024;
 const SCHEMA: &str = r#"
 CREATE TABLE recordings (
@@ -128,6 +130,9 @@ pub struct RecordingSnapshot {
     pub availability: String,
     pub error: Option<String>,
     pub persisted: bool,
+    pub input_device: Option<InputDevice>,
+    pub capture_diagnostics: Option<CaptureDiagnostics>,
+    pub recoverable: bool,
     pub attempts: Vec<AttemptSnapshot>,
     pub insertions: Vec<InsertionSnapshot>,
 }
@@ -141,6 +146,7 @@ pub struct CaptureOutcome {
     pub synced_frames: u64,
     pub error: Option<String>,
     pub persisted: bool,
+    pub diagnostics: Option<CaptureDiagnostics>,
 }
 
 pub struct CaptureTicket {
@@ -149,6 +155,7 @@ pub struct CaptureTicket {
     pub(crate) ring: Arc<SampleRing>,
     stop: Arc<AtomicBool>,
     reason: Arc<Mutex<Option<CaptureStop>>>,
+    diagnostics: Arc<Mutex<Option<CaptureDiagnostics>>>,
     writer: Option<JoinHandle<Result<CaptureOutcome>>>,
 }
 impl CaptureTicket {
@@ -157,7 +164,18 @@ impl CaptureTicket {
     pub fn push_synthetic(&mut self, samples: &[f32]) -> bool {
         self.ring.push_synthetic(samples)
     }
-    pub fn finish(mut self, reason: CaptureStop) -> Result<CaptureOutcome> {
+    pub fn finish(self, reason: CaptureStop) -> Result<CaptureOutcome> {
+        self.finish_with_diagnostics(reason, None)
+    }
+    pub fn finish_with_diagnostics(
+        mut self,
+        reason: CaptureStop,
+        diagnostics: Option<CaptureDiagnostics>,
+    ) -> Result<CaptureOutcome> {
+        *self
+            .diagnostics
+            .lock()
+            .map_err(|_| anyhow::anyhow!("capture diagnostics state poisoned"))? = diagnostics;
         *self
             .reason
             .lock()
@@ -338,25 +356,54 @@ impl Journal {
             }
         };
         self.connection()?.execute("UPDATE recordings SET associated=1,state='capturing',availability='available' WHERE id=?1", [id.to_string()])?;
-        let ring = SampleRing::new(SAMPLE_RATE as u64 * 2)?;
+        let ring = match SampleRing::new(CAPTURE_RING_FRAMES) {
+            Ok(ring) => ring,
+            Err(e) => {
+                let _ = self.connection()?.execute(
+                    "UPDATE recordings SET state='failed',ended_at=?2,error=?3,availability='incomplete' WHERE id=?1",
+                    params![id.to_string(), now(), format!("capture ring initialization: {e:#}")],
+                );
+                return Err(e);
+            }
+        };
         let stop = Arc::new(AtomicBool::new(false));
         let reason = Arc::new(Mutex::new(None));
+        let diagnostics = Arc::new(Mutex::new(None));
         let journal = self.clone();
         let writer_ring = ring.clone();
         let writer_stop = stop.clone();
         let writer_reason = reason.clone();
-        let writer = thread::Builder::new()
+        let writer_diag = diagnostics.clone();
+        let writer = match thread::Builder::new()
             .name("dipper-audio-writer".into())
             .spawn(move || {
                 let _active = active;
-                journal.write_capture(id, audio, writer_ring, writer_stop, writer_reason)
-            })?;
+                journal.write_capture(
+                    id,
+                    audio,
+                    writer_ring,
+                    writer_stop,
+                    writer_reason,
+                    writer_diag,
+                    input_json,
+                )
+            }) {
+            Ok(writer) => writer,
+            Err(e) => {
+                let _ = self.connection()?.execute(
+                    "UPDATE recordings SET state='failed',ended_at=?2,error=?3,availability='incomplete' WHERE id=?1",
+                    params![id.to_string(), now(), format!("capture writer thread failed: {e:#}")],
+                );
+                return Err(e.into());
+            }
+        };
         Ok(CaptureTicket {
             recording_id: id,
             input: input.clone(),
             ring,
             stop,
             reason,
+            diagnostics,
             writer: Some(writer),
         })
     }
@@ -364,6 +411,7 @@ impl Journal {
         self.connection()?.execute("UPDATE recordings SET available_frames=?2,synced_frames=?2,checkpoint_at=?3 WHERE id=?1 AND state='capturing'", params![id.to_string(), i64::try_from(frames)?, now()])?;
         Ok(())
     }
+    #[allow(clippy::too_many_arguments)]
     fn write_capture(
         &self,
         id: Uuid,
@@ -371,7 +419,10 @@ impl Journal {
         ring: Arc<SampleRing>,
         stop: Arc<AtomicBool>,
         reason: Arc<Mutex<Option<CaptureStop>>>,
+        diagnostics: Arc<Mutex<Option<CaptureDiagnostics>>>,
+        mut input_json: Value,
     ) -> Result<CaptureOutcome> {
+        let started = Instant::now();
         let mut samples = [0.0; 4096];
         let mut sync_time = Instant::now();
         let mut synced = 0;
@@ -379,6 +430,10 @@ impl Journal {
         let mut audio_failed = false;
         let mut checkpoint_failed = false;
         loop {
+            // Observe `stop` before reading. Exit only after a read made with
+            // `stop` observed returns nothing, so buffers pushed before
+            // `stop = true` are drained even after a blocking checkpoint.
+            let stopping = stop.load(Ordering::Acquire);
             let count = ring.read(&mut samples);
             // Metadata failure invalidates completion, but the audio file can
             // still preserve buffers accepted before Capture observes the fault.
@@ -390,6 +445,10 @@ impl Journal {
                 }
                 ring.written.store(audio.frames(), Ordering::Release);
             }
+            if count == 0 && stopping {
+                break;
+            }
+            // Checkpoint on schedule even while a backlog keeps the ring non-empty.
             if !audio_failed
                 && !checkpoint_failed
                 && audio.frames() > synced
@@ -417,11 +476,7 @@ impl Journal {
                         ring.fail_storage();
                     }
                 }
-            }
-            if count == 0 {
-                if stop.load(Ordering::Acquire) {
-                    break;
-                }
+            } else if count == 0 {
                 thread::sleep(Duration::from_millis(2));
             }
         }
@@ -430,6 +485,22 @@ impl Journal {
             .map_err(|_| anyhow::anyhow!("capture stop state poisoned"))?
             .take()
             .unwrap_or(CaptureStop::Failed("capture abandoned".into()));
+        let mut diag = diagnostics
+            .lock()
+            .map_err(|_| anyhow::anyhow!("capture diagnostics state poisoned"))?
+            .take()
+            .unwrap_or_else(|| CaptureDiagnostics {
+                duration_ms: started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                ring_capacity_frames: ring.capacity(),
+                ring_high_water_frames: ring.high_water(),
+                ..Default::default()
+            });
+        if diag.ring_capacity_frames == 0 {
+            diag.ring_capacity_frames = ring.capacity();
+        }
+        if diag.ring_high_water_frames == 0 {
+            diag.ring_high_water_frames = ring.high_water();
+        }
         let mut error = match ring.fault() {
             Some(error) if error != "capture storage failed" => Some(error),
             _ => storage_error,
@@ -437,7 +508,11 @@ impl Journal {
         .or_else(|| reason.error());
         let frames = audio.frames();
         let path = self.inner.data_dir.join(format!("audio/{id}.wav"));
-        let finalized = audio.finalize();
+        let finalized = if audio_failed {
+            Err(anyhow::anyhow!("audio write or checkpoint failed"))
+        } else {
+            audio.finalize()
+        };
         let audio = match finalized {
             Ok(artifact) => Some(artifact),
             Err(e) => {
@@ -454,7 +529,7 @@ impl Journal {
             state = "failed".into();
             error = Some("capture did not produce a complete nonempty frame sequence".into());
         }
-        let available = audio::available_frames(&path).unwrap_or(frames);
+        let available = audio::available_frames(&path).unwrap_or(0);
         let candidate_sync = if audio.is_some() { frames } else { synced };
         let availability = if audio.is_some() && available == frames {
             "available"
@@ -463,7 +538,18 @@ impl Journal {
         } else {
             "incomplete"
         };
-        let commit = self.connection()?.execute("UPDATE recordings SET state=?2,ended_at=?3,accepted_frames=?4,available_frames=?5,synced_frames=?6,checkpoint_at=?3,availability=?7,error=?8 WHERE id=?1", params![id.to_string(), state, now(), i64::try_from(accepted)?, i64::try_from(available)?, i64::try_from(candidate_sync)?, availability, error]);
+        if state != "complete" || error.is_some() {
+            let (category, hint) =
+                classify_capture_failure(&state, error.as_deref(), accepted, available, &diag);
+            diag.failure_category = category;
+            diag.failure_hint = hint;
+        }
+        if let Some(obj) = input_json.as_object_mut()
+            && let Ok(encoded) = serde_json::to_value(&diag)
+        {
+            obj.insert("diagnostics".into(), encoded);
+        }
+        let commit = self.connection()?.execute("UPDATE recordings SET state=?2,ended_at=?3,accepted_frames=?4,available_frames=?5,synced_frames=?6,checkpoint_at=?3,availability=?7,error=?8,input_json=?9 WHERE id=?1", params![id.to_string(), state, now(), i64::try_from(accepted)?, i64::try_from(available)?, i64::try_from(candidate_sync)?, availability, error, input_json.to_string()]);
         let persisted = commit.is_ok();
         if let Err(e) = commit {
             state = "failed".into();
@@ -481,6 +567,7 @@ impl Journal {
             synced_frames: if persisted { candidate_sync } else { synced },
             error,
             persisted,
+            diagnostics: Some(diag),
         })
     }
     pub fn begin_attempt(&self, recording_id: Uuid, configuration: Value) -> Result<Uuid> {
@@ -613,6 +700,7 @@ impl Journal {
                         channels: CHANNELS,
                         frames: previous_available,
                         data_offset: DATA_OFFSET,
+                        recovered: false,
                     };
                     // Header/size validation without allocating or hashing historical payload.
                     let valid = validate_header_size(&artifact);
@@ -705,7 +793,97 @@ impl Journal {
     }
     pub fn recording(&self, id: Uuid) -> Result<Option<RecordingSnapshot>> {
         let connection = self.connection()?;
-        let mut record = connection.query_row("SELECT state,started_at,ended_at,audio_path,accepted_frames,available_frames,synced_frames,availability,error FROM recordings WHERE id=?1", [id.to_string()], |r| Ok(RecordingSnapshot { recording_id:id,state:r.get(0)?,started_at:r.get(1)?,ended_at:r.get(2)?,audio:Some(AudioArtifact {path:self.inner.data_dir.join(r.get::<_,String>(3)?),sample_rate:SAMPLE_RATE,channels:CHANNELS,frames:frame_count(r,5)?,data_offset:DATA_OFFSET}),accepted_frames:frame_count(r,4)?,available_frames:frame_count(r,5)?,synced_frames:frame_count(r,6)?,availability:r.get(7)?,error:r.get(8)?,persisted:true,attempts:vec![],insertions:vec![] })).optional()?;
+        let row = connection.query_row(
+            "SELECT state,started_at,ended_at,audio_path,accepted_frames,available_frames,synced_frames,availability,error,input_json FROM recordings WHERE id=?1",
+            [id.to_string()],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, String>(3)?,
+                    frame_count(r, 4)?,
+                    frame_count(r, 5)?,
+                    frame_count(r, 6)?,
+                    r.get::<_, String>(7)?,
+                    r.get::<_, Option<String>>(8)?,
+                    r.get::<_, String>(9)?,
+                ))
+            },
+        ).optional()?;
+        let mut record = row.map(
+            |(
+                state,
+                started_at,
+                ended_at,
+                audio_path,
+                accepted_frames,
+                available_frames,
+                synced_frames,
+                availability,
+                error,
+                input_json_raw,
+            )| {
+                let parsed_input = serde_json::from_str::<Value>(&input_json_raw).ok();
+                let input_device = parsed_input
+                    .as_ref()
+                    .and_then(|v| v.get("device"))
+                    .and_then(|d| serde_json::from_value::<InputDevice>(d.clone()).ok());
+                let mut capture_diagnostics = parsed_input
+                    .as_ref()
+                    .and_then(|v| v.get("diagnostics"))
+                    .and_then(|d| serde_json::from_value::<CaptureDiagnostics>(d.clone()).ok());
+                if capture_diagnostics.is_none() && (state != "complete" || error.is_some()) {
+                    let duration_ms = match (
+                        started_at.parse::<u64>().ok(),
+                        ended_at.as_deref().and_then(|s| s.parse::<u64>().ok()),
+                    ) {
+                        (Some(start), Some(end)) => end.saturating_sub(start),
+                        _ => available_frames.saturating_mul(1000) / SAMPLE_RATE as u64,
+                    };
+                    let mut synth = CaptureDiagnostics {
+                        duration_ms,
+                        ..Default::default()
+                    };
+                    let (category, hint) = classify_capture_failure(
+                        &state,
+                        error.as_deref(),
+                        accepted_frames,
+                        available_frames,
+                        &synth,
+                    );
+                    synth.failure_category = category;
+                    synth.failure_hint = hint;
+                    capture_diagnostics = Some(synth);
+                }
+                let recovered = state != "complete" && availability == "recovered";
+                RecordingSnapshot {
+                    recording_id: id,
+                    state,
+                    started_at,
+                    ended_at,
+                    audio: Some(AudioArtifact {
+                        path: self.inner.data_dir.join(audio_path),
+                        sample_rate: SAMPLE_RATE,
+                        channels: CHANNELS,
+                        frames: available_frames,
+                        data_offset: DATA_OFFSET,
+                        recovered,
+                    }),
+                    accepted_frames,
+                    available_frames,
+                    synced_frames,
+                    availability,
+                    error,
+                    persisted: true,
+                    input_device,
+                    capture_diagnostics,
+                    recoverable: false,
+                    attempts: vec![],
+                    insertions: vec![],
+                }
+            },
+        );
         if let Some(r) = &mut record {
             if !["available", "recovered"].contains(&r.availability.as_str())
                 || matches!(r.state.as_str(), "initializing" | "capturing")
@@ -723,6 +901,7 @@ impl Journal {
                     r.audio = None;
                 }
             }
+            r.recoverable = r.persisted && r.audio.is_some() && r.available_frames > 0;
             r.attempts = connection.prepare("SELECT id,state,raw_text,config_json,details_json,diagnostic_error FROM attempts WHERE recording_id=?1 ORDER BY started_at,id")?.query_map([id.to_string()], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,Option<String>>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?,row.get::<_,Option<String>>(5)?)))?.map(|row| { let (attempt_id,state,raw_text,config,details,diagnostic_error) = row?; Ok(AttemptSnapshot {id:Uuid::parse_str(&attempt_id)?,recording_id:id,state,raw_text,configuration:serde_json::from_str(&config)?,details:serde_json::from_str(&details)?,diagnostic_error}) }).collect::<Result<_>>()?;
             r.insertions = connection.prepare("SELECT i.id,i.attempt_id,i.state,i.stage,i.target_json,i.details_json FROM insertions i JOIN attempts a ON a.id=i.attempt_id WHERE a.recording_id=?1 ORDER BY i.started_at,i.id")?.query_map([id.to_string()], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?,row.get::<_,String>(5)?)))?.map(|row| {let (insertion_id,attempt_id,state,stage,target,details)=row?; Ok(InsertionSnapshot {id:Uuid::parse_str(&insertion_id)?,attempt_id:Uuid::parse_str(&attempt_id)?,state,stage,target:serde_json::from_str(&target)?,details:serde_json::from_str(&details)?})}).collect::<Result<_>>()?;
             if report.unpersisted {
@@ -752,17 +931,160 @@ impl Journal {
     pub fn open_audio(&self, id: Uuid) -> Result<AudioArtifact> {
         let record = self.recording(id)?.context("unknown recording")?;
         ensure!(record.persisted, "recovery status is unpersisted");
-        let artifact = record.audio.context("audio is missing or unavailable")?;
+        let mut artifact = record.audio.context("audio is missing or unavailable")?;
+        ensure!(
+            artifact.frames > 0,
+            "recording has no retained audio frames"
+        );
         if record.state == "complete" {
             validate_header_size(&artifact)?;
+            artifact.recovered = false;
+        } else if validate_header_size(&artifact).is_ok() {
+            artifact.recovered = false;
         } else {
             ensure!(
                 audio::available_frames(&artifact.path)? >= artifact.frames,
                 "recovered prefix changed"
             );
+            artifact.recovered = true;
         }
         Ok(artifact)
     }
+}
+
+fn classify_capture_failure(
+    state: &str,
+    error: Option<&str>,
+    accepted: u64,
+    available: u64,
+    diag: &CaptureDiagnostics,
+) -> (Option<String>, Option<String>) {
+    let err = error.unwrap_or("");
+    if err.contains("overflow") {
+        let secs = available as f64 / SAMPLE_RATE as f64;
+        return (
+            Some("queue_overflow".into()),
+            Some(format!(
+                "Disk writes fell behind the capture ring buffer ({secs:.1} s / {available} frames preserved). You can transcribe the retained audio below."
+            )),
+        );
+    }
+    if err.contains("disappeared") {
+        return (
+            Some("device_lost".into()),
+            Some(
+                "The microphone disconnected during capture. Retained audio can still be transcribed."
+                    .into(),
+            ),
+        );
+    }
+    if err.contains("discontinuity") {
+        return (
+            Some("discontinuity".into()),
+            Some(
+                "PipeWire reported a sample gap or sequence discontinuity. Review playback or transcribe the retained audio."
+                    .into(),
+            ),
+        );
+    }
+    if err.contains("PipeWire") || diag.pipewire_error.is_some() {
+        let detail = diag.pipewire_error.as_deref().unwrap_or(err);
+        return (
+            Some("pipewire_error".into()),
+            Some(format!(
+                "PipeWire stream interrupted ({detail}). Check the microphone in Settings; retained audio can still be transcribed if nonempty."
+            )),
+        );
+    }
+    if err.contains("sample layout") {
+        return (
+            Some("invalid_format".into()),
+            Some("PipeWire delivered an unsupported audio sample format; expected 48 kHz mono float32.".into()),
+        );
+    }
+    if err.contains("audio initialization") || err.contains("capture writer thread failed") {
+        return (
+            Some("storage_error".into()),
+            Some(format!(
+                "Dipper could not prepare the recording file before capture started ({err}). Check that the data directory is writable and has free space."
+            )),
+        );
+    }
+    if err.contains("audio write failed")
+        || err.contains("checkpoint failed")
+        || err.contains("finalization failed")
+        || err.contains("commit failed")
+    {
+        return (
+            Some("storage_error".into()),
+            Some("Storage write or SQLite checkpoint failed during capture. Check available disk space; any saved prefix remains untouched.".into()),
+        );
+    }
+    if state == "interrupted" || err.contains("session lost") {
+        return (
+            Some("session_lost".into()),
+            Some(if available > 0 {
+                "Recording was interrupted before finalization. Retained audio can be transcribed safely without automatic insertion.".into()
+            } else {
+                "Recording was interrupted before any audio frames were written.".into()
+            }),
+        );
+    }
+    if state == "canceled" {
+        return (
+            Some("canceled".into()),
+            Some(if available > 0 {
+                "Recording was canceled. Retained audio can still be transcribed manually from Journal.".into()
+            } else {
+                "Recording was canceled before any audio arrived.".into()
+            }),
+        );
+    }
+    if available == 0 && accepted == 0 {
+        if diag.duration_ms < 250 && diag.callbacks == 0 {
+            return (
+                Some("too_short".into()),
+                Some(format!(
+                    "Hold key was released after {} ms before audio arrived. Hold slightly longer and wait for Recording.",
+                    diag.duration_ms
+                )),
+            );
+        }
+        return (
+            Some("no_audio_stream".into()),
+            Some(format!(
+                "PipeWire delivered no audio frames over {} ms (callbacks: {}, empty buffers: {}). Check whether the microphone is muted or suspended.",
+                diag.duration_ms, diag.callbacks, diag.empty_buffers
+            )),
+        );
+    }
+    if available > 0 && (err.contains("nonempty frame sequence") || accepted != available) {
+        let missing = accepted.saturating_sub(available);
+        let secs = available as f64 / SAMPLE_RATE as f64;
+        return (
+            Some("partial_audio".into()),
+            Some(format!(
+                "{secs:.1} s ({available} of {accepted} frames) were safely written to disk ({missing} trailing frames missed). Use Recover & transcribe in Journal to recover the transcript."
+            )),
+        );
+    }
+    if err.contains("abandoned") {
+        return (
+            Some("abandoned".into()),
+            Some("Capture session closed unexpectedly without a stop signal.".into()),
+        );
+    }
+    if state == "failed" {
+        return (
+            Some("unknown".into()),
+            Some(if available > 0 {
+                "Capture failed, but retained audio is available for manual transcription.".into()
+            } else {
+                "Capture failed before any audio could be saved.".into()
+            }),
+        );
+    }
+    (None, None)
 }
 
 fn validate_header_size(artifact: &AudioArtifact) -> Result<()> {

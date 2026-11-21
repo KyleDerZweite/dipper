@@ -81,4 +81,65 @@ fn recognition_profiles_preserve_legacy_requests_and_reject_unknown_models() {
     turbo.validate().unwrap();
     legacy["model_profile"] = serde_json::json!("large_v3_turbo_quantized");
     assert!(serde_json::from_value::<RecognitionSettings>(legacy).is_err());
+
+    for (profile, name, expected_ftype) in [
+        (RecognitionModel::LargeV3, "large_v3", 1),
+        (RecognitionModel::LargeV3Turbo, "large_v3_turbo", 1),
+        (RecognitionModel::LargeV3TurboQ8_0, "large_v3_turbo_q8_0", 7),
+        (RecognitionModel::LargeV3TurboQ5_0, "large_v3_turbo_q5_0", 8),
+    ] {
+        let req = RecognitionSettings::for_model(profile, format!("/models/{name}.bin").into());
+        assert_eq!(req.model_profile.expected_ftype(), expected_ftype);
+        assert_eq!(
+            req.model_profile.decoder_layers(),
+            if profile == RecognitionModel::LargeV3 {
+                32
+            } else {
+                4
+            }
+        );
+        req.validate().unwrap();
+        let encoded = serde_json::to_value(&req).unwrap();
+        assert_eq!(encoded["model_profile"], serde_json::json!(name));
+        let decoded: RecognitionSettings = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.model_profile, profile);
+    }
+}
+
+#[test]
+fn quantized_turbo_profiles_roundtrip_through_settings_store() {
+    use dipper_core::protocol::RecognitionModel;
+    let store = tempfile::tempdir().unwrap();
+    let path = store.path().join("settings.json");
+    for profile in [
+        RecognitionModel::LargeV3TurboQ8_0,
+        RecognitionModel::LargeV3TurboQ5_0,
+    ] {
+        let mut settings = Settings::defaults(store.path());
+        settings.model_profile = profile;
+        settings.save(&path).unwrap();
+        let reloaded = Settings::load(&path, store.path()).unwrap();
+        assert_eq!(reloaded.model_profile, profile);
+    }
+}
+
+#[test]
+fn ggml_header_ftype_strips_quantization_version() {
+    use dipper_core::protocol::ggml_model_ftype;
+    let directory = tempfile::tempdir().unwrap();
+    let header = |ftype: i32| {
+        let mut bytes = 0x6767_6d6c_u32.to_le_bytes().to_vec();
+        bytes.extend([0_u8; 40]);
+        bytes.extend(ftype.to_le_bytes());
+        bytes
+    };
+    let f16 = directory.path().join("f16.bin");
+    std::fs::write(&f16, header(1)).unwrap();
+    assert_eq!(ggml_model_ftype(&f16).unwrap(), Some(1));
+    let q8 = directory.path().join("q8.bin");
+    std::fs::write(&q8, header(2007)).unwrap();
+    assert_eq!(ggml_model_ftype(&q8).unwrap(), Some(7));
+    let other = directory.path().join("other.bin");
+    std::fs::write(&other, [0_u8; 48]).unwrap();
+    assert_eq!(ggml_model_ftype(&other).unwrap(), None);
 }
