@@ -1146,8 +1146,11 @@
       return;
     }
 
+    // Rebuilding replaces every card; keep focus on the same recording.
+    const focusedId = document.activeElement?.closest?.(".journal-card")?.dataset.recordingId;
     const cards = filtered.map((recording) => buildRecordingCard(recording));
     root.replaceChildren(...cards);
+    if (focusedId) cards.find((card) => card.dataset.recordingId === focusedId)?.focus();
   }
 
   function renderJournal(recordings) {
