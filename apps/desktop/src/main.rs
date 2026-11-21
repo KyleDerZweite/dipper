@@ -7,7 +7,7 @@ use dipper_core::{
     capture::{Capture, CaptureDiagnostics, InputDevice},
     dictation::{Dictation, DictationSnapshot},
     journal::Journal,
-    protocol::RecognitionModel,
+    protocol::{self, RecognitionModel},
     settings::Settings,
     target::{DeliveryStatus, DispatchStage, Insertion, InsertionOutcome, TargetPermit},
 };
@@ -214,15 +214,24 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
     Ok(recordings
         .into_iter()
         .map(|recording| {
-            let text = recording.attempts.iter().rev().find_map(|attempt| {
+            let text_attempt = recording.attempts.iter().rev().find(|attempt| {
                 attempt
                     .raw_text
                     .as_deref()
-                    .filter(|s| !s.trim().is_empty())
-                    .map(str::to_owned)
+                    .is_some_and(|s| !s.trim().is_empty())
             });
+            let text = text_attempt.and_then(|attempt| attempt.raw_text.clone());
             let last_attempt = recording.attempts.last();
-            let last_insertion = recording.insertions.last();
+            // Insertion, model and timings describe the attempt whose text is
+            // shown, so a Journal-only retry never inherits an older paste.
+            let shown_attempt = text_attempt.or(last_attempt);
+            let last_insertion = shown_attempt.and_then(|attempt| {
+                recording
+                    .insertions
+                    .iter()
+                    .rev()
+                    .find(|insertion| insertion.attempt_id == attempt.id)
+            });
             let mut outcomes = vec![format!("Audio {}", recording.state)];
             if let Some(attempt) = last_attempt {
                 outcomes.push(format!("Recognition {}", attempt.state.replace('_', " ")));
@@ -284,28 +293,28 @@ async fn recent_recordings(state: State<'_, AppState>) -> Result<Vec<JournalRow>
                 .capture_diagnostics
                 .as_ref()
                 .and_then(|d| d.failure_hint.clone());
-            let model_profile = last_attempt.and_then(|attempt| {
+            let model_profile = shown_attempt.and_then(|attempt| {
                 attempt
                     .configuration
                     .get("model_profile")
                     .and_then(serde_json::Value::as_str)
                     .map(str::to_owned)
             });
-            let inference_ms = last_attempt.and_then(|attempt| {
+            let inference_ms = shown_attempt.and_then(|attempt| {
                 attempt
                     .details
                     .get("timings")
                     .and_then(|t| t.get("inference_ms"))
                     .and_then(serde_json::Value::as_u64)
             });
-            let preparation_ms = last_attempt.and_then(|attempt| {
+            let preparation_ms = shown_attempt.and_then(|attempt| {
                 attempt
                     .details
                     .get("timings")
                     .and_then(|t| t.get("preparation_ms"))
                     .and_then(serde_json::Value::as_u64)
             });
-            let release_to_result_ms = last_attempt.and_then(|attempt| {
+            let release_to_result_ms = shown_attempt.and_then(|attempt| {
                 attempt
                     .details
                     .get("release_to_result_ms")
@@ -467,7 +476,16 @@ async fn check_setup_paths(
             let model_exists = model_meta.as_ref().is_some_and(|m| m.is_file());
             let model_size_bytes = model_meta.filter(|m| m.is_file()).map(|m| m.len());
             let runtime_exists = settings.native_lib_dir.join("libwhisper.so").is_file();
-            let validation = settings.ready_for_recognition();
+            let validation = settings.ready_for_recognition().and_then(|()| {
+                let profile = settings.model_profile;
+                match protocol::ggml_model_ftype(&settings.model_path) {
+                    Ok(Some(ftype)) if ftype != profile.expected_ftype() => Err(anyhow::anyhow!(
+                        "The model file does not match {}. Select the profile that matches the file, or choose a different file.",
+                        profile.label()
+                    )),
+                    _ => Ok(()),
+                }
+            });
             (model_exists, model_size_bytes, runtime_exists, validation)
         })
         .await

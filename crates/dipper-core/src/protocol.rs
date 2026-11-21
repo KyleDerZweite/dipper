@@ -1,6 +1,9 @@
 //! Versioned, single-job transport shared by Recognition and its native worker.
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -67,6 +70,21 @@ impl RecognitionModel {
             Self::LargeV3TurboQ5_0 => "Whisper large-v3-turbo Q5_0",
         }
     }
+}
+
+/// Weight type from a whisper.cpp ggml header, without the quantization
+/// version factor. Returns `None` when the file is not a ggml model.
+pub fn ggml_model_ftype(path: &Path) -> std::io::Result<Option<i32>> {
+    const GGML_MAGIC: u32 = 0x6767_6d6c;
+    const QNT_VERSION_FACTOR: i32 = 1000;
+    let mut header = [0; 48];
+    std::fs::File::open(path)?.read_exact(&mut header)?;
+    if u32::from_le_bytes(header[0..4].try_into().unwrap()) != GGML_MAGIC {
+        return Ok(None);
+    }
+    // Magic, then ten hyperparameters, then ftype.
+    let ftype = i32::from_le_bytes(header[44..48].try_into().unwrap());
+    Ok(Some(ftype % QNT_VERSION_FACTOR))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

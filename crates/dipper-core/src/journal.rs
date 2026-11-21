@@ -430,26 +430,25 @@ impl Journal {
         let mut audio_failed = false;
         let mut checkpoint_failed = false;
         loop {
-            // Observe `stop` before reading so any samples pushed prior to `stop = true`
-            // are guaranteed to be drained before breaking—even after a blocking checkpoint.
+            // Observe `stop` before reading. Exit only after a read made with
+            // `stop` observed returns nothing, so buffers pushed before
+            // `stop = true` are drained even after a blocking checkpoint.
             let stopping = stop.load(Ordering::Acquire);
             let count = ring.read(&mut samples);
             // Metadata failure invalidates completion, but the audio file can
             // still preserve buffers accepted before Capture observes the fault.
-            if count > 0 {
-                if !audio_failed {
-                    if let Err(e) = audio.write_samples(&samples[..count]) {
-                        audio_failed = true;
-                        storage_error.get_or_insert_with(|| format!("audio write failed: {e:#}"));
-                        ring.fail_storage();
-                    }
-                    ring.written.store(audio.frames(), Ordering::Release);
+            if count > 0 && !audio_failed {
+                if let Err(e) = audio.write_samples(&samples[..count]) {
+                    audio_failed = true;
+                    storage_error.get_or_insert_with(|| format!("audio write failed: {e:#}"));
+                    ring.fail_storage();
                 }
-                continue;
+                ring.written.store(audio.frames(), Ordering::Release);
             }
-            if stopping {
+            if count == 0 && stopping {
                 break;
             }
+            // Checkpoint on schedule even while a backlog keeps the ring non-empty.
             if !audio_failed
                 && !checkpoint_failed
                 && audio.frames() > synced
@@ -477,9 +476,9 @@ impl Journal {
                         ring.fail_storage();
                     }
                 }
-                continue;
+            } else if count == 0 {
+                thread::sleep(Duration::from_millis(2));
             }
-            thread::sleep(Duration::from_millis(2));
         }
         let reason = reason
             .lock()
@@ -1001,6 +1000,14 @@ fn classify_capture_failure(
         return (
             Some("invalid_format".into()),
             Some("PipeWire delivered an unsupported audio sample format; expected 48 kHz mono float32.".into()),
+        );
+    }
+    if err.contains("audio initialization") || err.contains("capture writer thread failed") {
+        return (
+            Some("storage_error".into()),
+            Some(format!(
+                "Dipper could not prepare the recording file before capture started ({err}). Check that the data directory is writable and has free space."
+            )),
         );
     }
     if err.contains("audio write failed")

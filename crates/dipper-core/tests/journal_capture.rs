@@ -456,6 +456,23 @@ fn quick_empty_release_classifies_too_short_and_zero_frame_audio_rejected() {
 }
 
 #[test]
+fn audio_initialization_failure_is_storage_error_not_too_short() {
+    let directory = tempfile::tempdir().unwrap();
+    let journal = open(directory.path());
+    let audio_dir = directory.path().join("data/audio");
+    fs::create_dir_all(&audio_dir).unwrap();
+    fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o500)).unwrap();
+    let result = journal.begin_capture(&input());
+    fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(result.is_err());
+    let snapshot = journal.recent(1).unwrap().remove(0);
+    assert_eq!(snapshot.state, "failed");
+    let diag = snapshot.capture_diagnostics.unwrap();
+    assert_eq!(diag.failure_category.as_deref(), Some("storage_error"));
+    assert!(diag.failure_hint.unwrap().contains("writable"));
+}
+
+#[test]
 fn bounded_prefix_readers_and_wav_preview_validate_container_and_edge_floats() {
     let directory = tempfile::tempdir().unwrap();
     let journal = open(directory.path());

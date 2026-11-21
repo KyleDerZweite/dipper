@@ -122,3 +122,24 @@ fn quantized_turbo_profiles_roundtrip_through_settings_store() {
         assert_eq!(reloaded.model_profile, profile);
     }
 }
+
+#[test]
+fn ggml_header_ftype_strips_quantization_version() {
+    use dipper_core::protocol::ggml_model_ftype;
+    let directory = tempfile::tempdir().unwrap();
+    let header = |ftype: i32| {
+        let mut bytes = 0x6767_6d6c_u32.to_le_bytes().to_vec();
+        bytes.extend([0_u8; 40]);
+        bytes.extend(ftype.to_le_bytes());
+        bytes
+    };
+    let f16 = directory.path().join("f16.bin");
+    std::fs::write(&f16, header(1)).unwrap();
+    assert_eq!(ggml_model_ftype(&f16).unwrap(), Some(1));
+    let q8 = directory.path().join("q8.bin");
+    std::fs::write(&q8, header(2007)).unwrap();
+    assert_eq!(ggml_model_ftype(&q8).unwrap(), Some(7));
+    let other = directory.path().join("other.bin");
+    std::fs::write(&other, [0_u8; 48]).unwrap();
+    assert_eq!(ggml_model_ftype(&other).unwrap(), None);
+}

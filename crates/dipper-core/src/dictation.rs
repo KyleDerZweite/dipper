@@ -94,13 +94,19 @@ impl Drop for ActiveCleanupGuard<'_> {
     }
 }
 
-struct MaintainingGuard<'a>(&'a Dictation);
+/// Clears `maintaining` if recovery unwinds. Disarm it before taking the
+/// `active` lock on the normal path, because the destructor takes that lock.
+struct MaintainingGuard<'a> {
+    dictation: &'a Dictation,
+    armed: bool,
+}
 impl Drop for MaintainingGuard<'_> {
     fn drop(&mut self) {
-        if let Ok(_gate) = self.0.active.lock()
-            && self.0.maintaining.swap(false, Ordering::SeqCst)
+        if self.armed
+            && let Ok(_gate) = self.dictation.active.lock()
+            && self.dictation.maintaining.swap(false, Ordering::SeqCst)
         {
-            self.0.publish(
+            self.dictation.publish(
                 0,
                 "Needs attention",
                 "Journal recovery stopped unexpectedly.",
@@ -303,11 +309,14 @@ impl Dictation {
                 false,
             );
         }
-        let maintaining_guard = MaintainingGuard(self);
+        let mut maintaining_guard = MaintainingGuard {
+            dictation: self,
+            armed: true,
+        };
         let result = self.journal.recover();
+        maintaining_guard.armed = false;
         let _gate = self.active.lock().unwrap();
         self.maintaining.store(false, Ordering::SeqCst);
-        drop(maintaining_guard);
         match &result {
             Ok(report) if !report.unpersisted => self.publish(
                 0,

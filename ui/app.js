@@ -849,6 +849,8 @@
     const failure = F.getFailurePresentation(recording);
     const card = document.createElement("article");
     card.className = "journal-card";
+    card.dataset.recordingId = recording.id;
+    card.tabIndex = -1;
     if (recovered) card.classList.add("is-recovered");
     else if (failure) card.classList.add(`is-${failure.tone}`);
 
@@ -983,6 +985,11 @@
         try {
           await call("retry_recognition", { recordingId: recording.id });
           await refreshJournal();
+          // A transcribed row leaves the Recovery filter; keep it in view.
+          if (journalFilter === "recovery") setJournalFilter("all");
+          document
+            .querySelector(`.journal-card[data-recording-id="${CSS.escape(recording.id)}"]`)
+            ?.focus();
           scheduleSetupCheck(0);
           feedback("Recording transcribed in Journal. Clipboard unchanged.");
         } catch (error) {
