@@ -400,6 +400,7 @@
     selectedModelProfile = profileId;
     const profile = F.getModelProfileMeta(profileId);
     $("model").placeholder = `/path/to/${profile.defaultFilename}`;
+    $("model").value = F.modelPathForProfile($("model").value, profileId);
     syncModelCardSelection();
     synchronizeControls();
     scheduleSetupCheck(0);

@@ -526,10 +526,18 @@ async fn check_setup_paths(
 fn model_header_issue(path: &std::path::Path, profile: RecognitionModel) -> Option<String> {
     match protocol::ggml_model_ftype(path) {
         Ok(Some(ftype)) if ftype == profile.expected_ftype() => None,
-        Ok(Some(_)) => Some(format!(
-            "The model file does not match {}. Select the matching profile or another file.",
-            profile.label()
-        )),
+        Ok(Some(ftype)) => {
+            let found = match ftype {
+                1 => "F16",
+                7 => "Q8_0",
+                8 => "Q5_0",
+                _ => "other",
+            };
+            Some(format!(
+                "The model file contains {found} weights, not {}. Select the matching profile or another file.",
+                profile.label()
+            ))
+        }
         Ok(None) => Some("The model file is not a whisper.cpp ggml model.".into()),
         Err(error) => Some(format!("Could not read the model file header: {error}")),
     }

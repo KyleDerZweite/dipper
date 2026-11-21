@@ -144,6 +144,17 @@
     );
   }
 
+  // When the model path names another profile's standard file, point it at the
+  // selected profile's standard file in the same directory. Custom names stay.
+  function modelPathForProfile(currentPath, profileId) {
+    const path = typeof currentPath === "string" ? currentPath.trim() : "";
+    const slash = path.lastIndexOf("/");
+    if (slash < 0) return path;
+    const known = MODEL_PROFILES.map((profile) => profile.defaultFilename);
+    if (!known.includes(path.slice(slash + 1))) return path;
+    return path.slice(0, slash + 1) + getModelProfileMeta(profileId).defaultFilename;
+  }
+
   function computeElapsedMs(startedAtMs, nowMs = Date.now()) {
     const start = Number(startedAtMs);
     const now = Number(nowMs);
@@ -671,6 +682,7 @@
     SAMPLE_RATE,
     MODEL_PROFILES,
     getModelProfileMeta,
+    modelPathForProfile,
     computeElapsedMs,
     formatElapsedTimer,
     formatDuration,

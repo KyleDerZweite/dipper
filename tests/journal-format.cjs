@@ -295,3 +295,20 @@ test("AudioUrlRegistry tracks and revokes Blob URLs without leaks", () => {
   assert.deepEqual(revoked, ["blob:1", "blob:2", "blob:3"]);
   assert.equal(registry.size(), 0);
 });
+
+test("modelPathForProfile swaps standard filenames and keeps custom ones", () => {
+  const dir = "/home/user/models/";
+  assert.equal(
+    F.modelPathForProfile(`${dir}ggml-large-v3-turbo.bin`, "large_v3_turbo_q8_0"),
+    `${dir}ggml-large-v3-turbo-q8_0.bin`
+  );
+  assert.equal(
+    F.modelPathForProfile(`${dir}ggml-large-v3-turbo-q8_0.bin`, "large_v3"),
+    `${dir}ggml-large-v3.bin`
+  );
+  assert.equal(
+    F.modelPathForProfile(`${dir}my-model.bin`, "large_v3_turbo_q8_0"),
+    `${dir}my-model.bin`
+  );
+  assert.equal(F.modelPathForProfile("", "large_v3_turbo_q8_0"), "");
+});
