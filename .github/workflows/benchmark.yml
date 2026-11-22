@@ -28,7 +28,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -v
           node --check site/app.js
           uv run --locked python -m dipperbench build-site --approved-results results/latest.json --output runs/site
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: benchmark-site
           path: benchmark/runs/site
